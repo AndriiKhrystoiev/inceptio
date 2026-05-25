@@ -3,36 +3,24 @@
 // component (see ActivityPickerScreen) instead.
 
 import React from 'react';
-import { Pressable, Text, View } from 'react-native';
-import { colors, fonts, radii } from '../theme';
+import { Pressable, Text } from 'react-native';
 
 export default function ActivityChip({ emoji, label, active, onPress }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      paddingVertical: 10,
-      paddingLeft: 14,
-      paddingRight: 18,
-      borderRadius: radii.pill,
-      backgroundColor: active ? 'rgba(139,111,232,0.16)' : colors.surface,
-      borderColor: active ? colors.primaryGlow : colors.borderSoft,
-      borderWidth: 1,
-      opacity: pressed ? 0.85 : 1,
-      ...(active ? {
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-      } : null),
-    })}>
-      <Text style={{ fontSize: 16 }}>{emoji}</Text>
-      <Text style={{
-        color: colors.text,
-        fontFamily: fonts.uiMed,
-        fontSize: 14,
-      }}>{label}</Text>
+    <Pressable
+      onPress={onPress}
+      className={[
+        'flex-row items-center gap-2.5',
+        'py-2.5 pl-3.5 pr-[18px]',
+        'rounded-pill border',
+        active
+          ? 'bg-primary/[0.16] border-primary-glow shadow-lg shadow-primary'
+          : 'bg-surface border-soft',
+        'active:opacity-[0.85]',
+      ].join(' ')}
+    >
+      <Text className="text-base">{emoji}</Text>
+      <Text className="text-cream font-ui-med text-sm">{label}</Text>
     </Pressable>
   );
 }

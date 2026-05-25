@@ -1,7 +1,7 @@
 // 01 Today — three states (viable / caution / blocked).
 
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 import MoonRiseHeader from '../components/MoonRiseHeader';
 import ScorePill from '../components/ScorePill';
@@ -10,7 +10,6 @@ import PrimaryButton from '../components/PrimaryButton';
 import WindowCard from '../components/WindowCard';
 import StatePicker from '../components/StatePicker';
 import Glyph, { reasonToGlyph } from '../components/Glyph';
-import { colors, fonts } from '../theme';
 
 export default function TodayScreen({ go }) {
   const [state, setState] = useState('A');
@@ -20,10 +19,10 @@ export default function TodayScreen({ go }) {
              :                  'The sky is\nresting today';
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 120 }}>
+    <ScrollView className="flex-1 bg-base" contentContainerStyle={{ paddingBottom: 120 }}>
       <MoonRiseHeader phase="waxing-crescent">
-        <Text style={styles.eyebrow}>saturday, may 23</Text>
-        <Text style={styles.heroTitle}>{hero}</Text>
+        <Text className="font-ui-med text-[13px] text-muted tracking-[0.4px] lowercase mb-2">saturday, may 23</Text>
+        <Text className="font-display text-[38px] leading-[44px] tracking-[-0.6px] text-cream max-w-[280px]">{hero}</Text>
       </MoonRiseHeader>
 
       <StatePicker
@@ -36,20 +35,20 @@ export default function TodayScreen({ go }) {
         ]}
       />
 
-      <View style={{ paddingHorizontal: 24, paddingTop: 12 }}>
+      <View className="px-6 pt-3">
         {state === 'A' && <CardA go={go}/>}
         {state === 'B' && <CardB go={go}/>}
         {state === 'C' && <CardC go={go}/>}
 
-        <Text style={styles.sectionH1}>Best windows ahead</Text>
-        <View style={{ gap: 10, marginTop: 14 }}>
+        <Text className="font-display-reg text-[22px] leading-7 text-cream mt-8">Best windows ahead</Text>
+        <View className="gap-[10px] mt-[14px]">
           <WindowCard date="sun · may 24" time="A gentle window opens this morning." score={68} grade="fair" onPress={() => go('detail')}/>
           <WindowCard date="wed · may 27" time="Mercury runs clear, communication settles." score={64} grade="fair" onPress={() => go('detail')}/>
           <WindowCard date="sat · may 30" time="A short, steady afternoon." score={61} grade="fair" onPress={() => go('detail')}/>
           <WindowCard date="mon · jun 2"  time="There's a moment, but it asks for care." score={48} grade="caution" onPress={() => go('detail')}/>
         </View>
 
-        <View style={{ marginTop: 28 }}>
+        <View className="mt-7">
           <PrimaryButton onPress={() => go('picker')}>Find a moment for…</PrimaryButton>
         </View>
       </View>
@@ -58,16 +57,24 @@ export default function TodayScreen({ go }) {
 }
 
 function CardShell({ children, tone }) {
-  // tone: 'glow' (viable), 'gold' (caution), 'muted' (blocked)
-  const styleByTone = {
-    glow:  { backgroundColor: colors.surface, borderColor: colors.borderGlow, borderWidth: 1 },
-    gold:  { backgroundColor: colors.surface, borderColor: 'rgba(229,199,125,0.40)', borderWidth: 1 },
-    muted: { backgroundColor: colors.bgGradient, borderColor: colors.borderSoft, borderWidth: 1 },
-  }[tone];
+  const borderClass = tone === 'glow'  ? 'border-glow'
+                    : tone === 'gold'  ? 'border-[rgba(229,199,125,0.40)]'
+                    :                   'border-soft';
+  const bgClass     = tone === 'muted' ? 'bg-gradient' : 'bg-surface';
+
+  // Colored directional shadow kept inline — shadowOffset: {0,6} is not a centered glow.
+  const shadowStyle = tone === 'glow'
+    ? { shadowColor: '#8B6FE8', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.16, shadowRadius: 24, elevation: 4 }
+    : tone === 'gold'
+    ? { shadowColor: '#E5C77D', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 18, elevation: 3 }
+    : null;
+
   return (
-    <View style={[styles.card, styleByTone, tone === 'glow' && styles.cardGlow, tone === 'gold' && styles.cardGold]}>
+    <View
+      className={['rounded-lg p-[22px] overflow-hidden mt-3 border', bgClass, borderClass].join(' ')}
+      style={shadowStyle}>
       {(tone === 'glow' || tone === 'gold') && (
-        <View style={[StyleSheet.absoluteFillObject, { opacity: 0.4 }]}>
+        <View className="absolute left-0 right-0 top-0 bottom-0 opacity-40">
           <Starfield density="normal"/>
         </View>
       )}
@@ -80,13 +87,13 @@ function CardA({ go }) {
   return (
     <CardShell tone="glow">
       <ScorePill kind="good">Favorable</ScorePill>
-      <View style={styles.scoreRow}>
-        <Text style={[styles.score, { color: colors.text }]}>68</Text>
-        <Text style={styles.scoreSub}>out of 100</Text>
+      <View className="flex-row items-end gap-3 mt-4">
+        <Text className="font-display text-[76px] leading-[80px] tracking-[-2px] text-cream">68</Text>
+        <Text className="font-ui text-[13px] text-subtle pb-[10px]">out of 100</Text>
       </View>
-      <Text style={styles.headline}>A gentle window opens today.</Text>
-      <Text style={styles.body}>Venus is warm and Jupiter holds steady this evening.</Text>
-      <CTAInline color={colors.primaryGlow} onPress={() => go('detail')}>See the window</CTAInline>
+      <Text className="font-display-reg text-[22px] leading-[30px] text-cream mt-[14px] max-w-[300px]">A gentle window opens today.</Text>
+      <Text className="font-ui text-[14px] leading-5 text-muted mt-2 max-w-[300px]">Venus is warm and Jupiter holds steady this evening.</Text>
+      <CTAInline colorClass="text-primary-glow" onPress={() => go('detail')}>See the window</CTAInline>
     </CardShell>
   );
 }
@@ -95,13 +102,13 @@ function CardB({ go }) {
   return (
     <CardShell tone="gold">
       <ScorePill kind="caution">Move with care</ScorePill>
-      <View style={styles.scoreRow}>
-        <Text style={[styles.score, { color: colors.goldGlow }]}>48</Text>
-        <Text style={styles.scoreSub}>out of 100</Text>
+      <View className="flex-row items-end gap-3 mt-4">
+        <Text className="font-display text-[76px] leading-[80px] tracking-[-2px] text-gold-glow">48</Text>
+        <Text className="font-ui text-[13px] text-subtle pb-[10px]">out of 100</Text>
       </View>
-      <Text style={styles.headline}>A day for reflection, not commitment.</Text>
-      <Text style={styles.body}>There's a moment this afternoon, but it asks for care. See what to weigh.</Text>
-      <CTAInline color={colors.goldGlow} onPress={() => go('detail')}>See the moment</CTAInline>
+      <Text className="font-display-reg text-[22px] leading-[30px] text-cream mt-[14px] max-w-[300px]">A day for reflection, not commitment.</Text>
+      <Text className="font-ui text-[14px] leading-5 text-muted mt-2 max-w-[300px]">There's a moment this afternoon, but it asks for care. See what to weigh.</Text>
+      <CTAInline colorClass="text-gold-glow" onPress={() => go('detail')}>See the moment</CTAInline>
     </CardShell>
   );
 }
@@ -111,69 +118,27 @@ function CardC({ go }) {
   const copy = 'The Moon is between signs today.';
   return (
     <CardShell tone="muted">
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
-        <View style={styles.glyphPlate}>
-          <Glyph name={reasonToGlyph(reason)} size={28} color={colors.textMuted}/>
+      <View className="flex-row items-center gap-[18px]">
+        <View className="w-14 h-14 rounded-full bg-[rgba(91,79,138,0.18)] border border-soft items-center justify-center">
+          <Glyph name={reasonToGlyph(reason)} size={28} color="#B8B0CC"/>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.kicker}>A PAUSE DAY</Text>
-          <Text style={styles.headline}>{copy}</Text>
+        <View className="flex-1">
+          <Text className="font-ui-semi text-[11px] text-subtle tracking-[0.8px]">A PAUSE DAY</Text>
+          <Text className="font-display-reg text-[22px] leading-[30px] text-cream mt-[14px] max-w-[300px]">{copy}</Text>
         </View>
       </View>
-      <Text style={[styles.body, { marginTop: 14 }]}>Efforts begun today don't take root the way they do on other days. Tomorrow looks different.</Text>
-      <CTAInline color={colors.primaryGlow} onPress={() => go('calendar')}>See this week's best</CTAInline>
+      <Text className="font-ui text-[14px] leading-5 text-muted mt-[14px] max-w-[300px]">Efforts begun today don't take root the way they do on other days. Tomorrow looks different.</Text>
+      <CTAInline colorClass="text-primary-glow" onPress={() => go('calendar')}>See this week's best</CTAInline>
     </CardShell>
   );
 }
 
-function CTAInline({ children, color, onPress }) {
+function CTAInline({ children, colorClass, onPress }) {
   return (
     <Text
       onPress={onPress}
-      style={{
-        marginTop: 18,
-        color,
-        fontFamily: fonts.uiMed,
-        fontSize: 14,
-      }}>
+      className={['mt-[18px] font-ui-med text-[14px]', colorClass].join(' ')}>
       {children}  ›
     </Text>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bgBase },
-  eyebrow: {
-    fontFamily: fonts.uiMed, fontSize: 13, color: colors.textMuted,
-    letterSpacing: 0.4, textTransform: 'lowercase', marginBottom: 8,
-  },
-  heroTitle: {
-    fontFamily: fonts.display, fontSize: 38, lineHeight: 44,
-    letterSpacing: -0.6, color: colors.text, maxWidth: 280,
-  },
-  card: { borderRadius: 16, padding: 22, overflow: 'hidden', marginTop: 12 },
-  cardGlow: {
-    shadowColor: colors.primary, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.16, shadowRadius: 24, elevation: 4,
-  },
-  cardGold: {
-    shadowColor: colors.gold, shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08, shadowRadius: 18, elevation: 3,
-  },
-  scoreRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, marginTop: 16 },
-  score: { fontFamily: fonts.display, fontSize: 76, lineHeight: 80, letterSpacing: -2 },
-  scoreSub: { fontFamily: fonts.ui, fontSize: 13, color: colors.textSubtle, paddingBottom: 10 },
-  headline: { fontFamily: fonts.displayReg, fontSize: 22, lineHeight: 30, color: colors.text, marginTop: 14, maxWidth: 300 },
-  body: { fontFamily: fonts.ui, fontSize: 14, lineHeight: 20, color: colors.textMuted, marginTop: 8, maxWidth: 300 },
-  kicker: { fontFamily: fonts.uiSemi, fontSize: 11, color: colors.textSubtle, letterSpacing: 0.8 },
-  glyphPlate: {
-    width: 56, height: 56, borderRadius: 999,
-    backgroundColor: 'rgba(91,79,138,0.18)',
-    borderColor: colors.borderSoft, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  sectionH1: {
-    fontFamily: fonts.displayReg, fontSize: 22, lineHeight: 28,
-    color: colors.text, marginTop: 32,
-  },
-});

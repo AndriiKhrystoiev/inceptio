@@ -9,11 +9,10 @@ import Starfield from '../components/Starfield';
 import IconBtn from '../components/IconBtn';
 import Pulse from '../components/Pulse';
 import StatePicker from '../components/StatePicker';
-import { colors, fonts } from '../theme';
 
 const STAGES = [
   { from:  0, to:  5,  copy: 'Looking at the sky for you…' },
-  { from:  5, to: 15,  copy: 'Reading the planets\u2019 positions…' },
+  { from:  5, to: 15,  copy: 'Reading the planets’ positions…' },
   { from: 15, to: 30,  copy: 'Considering each window…' },
   { from: 30, to: 999, copy: 'Almost there — the sky takes its time…' },
 ];
@@ -33,35 +32,35 @@ export default function LoadingScreen({ go }) {
   const stageIndex = STAGES.findIndex(s => elapsed >= s.from && elapsed < s.to);
 
   return (
-    <View style={styles.root}>
+    <View className="flex-1 bg-base overflow-hidden">
       <HeroGradient height={900}/>
-      <View style={{ opacity: 0.55, position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}>
+      <View className="opacity-[0.55] absolute left-0 right-0 top-0 bottom-0">
         <Starfield density="heavy"/>
       </View>
-      <SafeAreaView style={styles.safe}>
+      <SafeAreaView className="flex-1 px-6">
         {/* Top bar */}
-        <View style={styles.topbar}>
+        <View className="flex-row items-center justify-between pt-1">
           <IconBtn onPress={() => go('location')} label="Close">
-            <X color={colors.text} size={22} strokeWidth={1.5}/>
+            <X color="#F5EFE4" size={22} strokeWidth={1.5}/>
           </IconBtn>
-          <Text style={styles.elapsed}>{Math.floor(elapsed)}s</Text>
+          <Text className="font-ui text-[13px] text-subtle">{Math.floor(elapsed)}s</Text>
         </View>
 
-        <View style={{ flex: 1 }}/>
+        <View className="flex-1"/>
 
         {/* Centerpiece */}
-        <View style={styles.center}>
+        <View className="items-center gap-7">
           <Pulse/>
-          <View style={styles.msgStack}>
+          <View className="w-full min-h-[60px] items-center justify-center relative">
             {STAGES.map((s, i) => (
               <Fade key={i} active={i === stageIndex}>
-                <Text style={styles.msg}>{s.copy}</Text>
+                <Text className="font-display-reg italic text-[22px] leading-[30px] text-cream text-center px-6">{s.copy}</Text>
               </Fade>
             ))}
           </View>
         </View>
 
-        <View style={{ flex: 1.2 }}/>
+        <View className="flex-[1.2]"/>
 
         <StatePicker
           label="preview"
@@ -74,9 +73,9 @@ export default function LoadingScreen({ go }) {
             [30, 'stage 4 · 30s'],
           ]}
         />
-        <View style={{ alignItems: 'center', paddingTop: 8, paddingBottom: 24 }}>
+        <View className="items-center pt-2 pb-6">
           <Pressable onPress={() => { setElapsed(0); setPaused(false); }}>
-            <Text style={{ color: colors.textMuted, fontFamily: fonts.uiMed, fontSize: 12 }}>replay</Text>
+            <Text className="text-muted font-ui-med text-[12px]">replay</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -99,21 +98,3 @@ function Fade({ active, children }) {
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bgBase, overflow: 'hidden' },
-  safe: { flex: 1, paddingHorizontal: 24 },
-  topbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 4 },
-  elapsed: { fontFamily: fonts.ui, fontSize: 13, color: colors.textSubtle },
-  center: { alignItems: 'center', gap: 28 },
-  msgStack: { width: '100%', minHeight: 60, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  msg: {
-    fontFamily: fonts.displayReg,
-    fontStyle: 'italic',
-    fontSize: 22,
-    lineHeight: 30,
-    color: colors.text,
-    textAlign: 'center',
-    paddingHorizontal: 24,
-  },
-});

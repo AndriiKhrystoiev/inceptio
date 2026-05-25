@@ -1,14 +1,13 @@
 // 02 Activity Picker — "New moment" entry.
 
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, X, ChevronRight } from 'lucide-react-native';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import IconBtn from '../components/IconBtn';
-import { colors, fonts, radii } from '../theme';
 
 const CARDS = [
   { id: 'wedding',  emoji: '💍', title: 'Wedding or engagement',     subtitle: 'Lasting commitments and unions',   tint: 'rgba(249,181,200,0.10)', tintDeep: 'rgba(249,181,200,0.18)' },
@@ -19,98 +18,78 @@ const CARDS = [
 
 export default function ActivityPickerScreen({ go }) {
   return (
-    <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 40 }}>
-      <View style={styles.heroWrap}>
+    <ScrollView className="flex-1 bg-base" contentContainerStyle={{ paddingBottom: 40 }}>
+      <View className="overflow-hidden">
         <HeroGradient height={420}/>
         <Starfield density="heavy"/>
         <SafeAreaView edges={['top']}>
           {/* Top bar */}
-          <View style={styles.topbar}>
+          <View className="px-4 pt-2 flex-row items-center justify-between">
             <IconBtn onPress={() => go('today')} label="Back">
-              <ArrowLeft color={colors.text} size={22} strokeWidth={1.5}/>
+              <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5}/>
             </IconBtn>
-            <Text style={styles.topbarTitle}>New moment</Text>
+            <Text className="font-display text-[18px] text-cream tracking-[-0.2px]">New moment</Text>
             <IconBtn onPress={() => go('today')} label="Close">
-              <X color={colors.text} size={22} strokeWidth={1.5}/>
+              <X color="#F5EFE4" size={22} strokeWidth={1.5}/>
             </IconBtn>
           </View>
 
           {/* Hero */}
-          <View style={styles.hero}>
-            <Text style={styles.heroH1}>What do you want{'\n'}to begin?</Text>
-            <Text style={styles.heroSub}>We'll find your best windows in the sky.</Text>
+          <View className="px-6 pt-6 pb-9">
+            <Text className="font-display text-[32px] leading-[38px] tracking-[-0.3px] text-cream">What do you want{'\n'}to begin?</Text>
+            <Text className="font-ui text-[14px] leading-5 text-muted mt-3">We'll find your best windows in the sky.</Text>
           </View>
         </SafeAreaView>
       </View>
 
-      <View style={{ paddingHorizontal: 24, marginTop: 40, gap: 12 }}>
+      <View className="px-6 mt-10 gap-3">
         {CARDS.map(c => <Card key={c.id} c={c} onPress={() => go('date')}/>)}
       </View>
 
-      <Text style={styles.footer}>Eight more activities coming soon</Text>
+      <Text className="font-ui text-[12px] text-subtle text-center mt-10">Eight more activities coming soon</Text>
     </ScrollView>
   );
 }
 
 function Card({ c, onPress }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}>
+    <Pressable onPress={onPress} className="active:opacity-[0.92]">
       <LinearGradient
-        colors={[colors.surface, colors.surface2]}
-        style={styles.card}>
+        colors={['#1F1838', '#2A2247']}
+        style={{
+          borderRadius: 16,
+          padding: 20,
+          borderWidth: 1,
+          borderColor: '#3A3258',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 16,
+          overflow: 'hidden',
+        }}>
         {/* Activity-tinted wash */}
         <LinearGradient
           colors={[c.tint, 'transparent']}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 0.6 }}
-          style={StyleSheet.absoluteFill}/>
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}/>
 
         <LinearGradient
           colors={[c.tintDeep, c.tint]}
-          style={[styles.emojiPlate, { borderColor: c.tint }]}>
+          style={{
+            width: 44, height: 44, borderRadius: 12,
+            alignItems: 'center', justifyContent: 'center',
+            borderWidth: 1, borderColor: c.tint,
+          }}>
           <Text style={{ fontSize: 22 }}>{c.emoji}</Text>
         </LinearGradient>
 
-        <View style={{ flex: 1 }}>
-          <Text style={styles.cardTitle}>{c.title}</Text>
-          <Text style={styles.cardSub}>{c.subtitle}</Text>
+        <View className="flex-1">
+          <Text className="font-ui-med text-[17px] leading-[22px] text-cream">{c.title}</Text>
+          <Text className="font-ui text-[13px] leading-[18px] text-muted mt-[3px]">{c.subtitle}</Text>
         </View>
 
-        <ChevronRight color={colors.textSubtle} size={18} strokeWidth={1.5}/>
+        <ChevronRight color="#7A7195" size={18} strokeWidth={1.5}/>
       </LinearGradient>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bgBase },
-  heroWrap: { overflow: 'hidden' },
-  topbar: { paddingHorizontal: 16, paddingTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  topbarTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.text, letterSpacing: -0.2 },
-  hero: { paddingHorizontal: 24, paddingTop: 24, paddingBottom: 36 },
-  heroH1: { fontFamily: fonts.display, fontSize: 32, lineHeight: 38, letterSpacing: -0.3, color: colors.text },
-  heroSub: { fontFamily: fonts.ui, fontSize: 14, lineHeight: 20, color: colors.textMuted, marginTop: 12 },
-
-  card: {
-    borderRadius: radii.lg,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.borderSoft,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    overflow: 'hidden',
-  },
-  emojiPlate: {
-    width: 44, height: 44, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1,
-  },
-  cardTitle: { fontFamily: fonts.uiMed, fontSize: 17, lineHeight: 22, color: colors.text },
-  cardSub:   { fontFamily: fonts.ui, fontSize: 13, lineHeight: 18, color: colors.textMuted, marginTop: 3 },
-
-  footer: {
-    fontFamily: fonts.ui, fontSize: 12, color: colors.textSubtle,
-    textAlign: 'center', marginTop: 40,
-  },
-});

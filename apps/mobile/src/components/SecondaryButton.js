@@ -2,31 +2,15 @@
 
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { colors, fonts, radii } from '../theme';
 
 export default function SecondaryButton({ children, onPress, style, icon }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed, hovered }) => [
-      {
-        height: 48,
-        borderRadius: radii.md,
-        borderColor: hovered ? colors.primaryGlow : colors.borderGlow,
-        borderWidth: 1,
-        paddingHorizontal: 20,
-        backgroundColor: pressed ? 'rgba(139,111,232,0.14)' : 'transparent',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-      },
-      style,
-    ]}>
+    <Pressable
+      onPress={onPress}
+      style={style}
+      className="h-12 rounded-md border border-glow flex-row items-center justify-center gap-2 px-5 active:bg-primary/[0.14] active:opacity-[0.92]">
       {icon}
-      <Text style={{
-        color: colors.text,
-        fontFamily: fonts.uiMed,
-        fontSize: 15,
-      }}>{children}</Text>
+      <Text className="text-cream font-ui-med text-[15px]">{children}</Text>
     </Pressable>
   );
 }

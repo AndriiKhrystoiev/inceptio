@@ -1,7 +1,7 @@
 // 06 Paywall — Pro upsell.
 
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { X } from 'lucide-react-native';
@@ -9,14 +9,13 @@ import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import IconBtn from '../components/IconBtn';
 import PrimaryButton from '../components/PrimaryButton';
-import { colors, fonts, radii } from '../theme';
 
 const FEATURES = [
   'Unlimited searches',
   'Save unlimited moments',
   'Search up to 12 months ahead',
   'Calendar heatmap view',
-  'Export to your phone\u2019s calendar',
+  'Export to your phone’s calendar',
   'Quiet — no ads, no account',
 ];
 
@@ -24,32 +23,32 @@ export default function PaywallScreen({ go }) {
   const [plan, setPlan] = useState('yearly');
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 40 }}>
-      <View style={{ overflow: 'hidden' }}>
+    <ScrollView className="flex-1 bg-base" contentContainerStyle={{ paddingBottom: 40 }}>
+      <View className="overflow-hidden">
         <HeroGradient height={320}/>
         <Starfield density="heavy"/>
         <SafeAreaView edges={['top']}>
-          <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+          <View className="px-4 pt-2">
             <IconBtn onPress={() => go('today')} label="Close">
-              <X color={colors.text} size={22} strokeWidth={1.5}/>
+              <X color="#F5EFE4" size={22} strokeWidth={1.5}/>
             </IconBtn>
           </View>
 
-          <View style={{ paddingHorizontal: 24, paddingTop: 48 }}>
-            <Text style={styles.h1}>Inceptio Pro</Text>
-            <Text style={styles.sub}>Unlimited moments, calendar view, and more.</Text>
-            <Text style={styles.quote}>You've explored 3 moments — let's go further.</Text>
+          <View className="px-6 pt-12">
+            <Text className="font-display text-[36px] leading-[42px] tracking-[-0.7px] text-cream">Inceptio Pro</Text>
+            <Text className="font-ui text-base leading-6 text-muted mt-3">Unlimited moments, calendar view, and more.</Text>
+            <Text className="font-ui italic text-[14px] leading-5 text-subtle mt-6 text-center">You've explored 3 moments — let's go further.</Text>
           </View>
         </SafeAreaView>
       </View>
 
-      <View style={{ paddingHorizontal: 24, paddingTop: 48 }}>
+      <View className="px-6 pt-12">
         {FEATURES.map((f, i) => (
-          <Text key={i} style={styles.feature}>{f}</Text>
+          <Text key={i} className="py-3 font-ui text-base leading-[22px] text-cream">{f}</Text>
         ))}
       </View>
 
-      <View style={{ paddingHorizontal: 24, paddingTop: 48, gap: 12 }}>
+      <View className="px-6 pt-12 gap-3">
         <PlanCard
           selected={plan === 'yearly'}
           onPress={() => setPlan('yearly')}
@@ -63,84 +62,62 @@ export default function PaywallScreen({ go }) {
           price="$4.99 / month"/>
       </View>
 
-      <View style={{ paddingHorizontal: 24, paddingTop: 48 }}>
+      <View className="px-6 pt-12">
         <PrimaryButton onPress={() => go('today')}>Continue</PrimaryButton>
       </View>
 
-      <View style={{ alignItems: 'center', paddingTop: 16 }}>
+      <View className="items-center pt-4">
         <Pressable>
-          <Text style={{ fontFamily: fonts.ui, fontSize: 14, color: colors.textMuted, padding: 8 }}>Restore</Text>
+          <Text className="font-ui text-[14px] text-muted p-2">Restore</Text>
         </Pressable>
       </View>
 
-      <View style={{ alignItems: 'center', marginTop: 24 }}>
-        <View style={{ width: '60%', height: 1, backgroundColor: colors.borderSoft }}/>
+      <View className="items-center mt-6">
+        <View className="w-[60%] h-px bg-soft"/>
       </View>
 
-      <Text style={styles.legal}>Terms · Privacy</Text>
+      <Text className="font-ui text-[12px] text-subtle text-center mt-5">Terms · Privacy</Text>
     </ScrollView>
   );
 }
 
 function PlanCard({ selected, onPress, yearly, price, sub, badge }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}>
-      <View style={{
-        position: 'relative',
-        borderRadius: radii.lg,
-        padding: 20,
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: selected ? colors.borderGlow : colors.borderSoft,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-        overflow: 'hidden',
-      }}>
+    <Pressable onPress={onPress} className="active:opacity-[0.92]">
+      <View className={[
+        'relative rounded-lg p-5 bg-surface border flex-row items-center gap-[14px] overflow-hidden',
+        selected ? 'border-glow' : 'border-soft',
+      ].join(' ')}>
         {yearly && selected && (
           <LinearGradient
             colors={['rgba(229,199,125,0.06)', 'rgba(212,184,114,0)']}
-            style={StyleSheet.absoluteFill}/>
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}/>
         )}
-        <View style={{
-          width: 22, height: 22, borderRadius: 999,
-          borderColor: selected ? (yearly ? colors.gold : colors.primaryGlow) : colors.textSubtle,
-          borderWidth: 1.5,
-          alignItems: 'center', justifyContent: 'center',
-        }}>
+        <View className={[
+          'w-[22px] h-[22px] rounded-full border-[1.5px] items-center justify-center',
+          selected
+            ? (yearly ? 'border-gold' : 'border-primary-glow')
+            : 'border-subtle',
+        ].join(' ')}>
           {selected && (
-            <View style={{
-              width: 10, height: 10, borderRadius: 999,
-              backgroundColor: yearly ? colors.gold : colors.primaryGlow,
-            }}/>
+            <View className={[
+              'w-[10px] h-[10px] rounded-full',
+              yearly ? 'bg-gold' : 'bg-primary-glow',
+            ].join(' ')}/>
           )}
         </View>
 
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontFamily: fonts.displayReg, fontSize: 20, lineHeight: 26, color: colors.text }}>{price}</Text>
-          {sub && <Text style={{ fontFamily: fonts.ui, fontSize: 14, lineHeight: 20, color: colors.textMuted, marginTop: 2 }}>{sub}</Text>}
+        <View className="flex-1">
+          <Text className="font-display-reg text-[20px] leading-[26px] text-cream">{price}</Text>
+          {sub && <Text className="font-ui text-[14px] leading-5 text-muted mt-[2px]">{sub}</Text>}
         </View>
 
         {badge && (
-          <View style={{
-            position: 'absolute', top: 12, right: 12,
-            paddingVertical: 3, paddingHorizontal: 8,
-            borderRadius: 6,
-            backgroundColor: 'rgba(229,199,125,0.18)',
-          }}>
-            <Text style={{ fontFamily: fonts.uiSemi, fontSize: 11, color: colors.text, letterSpacing: 0.7 }}>{badge}</Text>
+          <View className="absolute top-3 right-3 py-[3px] px-2 rounded-xs bg-gold/[0.18]">
+            <Text className="font-ui-semi text-[11px] text-cream tracking-[0.7px]">{badge}</Text>
           </View>
         )}
       </View>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bgBase },
-  h1:   { fontFamily: fonts.display, fontSize: 36, lineHeight: 42, letterSpacing: -0.7, color: colors.text },
-  sub:  { fontFamily: fonts.ui, fontSize: 16, lineHeight: 24, color: colors.textMuted, marginTop: 12 },
-  quote:{ fontFamily: fonts.ui, fontStyle: 'italic', fontSize: 14, lineHeight: 20, color: colors.textSubtle, marginTop: 24, textAlign: 'center' },
-  feature: { paddingVertical: 12, fontFamily: fonts.ui, fontSize: 16, lineHeight: 22, color: colors.text },
-  legal: { fontFamily: fonts.ui, fontSize: 12, color: colors.textSubtle, textAlign: 'center', marginTop: 20 },
-});

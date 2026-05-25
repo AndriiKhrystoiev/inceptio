@@ -1,5 +1,6 @@
 // Glyph — blocking-reason glyphs + cell variants.
 // Used in calendar cells, blocked sheets, the Today "pause day" card.
+// SVG fill/stroke attrs are not CSS — raw hex values kept as-is.
 
 import React from 'react';
 import Svg, { Circle, Path, Ellipse } from 'react-native-svg';

@@ -1,4 +1,5 @@
 // Moon — 8 phases rendered as SVG with optional gold halo.
+// SVG fill/stroke attrs are element props, not CSS — raw hex kept as-is.
 
 import React from 'react';
 import { View } from 'react-native';
@@ -60,8 +61,8 @@ export default function Moon({ phase = 'waxing-crescent', size = 56, glow = true
       </>
     );
 
-  // Soft gold halo approximated with iOS shadow (Android can't
-  // render colored shadows; falls back to elevation).
+  // Soft gold halo: centered glow (shadowOffset 0,0) must stay inline per rule 6.
+  // Android can't render colored shadows; falls back to elevation.
   const haloStyle = glow ? {
     shadowColor: '#F0D89A',
     shadowOffset: { width: 0, height: 0 },

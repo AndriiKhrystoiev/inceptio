@@ -4,7 +4,6 @@
 import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fonts, radii } from '../theme';
 import StatusLine from './StatusLine';
 
 export default function WindowCard({
@@ -18,57 +17,39 @@ export default function WindowCard({
   const isLong   = durationMinutes != null && durationMinutes > 10;
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({
-      borderRadius: radii.md,
-      opacity: pressed ? 0.92 : 1,
-    })}>
+    <Pressable onPress={onPress} className="rounded-md active:opacity-[0.92]">
       <LinearGradient
-        colors={[colors.surface, colors.surface2]}
+        colors={['#1F1838', '#2A2247']}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
-        style={{
-          borderRadius: radii.md,
-          paddingVertical: 14,
-          paddingHorizontal: 16,
-          borderWidth: 1,
-          borderColor: colors.borderSoft,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-        }}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={{
-            fontFamily: fonts.uiMed,
-            fontSize: 12,
-            color: colors.textMuted,
-            letterSpacing: 0.4,
-            textTransform: 'lowercase',
-          }}>{date}</Text>
+        style={{ borderRadius: 14 }}
+        className="py-[14px] px-4 border border-soft flex-row items-center justify-between gap-3">
+        <View className="flex-1 min-w-0">
+          <Text className="font-ui-med text-[12px] text-muted tracking-[0.4px] lowercase">{date}</Text>
 
-          <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap' }}>
+          <View className="mt-1 flex-row items-baseline flex-wrap">
             {isSingle && (
               <>
-                <Text style={{ fontFamily: fonts.uiSemi, fontSize: 17, color: colors.goldGlow }}>{time}</Text>
-                <Text style={{ fontFamily: fonts.ui, fontSize: 15, fontStyle: 'italic', color: colors.goldGlow, marginLeft: 6 }}>exactly</Text>
+                <Text className="font-ui-semi text-[17px] text-gold-glow">{time}</Text>
+                <Text className="font-ui text-[15px] italic text-gold-glow ml-[6px]">exactly</Text>
               </>
             )}
             {isShort && (
               <>
-                <Text style={{ fontFamily: fonts.uiSemi, fontSize: 17, color: colors.goldGlow }}>{time}</Text>
-                <Text style={{ fontFamily: fonts.ui, fontSize: 15, color: colors.goldGlow, marginLeft: 6 }}>· {durationMinutes} minutes</Text>
+                <Text className="font-ui-semi text-[17px] text-gold-glow">{time}</Text>
+                <Text className="font-ui text-[15px] text-gold-glow ml-[6px]">· {durationMinutes} minutes</Text>
               </>
             )}
             {isLong && (
               <>
-                <Text style={{ fontFamily: fonts.ui, fontSize: 15, color: colors.text }}>{time}</Text>
+                <Text className="font-ui text-[15px] text-cream">{time}</Text>
                 {durationLabel && (
-                  <Text style={{ fontFamily: fonts.ui, fontSize: 13, color: colors.textMuted, marginLeft: 6 }}>({durationLabel})</Text>
+                  <Text className="font-ui text-[13px] text-muted ml-[6px]">({durationLabel})</Text>
                 )}
               </>
             )}
             {durationMinutes == null && (
-              <Text style={{ fontFamily: fonts.ui, fontSize: 15, color: colors.text }}>{time}</Text>
+              <Text className="font-ui text-[15px] text-cream">{time}</Text>
             )}
           </View>
         </View>

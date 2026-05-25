@@ -1,14 +1,13 @@
 // 05 Your Moments — saved upcoming + past.
 
 import React from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Settings, ChevronRight } from 'lucide-react-native';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import IconBtn from '../components/IconBtn';
-import { colors, fonts, radii } from '../theme';
 
 const UPCOMING = [
   { status: 'highly',     when: 'in 3 days',  date: 'Saturday, June 21', sub: 'Afternoon · 2:32 — 4:08 · Kyiv',  quote: 'Venus brings warmth to this window.' },
@@ -23,32 +22,32 @@ const PAST = [
 
 export default function YouScreen({ go }) {
   return (
-    <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 40 }}>
-      <View style={{ overflow: 'hidden' }}>
+    <ScrollView className="flex-1 bg-base" contentContainerStyle={{ paddingBottom: 40 }}>
+      <View className="overflow-hidden">
         <HeroGradient height={260}/>
         <Starfield density="heavy"/>
         <SafeAreaView edges={['top']}>
-          <View style={styles.topbar}>
-            <View style={{ width: 38 }}/>
-            <Text style={styles.topbarTitle}>Your moments</Text>
+          <View className="px-4 pt-2 flex-row items-center justify-between">
+            <View className="w-[38px]"/>
+            <Text className="font-display text-[18px] text-cream tracking-[-0.2px]">Your moments</Text>
             <IconBtn label="Settings">
-              <Settings color={colors.textMuted} size={20} strokeWidth={1.5}/>
+              <Settings color="#B8B0CC" size={20} strokeWidth={1.5}/>
             </IconBtn>
           </View>
-          <View style={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 32 }}>
-            <Text style={styles.heroH1}>Moments you've saved</Text>
-            <Text style={styles.heroSub}>3 ahead, 2 behind you in time</Text>
+          <View className="px-6 pt-6 pb-8">
+            <Text className="font-display text-[32px] leading-[38px] tracking-[-0.3px] text-cream">Moments you've saved</Text>
+            <Text className="font-ui text-[14px] leading-5 text-muted mt-[10px]">3 ahead, 2 behind you in time</Text>
           </View>
         </SafeAreaView>
       </View>
 
       <Section>Coming up</Section>
-      <View style={{ paddingHorizontal: 24, gap: 12 }}>
+      <View className="px-6 gap-3">
         {UPCOMING.map((m, i) => <MomentCard key={'u' + i} m={m} onPress={() => go('detail')}/>)}
       </View>
 
       <Section>Behind you</Section>
-      <View style={{ paddingHorizontal: 24, gap: 12, opacity: 0.7 }}>
+      <View className="px-6 gap-3 opacity-70">
         {PAST.map((m, i) => <MomentCard key={'p' + i} m={m} past onPress={() => go('detail')}/>)}
       </View>
     </ScrollView>
@@ -57,66 +56,51 @@ export default function YouScreen({ go }) {
 
 function Section({ children }) {
   return (
-    <View style={{ paddingHorizontal: 24, paddingTop: 32, flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 16 }}>
-      <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: colors.textMuted }}>{children}</Text>
-      <View style={{ flex: 1, height: 1, backgroundColor: colors.borderSoft }}/>
+    <View className="px-6 pt-8 flex-row items-center gap-[14px] mb-4">
+      <Text className="font-ui-med text-[13px] text-muted">{children}</Text>
+      <View className="flex-1 h-px bg-soft"/>
     </View>
   );
 }
 
 function StatusPill({ status, past }) {
   const map = {
-    highly:    { fg: colors.goldGlow,   bg: 'rgba(229,199,125,0.18)', br: 'rgba(240,216,154,0.45)', label: 'Highly favorable', sparkle: true },
-    favorable: { fg: colors.goldMuted,  bg: 'rgba(212,184,114,0.10)', br: 'rgba(212,184,114,0.30)', label: 'Favorable' },
-    moderate:  { fg: colors.primaryGlow,bg: 'rgba(139,111,232,0.10)', br: 'rgba(139,111,232,0.30)', label: 'Moderate' },
+    highly:    { fgClass: 'text-gold-glow',    bg: 'rgba(229,199,125,0.18)', br: 'rgba(240,216,154,0.45)', label: 'Highly favorable', sparkle: true },
+    favorable: { fgClass: 'text-gold-muted',   bg: 'rgba(212,184,114,0.10)', br: 'rgba(212,184,114,0.30)', label: 'Favorable' },
+    moderate:  { fgClass: 'text-primary-glow', bg: 'rgba(139,111,232,0.10)', br: 'rgba(139,111,232,0.30)', label: 'Moderate' },
   }[status];
+
+  // Dynamic bg/border colors use inline style; only fgClass goes via className
   return (
-    <View style={{
-      flexDirection: 'row', alignItems: 'center', gap: 6,
-      paddingVertical: 4, paddingHorizontal: 10, borderRadius: 999,
-      backgroundColor: map.bg, borderColor: map.br, borderWidth: 1,
-      alignSelf: 'flex-start',
-      opacity: past ? 0.85 : 1,
-    }}>
-      {map.sparkle && <Text style={{ fontSize: 10, color: map.fg }}>✦</Text>}
-      <Text style={{ fontFamily: fonts.uiSemi, fontSize: 11, color: map.fg, letterSpacing: 0.1 }}>{map.label}</Text>
+    <View
+      className={['flex-row items-center gap-[6px] py-1 px-[10px] rounded-full border self-start', past ? 'opacity-[0.85]' : ''].join(' ')}
+      style={{ backgroundColor: map.bg, borderColor: map.br }}>
+      {map.sparkle && <Text className={['text-[10px]', map.fgClass].join(' ')}>✦</Text>}
+      <Text className={['font-ui-semi text-[11px] tracking-[0.1px]', map.fgClass].join(' ')}>{map.label}</Text>
     </View>
   );
 }
 
 function MomentCard({ m, past, onPress }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.92 : 1 })}>
+    <Pressable onPress={onPress} className="active:opacity-[0.92]">
       <LinearGradient
-        colors={[colors.surface, colors.surface2]}
-        style={{
-          borderRadius: radii.lg,
-          padding: 20,
-          borderWidth: 1,
-          borderColor: colors.borderSoft,
-        }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+        colors={['#1F1838', '#2A2247']}
+        style={{ borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#3A3258' }}>
+        <View className="flex-row items-center justify-between gap-[10px]">
           <StatusPill status={m.status} past={past}/>
-          <Text style={{ fontFamily: fonts.ui, fontSize: 12, color: colors.textSubtle }}>{m.when}</Text>
+          <Text className="font-ui text-[12px] text-subtle">{m.when}</Text>
         </View>
-        <Text style={{ marginTop: 12, fontFamily: fonts.displayReg, fontSize: 22, lineHeight: 28, color: colors.text }}>{m.date}</Text>
-        <Text style={{ marginTop: 2, fontFamily: fonts.ui, fontSize: 14, lineHeight: 20, color: colors.textMuted }}>{m.sub}</Text>
+        <Text className="mt-3 font-display-reg text-[22px] leading-7 text-cream">{m.date}</Text>
+        <Text className="mt-[2px] font-ui text-[14px] leading-5 text-muted">{m.sub}</Text>
         {past && (
-          <Text style={{ marginTop: 4, fontFamily: fonts.uiMed, fontSize: 11, color: colors.textSubtle, letterSpacing: 0.4 }}>Passed</Text>
+          <Text className="mt-1 font-ui-med text-[11px] text-subtle tracking-[0.4px]">Passed</Text>
         )}
-        <Text style={{ marginTop: 10, fontFamily: fonts.ui, fontSize: 14, lineHeight: 20, color: past ? colors.textMuted : colors.text, paddingRight: 28 }}>{m.quote}</Text>
-        <View style={{ position: 'absolute', right: 16, bottom: 16 }}>
-          <ChevronRight color={colors.textSubtle} size={16} strokeWidth={1.5}/>
+        <Text className={['mt-[10px] font-ui text-[14px] leading-5 pr-7', past ? 'text-muted' : 'text-cream'].join(' ')}>{m.quote}</Text>
+        <View className="absolute right-4 bottom-4">
+          <ChevronRight color="#7A7195" size={16} strokeWidth={1.5}/>
         </View>
       </LinearGradient>
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bgBase },
-  topbar: { paddingHorizontal: 16, paddingTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  topbarTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.text, letterSpacing: -0.2 },
-  heroH1: { fontFamily: fonts.display, fontSize: 32, lineHeight: 38, letterSpacing: -0.3, color: colors.text },
-  heroSub: { fontFamily: fonts.ui, fontSize: 14, lineHeight: 20, color: colors.textMuted, marginTop: 10 },
-});

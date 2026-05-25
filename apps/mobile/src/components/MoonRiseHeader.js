@@ -6,7 +6,6 @@ import { View } from 'react-native';
 import HeroGradient from './HeroGradient';
 import Starfield from './Starfield';
 import Moon from './Moon';
-import { space } from '../theme';
 
 export default function MoonRiseHeader({
   phase = 'waxing-crescent',
@@ -15,17 +14,13 @@ export default function MoonRiseHeader({
   children,
 }) {
   return (
-    <View style={{
-      paddingTop: 60,
-      paddingBottom: space[5],
-      paddingHorizontal: space[6],
-      overflow: 'hidden',
-      minHeight: height,
-    }}>
+    <View
+      className="overflow-hidden pt-[60px] pb-5 px-6"
+      style={{ minHeight: height }}>
       <HeroGradient height={Math.max(height + 40, 260)}/>
       <Starfield density="heavy"/>
       {showMoon && (
-        <View style={{ position: 'absolute', top: 56, right: space[6] }}>
+        <View className="absolute top-14 right-6">
           <Moon phase={phase} size={64}/>
         </View>
       )}

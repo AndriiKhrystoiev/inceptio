@@ -1,5 +1,6 @@
 // Starfield — small dots scattered across the parent, never animated.
 // Uses absolute-positioned dots so it composes with any background.
+// Star positions, sizes and colors are data-driven — kept as inline styles.
 
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
@@ -26,7 +27,7 @@ const HEAVY = [
 export default function Starfield({ density = 'normal' }) {
   const stars = useMemo(() => density === 'heavy' ? HEAVY : NORMAL, [density]);
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0 }}>
+    <View pointerEvents="none" className="absolute inset-0">
       {stars.map((s, i) => (
         <View key={i} style={{
           position: 'absolute',

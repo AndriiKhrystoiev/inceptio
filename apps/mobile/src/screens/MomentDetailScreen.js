@@ -1,7 +1,7 @@
 // 04 Moment Detail — friendly Level-2 view with 4 paragraphs.
 
 import React, { useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Share2, ChevronRight, Bookmark } from 'lucide-react-native';
 import HeroGradient from '../components/HeroGradient';
@@ -13,7 +13,6 @@ import PrimaryButton from '../components/PrimaryButton';
 import SecondaryButton from '../components/SecondaryButton';
 import StatePicker from '../components/StatePicker';
 import StatusLine from '../components/StatusLine';
-import { colors, fonts, radii } from '../theme';
 
 const VARIANTS = {
   long:   { label: '2:32 — 4:08',  paren: '(3h 16m)',   sub: null,                                      score: 78, grade: 'strong',  pillKind: 'excellent', pillLabel: 'Highly favorable' },
@@ -27,31 +26,31 @@ export default function MomentDetailScreen({ go }) {
   const v = VARIANTS[variant];
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 60 }}>
+    <ScrollView className="flex-1 bg-base" contentContainerStyle={{ paddingBottom: 60 }}>
       {/* Hero */}
-      <View style={{ overflow: 'hidden' }}>
+      <View className="overflow-hidden">
         <HeroGradient height={300}/>
         <Starfield density="heavy"/>
         <SafeAreaView edges={['top']}>
-          <View style={styles.topbar}>
+          <View className="px-4 pt-2 flex-row items-center justify-between">
             <IconBtn onPress={() => go('calendar')} label="Back">
-              <ArrowLeft color={colors.text} size={22} strokeWidth={1.5}/>
+              <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5}/>
             </IconBtn>
             <IconBtn label="Share">
-              <Share2 color={colors.text} size={20} strokeWidth={1.5}/>
+              <Share2 color="#F5EFE4" size={20} strokeWidth={1.5}/>
             </IconBtn>
           </View>
 
-          <View style={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 36 }}>
+          <View className="px-6 pt-6 pb-9">
             <ScorePill kind={v.pillKind}>{v.pillLabel}</ScorePill>
 
-            <View style={styles.dateRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.dateBig}>Saturday,{'\n'}June 21</Text>
-                <View style={{ marginTop: 14 }}>
+            <View className="flex-row items-start gap-4 mt-6">
+              <View className="flex-1">
+                <Text className="font-display text-[36px] leading-[42px] tracking-[-0.7px] text-cream">Saturday,{'\n'}June 21</Text>
+                <View className="mt-[14px]">
                   <TimeLine variant={variant} v={v}/>
-                  <Text style={styles.loc}>Kyiv, Ukraine</Text>
-                  {v.sub && <Text style={styles.subItalic}>{v.sub}</Text>}
+                  <Text className="font-ui text-base leading-6 text-muted">Kyiv, Ukraine</Text>
+                  {v.sub && <Text className="font-ui italic text-[14px] text-gold-glow mt-2">{v.sub}</Text>}
                 </View>
               </View>
               <Moon phase="waxing-crescent" size={64}/>
@@ -73,54 +72,54 @@ export default function MomentDetailScreen({ go }) {
       />
 
       {/* Score block */}
-      <View style={styles.scoreBlock}>
-        <Text style={styles.scoreNum}>{v.score}</Text>
-        <View style={{ flex: 1 }}>
+      <View className="px-6 pt-6 flex-row items-center gap-4">
+        <Text className="font-display text-[44px] leading-[48px] tracking-[-1.3px] text-cream">{v.score}</Text>
+        <View className="flex-1">
           <StatusLine score="" grade={v.grade}/>
-          <Text style={styles.scoreNote}>moment score · out of 100</Text>
+          <Text className="font-ui text-[12px] text-subtle mt-[6px]">moment score · out of 100</Text>
         </View>
       </View>
 
       {/* Hairline */}
-      <View style={{ alignItems: 'center', marginTop: 32 }}>
-        <View style={{ width: '50%', height: 1, backgroundColor: colors.borderSoft }}/>
+      <View className="items-center mt-8">
+        <View className="w-[50%] h-px bg-soft"/>
       </View>
 
       {/* Narrative — four paragraphs */}
-      <View style={{ paddingHorizontal: 24, paddingTop: 32 }}>
-        <Text style={styles.sectionLabel}>Why this moment</Text>
-        <View style={{ marginTop: 16, gap: 16 }}>
-          <Text style={styles.para}>Venus brings warmth to this window. She rests in Leo, where she's dignified, and her light favors connection.</Text>
-          <Text style={styles.para}>The Moon is waxing, gaining light, which traditional astrology favors for new beginnings.</Text>
-          <Text style={styles.para}>
-            <Text style={styles.nuance}>Worth noting: </Text>
+      <View className="px-6 pt-8">
+        <Text className="font-ui-med text-[13px] text-muted">Why this moment</Text>
+        <View className="mt-4 gap-4">
+          <Text className="font-ui text-base leading-[26px] text-cream">Venus brings warmth to this window. She rests in Leo, where she's dignified, and her light favors connection.</Text>
+          <Text className="font-ui text-base leading-[26px] text-cream">The Moon is waxing, gaining light, which traditional astrology favors for new beginnings.</Text>
+          <Text className="font-ui text-base leading-[26px] text-cream">
+            <Text className="font-ui-semi text-gold-glow tracking-[0.1px]">Worth noting: </Text>
             the Moon doesn't make a soft connection to Venus or Jupiter at this moment. The window holds itself rather than being lifted by them.
           </Text>
-          <Text style={styles.para}>
+          <Text className="font-ui text-base leading-[26px] text-cream">
             If your ceremony falls within this window, it's a thoughtful choice. If you have flexibility, the window on{' '}
-            <Text style={styles.inlineLink} onPress={() => go('detail')}>June 22</Text>
+            <Text className="text-primary-glow underline" onPress={() => go('detail')}>June 22</Text>
             {' '}is slightly stronger.
           </Text>
         </View>
 
-        <View style={{ alignItems: 'center', marginTop: 32 }}>
-          <Pressable onPress={() => go('detail')} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8 }}>
-            <Text style={{ fontFamily: fonts.uiMed, fontSize: 14, color: colors.textMuted }}>See technical details</Text>
-            <ChevronRight color={colors.textMuted} size={14} strokeWidth={1.5}/>
+        <View className="items-center mt-8">
+          <Pressable onPress={() => go('detail')} className="flex-row items-center gap-[6px] p-2">
+            <Text className="font-ui-med text-[14px] text-muted">See technical details</Text>
+            <ChevronRight color="#B8B0CC" size={14} strokeWidth={1.5}/>
           </Pressable>
         </View>
 
-        <View style={{ marginTop: 48 }}>
+        <View className="mt-12">
           <PrimaryButton onPress={() => go('today')}>Add to calendar</PrimaryButton>
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+          <View className="flex-row gap-2 mt-3">
             <SecondaryButton
               style={{ flex: 1 }}
-              icon={<Bookmark color={colors.text} size={16} strokeWidth={1.5}/>}>
+              icon={<Bookmark color="#F5EFE4" size={16} strokeWidth={1.5}/>}>
               Save
             </SecondaryButton>
             <SecondaryButton
               style={{ flex: 1 }}
-              icon={<Share2 color={colors.text} size={16} strokeWidth={1.5}/>}>
+              icon={<Share2 color="#F5EFE4" size={16} strokeWidth={1.5}/>}>
               Share
             </SecondaryButton>
           </View>
@@ -133,48 +132,28 @@ export default function MomentDetailScreen({ go }) {
 function TimeLine({ variant, v }) {
   if (variant === 'long') {
     return (
-      <Text style={styles.loc}>
+      <Text className="font-ui text-base leading-6 text-muted">
         <Text>Afternoon · {v.label} </Text>
-        <Text style={{ color: colors.textMuted }}>{v.paren}</Text>
+        <Text className="text-muted">{v.paren}</Text>
       </Text>
     );
   }
   if (variant === 'medium' || variant === 'short') {
     return (
-      <Text style={styles.loc}>
+      <Text className="font-ui text-base leading-6 text-muted">
         <Text>Afternoon · </Text>
-        <Text style={styles.timeGold}>{v.label}</Text>
-        <Text style={styles.timeGoldThin}> · {v.paren}</Text>
+        <Text className="font-ui-semi text-gold-glow">{v.label}</Text>
+        <Text className="font-ui text-gold-glow"> · {v.paren}</Text>
       </Text>
     );
   }
   if (variant === 'single') {
     return (
-      <Text style={styles.loc}>
+      <Text className="font-ui text-base leading-6 text-muted">
         <Text>Afternoon · </Text>
-        <Text style={styles.timeGold}>{v.label}</Text>
+        <Text className="font-ui-semi text-gold-glow">{v.label}</Text>
       </Text>
     );
   }
   return null;
 }
-
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bgBase },
-  topbar: { paddingHorizontal: 16, paddingTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dateRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 16, marginTop: 24 },
-  dateBig: { fontFamily: fonts.display, fontSize: 36, lineHeight: 42, letterSpacing: -0.7, color: colors.text },
-  loc: { fontFamily: fonts.ui, fontSize: 16, lineHeight: 24, color: colors.textMuted },
-  subItalic: { fontFamily: fonts.ui, fontStyle: 'italic', fontSize: 14, color: colors.goldGlow, marginTop: 8 },
-  timeGold: { fontFamily: fonts.uiSemi, color: colors.goldGlow },
-  timeGoldThin: { fontFamily: fonts.ui, color: colors.goldGlow },
-
-  scoreBlock: { paddingHorizontal: 24, paddingTop: 24, flexDirection: 'row', alignItems: 'center', gap: 16 },
-  scoreNum: { fontFamily: fonts.display, fontSize: 44, lineHeight: 48, letterSpacing: -1.3, color: colors.text },
-  scoreNote: { fontFamily: fonts.ui, fontSize: 12, color: colors.textSubtle, marginTop: 6 },
-
-  sectionLabel: { fontFamily: fonts.uiMed, fontSize: 13, color: colors.textMuted },
-  para: { fontFamily: fonts.ui, fontSize: 16, lineHeight: 26, color: colors.text },
-  nuance: { fontFamily: fonts.uiSemi, color: colors.goldGlow, letterSpacing: 0.1 },
-  inlineLink: { color: colors.primaryGlow, textDecorationLine: 'underline' },
-});

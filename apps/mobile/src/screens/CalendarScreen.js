@@ -11,7 +11,6 @@ import StatePicker from '../components/StatePicker';
 import SecondaryButton from '../components/SecondaryButton';
 import WindowCard from '../components/WindowCard';
 import Glyph, { reasonToGlyph, FRIENDLY_REASON } from '../components/Glyph';
-import { colors, fonts, radii } from '../theme';
 
 const BASE = [
   ['b','moon_voc'],['b','moon_voc'],['v',58],['b','mercury_retrograde'],['v',62],['v',68],['b','eclipse_window'],
@@ -44,27 +43,30 @@ export default function CalendarScreen({ go }) {
     : `${viableCount} viable windows in your range`;
 
   return (
-    <ScrollView style={styles.root} contentContainerStyle={{ paddingBottom: 40 }}>
-      <View style={{ overflow: 'hidden' }}>
+    <ScrollView className="flex-1 bg-base" contentContainerStyle={{ paddingBottom: 40 }}>
+      <View className="overflow-hidden">
         <HeroGradient height={260}/>
         <Starfield density="heavy"/>
         <SafeAreaView edges={['top']}>
-          <View style={styles.topbar}>
+          <View className="px-4 pt-2 flex-row items-center justify-between">
             <IconBtn onPress={() => go('today')} label="Back">
-              <ArrowLeft color={colors.text} size={22} strokeWidth={1.5}/>
+              <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5}/>
             </IconBtn>
-            <Text style={styles.topbarTitle}>Wedding · Kyiv</Text>
+            <Text className="font-display text-[18px] text-cream tracking-[-0.2px]">Wedding · Kyiv</Text>
             <IconBtn label="Share">
-              <Share2 color={colors.text} size={20} strokeWidth={1.5}/>
+              <Share2 color="#F5EFE4" size={20} strokeWidth={1.5}/>
             </IconBtn>
           </View>
 
-          <View style={{ paddingTop: 24, paddingHorizontal: 24, alignItems: 'center' }}>
-            <Text style={styles.subtitle}>June 14 → August 14</Text>
-            <Text style={[styles.stat, viableCount === 0 && { color: colors.goldGlow }]}>{headerCopy}</Text>
+          <View className="pt-6 px-6 items-center">
+            <Text className="font-ui text-[14px] text-muted">June 14 → August 14</Text>
+            <Text className={[
+              'font-ui text-[14px] leading-5 text-muted mt-2 text-center max-w-[320px]',
+              viableCount === 0 ? 'text-gold-glow' : '',
+            ].join(' ')}>{headerCopy}</Text>
           </View>
 
-          <View style={styles.toggleRow}>
+          <View className="flex-row justify-center gap-2 mt-5 pb-6">
             <TogglePill label="List" active={false}/>
             <TogglePill label="Calendar" active={true}/>
           </View>
@@ -82,29 +84,29 @@ export default function CalendarScreen({ go }) {
         ]}
       />
 
-      <View style={{ paddingHorizontal: 24, paddingTop: 24 }}>
+      <View className="px-6 pt-6">
         {/* Month nav */}
-        <View style={styles.monthNav}>
+        <View className="flex-row items-center justify-center gap-[18px]">
           <IconBtn>
-            <ChevronLeft color={colors.textMuted} size={16} strokeWidth={1.5}/>
+            <ChevronLeft color="#B8B0CC" size={16} strokeWidth={1.5}/>
           </IconBtn>
-          <Text style={styles.monthLabel}>June 2026</Text>
+          <Text className="font-display text-[22px] text-cream tracking-[-0.2px] min-w-[150px] text-center">June 2026</Text>
           <IconBtn>
-            <ChevronRight color={colors.textMuted} size={16} strokeWidth={1.5}/>
+            <ChevronRight color="#B8B0CC" size={16} strokeWidth={1.5}/>
           </IconBtn>
         </View>
 
         {/* Day labels */}
-        <View style={styles.row}>
+        <View className="flex-row mt-5 gap-[6px]">
           {DAY_LABELS.map(d => (
             <View key={d} style={styles.cellSlot}>
-              <Text style={styles.dayLabel}>{d}</Text>
+              <Text className="font-ui-med text-[12px] text-subtle text-center">{d}</Text>
             </View>
           ))}
         </View>
 
         {/* Cells */}
-        <View style={[styles.row, { flexWrap: 'wrap', rowGap: 8 }]}>
+        <View className="flex-row mt-5 gap-[6px] flex-wrap" style={{ rowGap: 8 }}>
           {days.map(([kind, val], i) => (
             <Cell key={i}
               day={i + 1}
@@ -115,18 +117,18 @@ export default function CalendarScreen({ go }) {
         </View>
 
         {/* Legend strip */}
-        <View style={styles.legend}>
-          <Glyph name="moon-void" size={18} color={colors.textSubtle}/>
-          <Text style={styles.legendText}>
+        <View className="mt-[22px] p-[14px] rounded-[12px] bg-gradient border border-surface-2 flex-row items-center gap-3">
+          <Glyph name="moon-void" size={18} color="#7A7195"/>
+          <Text className="flex-1 font-ui text-[12px] leading-[18px] text-muted">
             Glyphs mark days the sky doesn't favor. Filled cells show available windows. Gold rings mark the strongest moments.
           </Text>
         </View>
 
         {/* Closest moments — only when none */}
         {viableCount === 0 && (
-          <View style={{ marginTop: 28 }}>
-            <Text style={styles.rescueH1}>The closest moments</Text>
-            <View style={{ gap: 10, marginTop: 12 }}>
+          <View className="mt-7">
+            <Text className="font-display-reg text-[20px] leading-[26px] text-cream">The closest moments</Text>
+            <View className="gap-[10px] mt-3">
               <WindowCard date="sat · jun 13" time="A short window, asks for care."   score={49} grade="caution" onPress={() => go('detail')}/>
               <WindowCard date="tue · jun 30" time="A workable window with patience." score={46} grade="caution" onPress={() => go('detail')}/>
             </View>
@@ -143,44 +145,47 @@ export default function CalendarScreen({ go }) {
 }
 
 function Cell({ day, kind, value, onPress }) {
-  // BLOCKED
   if (kind === 'b') {
     return (
       <Pressable onPress={onPress} style={styles.cellSlot}>
-        <Text style={[styles.dayNum, { color: colors.borderGlow }]}>{day}</Text>
-        <View style={[styles.cellBox, styles.blockedBox]}>
-          <Glyph name={reasonToGlyph(value)} size={14} color={colors.borderGlow}/>
+        <Text className="font-ui-med text-[13px] text-glow">{day}</Text>
+        <View className="w-full aspect-square max-h-[38px] rounded-[8px] bg-[rgba(31,24,56,0.55)] border border-surface-2 items-center justify-center">
+          <Glyph name={reasonToGlyph(value)} size={14} color="#5B4F8A"/>
         </View>
       </Pressable>
     );
   }
+
   const score = value;
   const celebrate = score >= 75;
-  const bg = celebrate ? colors.goldMuted
-           : score >= 65 ? colors.primary
+  // Score-derived bg color is fully dynamic — kept inline
+  const bg = celebrate ? '#D4B872'
+           : score >= 65 ? '#8B6FE8'
            : score >= 50 ? '#6E5DAB'
-           : colors.borderGlow;
+           : '#5B4F8A';
+
+  // Celebrate glow: centered shadowOffset {0,0} — kept inline per rule 6
+  const celebrateShadow = celebrate ? {
+    shadowColor: '#E5C77D',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 6,
+    elevation: 3,
+    borderColor: 'rgba(255,238,200,0.6)',
+    borderWidth: 1.5,
+  } : null;
+
   return (
     <Pressable onPress={onPress} style={styles.cellSlot}>
-      <Text style={styles.dayNum}>{day}</Text>
-      <View style={[styles.cellBox, {
-        backgroundColor: bg,
-        ...(celebrate ? {
-          shadowColor: colors.gold,
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.45,
-          shadowRadius: 6,
-          elevation: 3,
-          borderColor: 'rgba(255,238,200,0.6)',
-          borderWidth: 1.5,
-        } : null),
-      }]}>
-        <Text style={{
-          fontFamily: fonts.uiSemi,
-          fontSize: 11,
-          color: celebrate ? colors.bgBase : '#FFFFFF',
-          opacity: 0.9,
-        }}>{score}</Text>
+      <Text className="font-ui-med text-[13px] text-cream">{day}</Text>
+      <View
+        className="w-full aspect-square max-h-[38px] rounded-[8px] items-center justify-center"
+        style={[{ backgroundColor: bg }, celebrateShadow]}>
+        <Text
+          className="font-ui-semi text-[11px] opacity-90"
+          style={{ color: celebrate ? '#0F0A1F' : '#FFFFFF' }}>
+          {score}
+        </Text>
       </View>
     </Pressable>
   );
@@ -188,15 +193,11 @@ function Cell({ day, kind, value, onPress }) {
 
 function TogglePill({ label, active }) {
   return (
-    <Pressable style={{
-      paddingVertical: 7,
-      paddingHorizontal: 16,
-      borderRadius: 999,
-      backgroundColor: active ? 'rgba(212,184,114,0.12)' : 'transparent',
-      borderColor: active ? colors.borderGlow : colors.borderSoft,
-      borderWidth: 1,
-    }}>
-      <Text style={{ fontFamily: fonts.uiMed, fontSize: 13, color: active ? colors.text : colors.textMuted }}>{label}</Text>
+    <Pressable className={[
+      'py-[7px] px-4 rounded-full border',
+      active ? 'bg-gold-muted/[0.12] border-glow' : 'bg-transparent border-soft',
+    ].join(' ')}>
+      <Text className={['font-ui-med text-[13px]', active ? 'text-cream' : 'text-muted'].join(' ')}>{label}</Text>
     </Pressable>
   );
 }
@@ -204,32 +205,25 @@ function TogglePill({ label, active }) {
 function BlockedSheet({ sheet, onClose }) {
   const friendly = FRIENDLY_REASON[sheet.reason] || { title: 'A pause day', body: 'The sky asks us to wait.' };
   return (
-    <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-      <Pressable onPress={onClose} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15,10,31,0.6)' }]}/>
-      <View style={{
-        backgroundColor: colors.surface,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-        borderTopColor: colors.borderSoft,
-        borderTopWidth: 1,
-        paddingTop: 20,
-        paddingHorizontal: 24,
-        paddingBottom: 32,
-      }}>
-        <View style={{ alignItems: 'center' }}>
-          <View style={{ width: 40, height: 4, borderRadius: 999, backgroundColor: colors.borderSoft }}/>
+    <View className="flex-1 justify-end">
+      <Pressable
+        onPress={onClose}
+        style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(15,10,31,0.6)' }]}/>
+      <View className="bg-surface rounded-tl-xl rounded-tr-xl border-t border-soft pt-5 px-6 pb-8">
+        <View className="items-center">
+          <View className="w-10 h-1 rounded-full bg-soft"/>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 18 }}>
-          <View style={styles.sheetGlyph}>
-            <Glyph name={reasonToGlyph(sheet.reason)} size={22} color={colors.textMuted}/>
+        <View className="flex-row items-center gap-[14px] mt-[18px]">
+          <View className="w-11 h-11 rounded-full bg-[rgba(91,79,138,0.18)] border border-soft items-center justify-center">
+            <Glyph name={reasonToGlyph(sheet.reason)} size={22} color="#B8B0CC"/>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.uiSemi, fontSize: 11, color: colors.textSubtle, letterSpacing: 0.8 }}>JUNE {sheet.day}</Text>
-            <Text style={{ fontFamily: fonts.displayReg, fontSize: 20, lineHeight: 26, color: colors.text, marginTop: 4 }}>{friendly.title}</Text>
+          <View className="flex-1">
+            <Text className="font-ui-semi text-[11px] text-subtle tracking-[0.8px]">JUNE {sheet.day}</Text>
+            <Text className="font-display-reg text-[20px] leading-[26px] text-cream mt-1">{friendly.title}</Text>
           </View>
         </View>
-        <Text style={{ fontFamily: fonts.ui, fontSize: 14, lineHeight: 20, color: colors.textMuted, marginTop: 14 }}>{friendly.body}</Text>
-        <View style={{ marginTop: 20 }}>
+        <Text className="font-ui text-[14px] leading-5 text-muted mt-[14px]">{friendly.body}</Text>
+        <View className="mt-5">
           <SecondaryButton onPress={onClose} style={{ width: '100%' }}>Got it</SecondaryButton>
         </View>
       </View>
@@ -237,37 +231,7 @@ function BlockedSheet({ sheet, onClose }) {
   );
 }
 
+// cellSlot width is a calculated percentage — can't express in Tailwind without a plugin
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bgBase },
-  topbar: { paddingHorizontal: 16, paddingTop: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  topbarTitle: { fontFamily: fonts.display, fontSize: 18, color: colors.text, letterSpacing: -0.2 },
-  subtitle: { fontFamily: fonts.ui, fontSize: 14, color: colors.textMuted },
-  stat: { fontFamily: fonts.ui, fontSize: 14, lineHeight: 20, color: colors.textMuted, marginTop: 8, textAlign: 'center', maxWidth: 320 },
-  toggleRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 20, paddingBottom: 24 },
-
-  monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 18 },
-  monthLabel: { fontFamily: fonts.display, fontSize: 22, color: colors.text, letterSpacing: -0.2, minWidth: 150, textAlign: 'center' },
-  row: { flexDirection: 'row', marginTop: 20, columnGap: 6 },
-  dayLabel: { fontFamily: fonts.uiMed, fontSize: 12, color: colors.textSubtle, textAlign: 'center' },
   cellSlot: { width: `${100 / 7 - 0.86}%`, alignItems: 'center', gap: 6 },
-  dayNum: { fontFamily: fonts.uiMed, fontSize: 13, color: colors.text },
-  cellBox: { width: '100%', aspectRatio: 1, maxHeight: 38, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  blockedBox: { backgroundColor: 'rgba(31,24,56,0.55)', borderColor: colors.surface2, borderWidth: 1 },
-
-  legend: {
-    marginTop: 22, padding: 14, borderRadius: 12,
-    backgroundColor: colors.bgGradient,
-    borderColor: colors.surface2, borderWidth: 1,
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-  },
-  legendText: { flex: 1, fontFamily: fonts.ui, fontSize: 12, lineHeight: 18, color: colors.textMuted },
-
-  rescueH1: { fontFamily: fonts.displayReg, fontSize: 20, lineHeight: 26, color: colors.text },
-
-  sheetGlyph: {
-    width: 44, height: 44, borderRadius: 999,
-    backgroundColor: 'rgba(91,79,138,0.18)',
-    borderColor: colors.borderSoft, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
-  },
 });

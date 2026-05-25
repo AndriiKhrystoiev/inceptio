@@ -3,7 +3,6 @@
 
 import React from 'react';
 import { Pressable } from 'react-native';
-import { colors } from '../theme';
 
 export default function IconBtn({ children, onPress, label }) {
   return (
@@ -11,10 +10,7 @@ export default function IconBtn({ children, onPress, label }) {
       onPress={onPress}
       accessibilityLabel={label}
       hitSlop={8}
-      style={({ pressed }) => ({
-        padding: 8,
-        opacity: pressed ? 0.6 : 1,
-      })}>
+      className="p-2 active:opacity-[0.6]">
       {children}
     </Pressable>
   );

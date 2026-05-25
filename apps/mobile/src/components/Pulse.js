@@ -3,23 +3,6 @@
 
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, View } from 'react-native';
-import { colors } from '../theme';
-
-function useLoop(initial, to, duration, delay = 0) {
-  const v = useRef(new Animated.Value(initial)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.delay(delay),
-        Animated.timing(v, { toValue: to, duration, easing: Easing.bezier(0.4, 0, 0.2, 1), useNativeDriver: true }),
-        Animated.timing(v, { toValue: initial, duration: 0, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [v]);
-  return v;
-}
 
 export default function Pulse() {
   // Two ring "expand+fade" cycles, staggered by 1s.
@@ -47,6 +30,7 @@ export default function Pulse() {
     return () => { a.stop(); b.stop(); c.stop(); };
   }, []);
 
+  // Animated style arrays must stay as JS objects — className cannot interpolate.
   const ringStyle = (anim) => ({
     position: 'absolute',
     width: 96,
@@ -61,15 +45,17 @@ export default function Pulse() {
   });
 
   return (
-    <View style={{ width: 120, height: 120, alignItems: 'center', justifyContent: 'center' }}>
+    // Non-animated wrapper migrated to className.
+    <View className="w-[120px] h-[120px] items-center justify-center">
       <Animated.View style={ringStyle(ring0)}/>
       <Animated.View style={ringStyle(ring1)}/>
+      {/* Core: centered glow (shadowOffset 0,0) + animated scale/opacity — must stay inline. */}
       <Animated.View style={{
         width: 18,
         height: 18,
         borderRadius: 999,
-        backgroundColor: colors.goldGlow,
-        shadowColor: colors.goldGlow,
+        backgroundColor: '#F0D89A',
+        shadowColor: '#F0D89A',
         shadowOffset: { width: 0, height: 0 },
         shadowOpacity: 0.6,
         shadowRadius: 12,
