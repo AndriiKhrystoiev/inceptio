@@ -1,0 +1,211 @@
+{
+  "info": {
+    "name": "Inceptio — API Verification",
+    "description": "Pre-sprint verification of astrology-api.io v3 electional endpoint.\n\nRun requests in order, save responses, fill out the summary template from inceptio-postman-verification.md.\n\nRequires environment variables:\n- BASE_URL: https://api.astrology-api.io/api/v3\n- API_KEY: your API key from astrology-api.io dashboard",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Health check",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-API-Key", "value": "{{API_KEY}}" }
+        ],
+        "url": {
+          "raw": "{{BASE_URL}}/health",
+          "host": ["{{BASE_URL}}"],
+          "path": ["health"]
+        },
+        "description": "Optional smoke test. Skip if returns 404 — not all APIs have a health endpoint."
+      }
+    },
+    {
+      "name": "1. Main search — heatmap + factors + moon phase + excluded ranges",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{API_KEY}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activity\": \"wedding\",\n  \"date_range\": {\n    \"start_date\": { \"year\": 2026, \"month\": 6, \"day\": 1 },\n    \"end_date\": { \"year\": 2026, \"month\": 6, \"day\": 30 }\n  },\n  \"location\": {\n    \"year\": 2026,\n    \"month\": 6,\n    \"day\": 1,\n    \"hour\": 12,\n    \"minute\": 0,\n    \"city\": \"Kyiv\",\n    \"country_code\": \"UA\"\n  },\n  \"top_n_windows\": 5\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/electional/search",
+          "host": ["{{BASE_URL}}"],
+          "path": ["electional", "search"]
+        },
+        "description": "ANSWERS QUESTIONS 1, 2, 3, AND 6 in one call.\n\nQ1: Search response for top-level 'heatmap' key.\nQ2: Inside windows[], look for 'factors' array with name/weight/direction.\nQ3: Search for 'moon_phase' or similar anywhere.\nQ6: Search for 'excluded_ranges' or similar.\n\nSave the full response as a file — we'll use it for Zod schemas later."
+      }
+    },
+    {
+      "name": "4a. Latency — short range (7 days, 1 window)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{API_KEY}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activity\": \"contracts\",\n  \"date_range\": {\n    \"start_date\": { \"year\": 2026, \"month\": 5, \"day\": 25 },\n    \"end_date\": { \"year\": 2026, \"month\": 6, \"day\": 1 }\n  },\n  \"location\": {\n    \"year\": 2026, \"month\": 5, \"day\": 25, \"hour\": 12, \"minute\": 0,\n    \"city\": \"Kyiv\", \"country_code\": \"UA\"\n  },\n  \"top_n_windows\": 1\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/electional/search",
+          "host": ["{{BASE_URL}}"],
+          "path": ["electional", "search"]
+        },
+        "description": "Record latency in ms (bottom-right of Postman response panel)."
+      }
+    },
+    {
+      "name": "4c. Latency — long range (6 months, 10 windows) — COLD",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{API_KEY}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activity\": \"wedding\",\n  \"date_range\": {\n    \"start_date\": { \"year\": 2026, \"month\": 6, \"day\": 1 },\n    \"end_date\": { \"year\": 2026, \"month\": 12, \"day\": 1 }\n  },\n  \"location\": {\n    \"year\": 2026, \"month\": 6, \"day\": 1, \"hour\": 12, \"minute\": 0,\n    \"city\": \"Kyiv\", \"country_code\": \"UA\"\n  },\n  \"top_n_windows\": 10\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/electional/search",
+          "host": ["{{BASE_URL}}"],
+          "path": ["electional", "search"]
+        },
+        "description": "Worst-case latency test. Record ms. Then immediately re-run (4d below) to test cache."
+      }
+    },
+    {
+      "name": "4d. Latency — long range — CACHED (run immediately after 4c)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{API_KEY}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activity\": \"wedding\",\n  \"date_range\": {\n    \"start_date\": { \"year\": 2026, \"month\": 6, \"day\": 1 },\n    \"end_date\": { \"year\": 2026, \"month\": 12, \"day\": 1 }\n  },\n  \"location\": {\n    \"year\": 2026, \"month\": 6, \"day\": 1, \"hour\": 12, \"minute\": 0,\n    \"city\": \"Kyiv\", \"country_code\": \"UA\"\n  },\n  \"top_n_windows\": 10\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/electional/search",
+          "host": ["{{BASE_URL}}"],
+          "path": ["electional", "search"]
+        },
+        "description": "Same body as 4c. If API uses Redis cache (claimed 430x speedup), should be much faster."
+      }
+    },
+    {
+      "name": "7a. Activity test — wedding",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{API_KEY}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activity\": \"wedding\",\n  \"date_range\": {\n    \"start_date\": { \"year\": 2026, \"month\": 6, \"day\": 1 },\n    \"end_date\": { \"year\": 2026, \"month\": 6, \"day\": 7 }\n  },\n  \"location\": {\n    \"year\": 2026, \"month\": 6, \"day\": 1, \"hour\": 12, \"minute\": 0,\n    \"city\": \"Kyiv\", \"country_code\": \"UA\"\n  },\n  \"top_n_windows\": 1\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/electional/search",
+          "host": ["{{BASE_URL}}"],
+          "path": ["electional", "search"]
+        },
+        "description": "Check status code. 200 = activity accepted. 400 = wrong activity name."
+      }
+    },
+    {
+      "name": "7b. Activity test — contracts",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{API_KEY}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activity\": \"contracts\",\n  \"date_range\": {\n    \"start_date\": { \"year\": 2026, \"month\": 6, \"day\": 1 },\n    \"end_date\": { \"year\": 2026, \"month\": 6, \"day\": 7 }\n  },\n  \"location\": {\n    \"year\": 2026, \"month\": 6, \"day\": 1, \"hour\": 12, \"minute\": 0,\n    \"city\": \"Kyiv\", \"country_code\": \"UA\"\n  },\n  \"top_n_windows\": 1\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/electional/search",
+          "host": ["{{BASE_URL}}"],
+          "path": ["electional", "search"]
+        },
+        "description": "If 400, try 'contract' (singular) or 'legal'."
+      }
+    },
+    {
+      "name": "7c. Activity test — business_launch",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{API_KEY}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activity\": \"business_launch\",\n  \"date_range\": {\n    \"start_date\": { \"year\": 2026, \"month\": 6, \"day\": 1 },\n    \"end_date\": { \"year\": 2026, \"month\": 6, \"day\": 7 }\n  },\n  \"location\": {\n    \"year\": 2026, \"month\": 6, \"day\": 1, \"hour\": 12, \"minute\": 0,\n    \"city\": \"Kyiv\", \"country_code\": \"UA\"\n  },\n  \"top_n_windows\": 1\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/electional/search",
+          "host": ["{{BASE_URL}}"],
+          "path": ["electional", "search"]
+        },
+        "description": "If 400, try 'business' or 'launch'."
+      }
+    },
+    {
+      "name": "7d. Activity test — travel",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "X-API-Key", "value": "{{API_KEY}}" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"activity\": \"travel\",\n  \"date_range\": {\n    \"start_date\": { \"year\": 2026, \"month\": 6, \"day\": 1 },\n    \"end_date\": { \"year\": 2026, \"month\": 6, \"day\": 7 }\n  },\n  \"location\": {\n    \"year\": 2026, \"month\": 6, \"day\": 1, \"hour\": 12, \"minute\": 0,\n    \"city\": \"Kyiv\", \"country_code\": \"UA\"\n  },\n  \"top_n_windows\": 1\n}"
+        },
+        "url": {
+          "raw": "{{BASE_URL}}/electional/search",
+          "host": ["{{BASE_URL}}"],
+          "path": ["electional", "search"]
+        },
+        "description": "If 400, try 'travel_relocation' or 'relocation'."
+      }
+    },
+    {
+      "name": "8. Activities glossary (bonus — discover all supported activities)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "X-API-Key", "value": "{{API_KEY}}" }
+        ],
+        "url": {
+          "raw": "{{BASE_URL}}/electional/glossary/activities",
+          "host": ["{{BASE_URL}}"],
+          "path": ["electional", "glossary", "activities"]
+        },
+        "description": "If this endpoint exists, it returns the full list of supported activities with synonyms. Useful for the activity picker autocomplete in future versions."
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "https://api.astrology-api.io/api/v3",
+      "type": "string"
+    },
+    {
+      "key": "API_KEY",
+      "value": "REPLACE_WITH_YOUR_KEY",
+      "type": "string"
+    }
+  ]
+}
