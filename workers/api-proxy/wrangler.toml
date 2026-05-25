@@ -1,0 +1,24 @@
+name = "inceptio-api-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-05-25"
+compatibility_flags = ["nodejs_compat"]
+
+# KV namespace for cache + rate-limit.
+# Create with:
+#   wrangler kv namespace create CACHE
+#   wrangler kv namespace create CACHE --preview
+# Then paste the returned ids below.
+[[kv_namespaces]]
+binding = "CACHE"
+id = "REPLACE_WITH_PRODUCTION_KV_ID"
+preview_id = "REPLACE_WITH_PREVIEW_KV_ID"
+
+[vars]
+UPSTREAM_BASE_URL = "https://api.astrology-api.io/api/v3"
+WORKER_VERSION = "0.0.1"
+
+# Secrets (set via `wrangler secret put`, never in this file):
+#   ASTROLOGY_API_KEY — the upstream API key (production "From my backend only" mode).
+
+[observability]
+enabled = true

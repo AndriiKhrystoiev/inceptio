@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Inceptio",
+    "slug": "inceptio",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0F0A1F",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "io.inceptio.app"
+    },
+    "android": {
+      "package": "io.inceptio.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#0F0A1F"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": ["expo-font"]
+  }
+}

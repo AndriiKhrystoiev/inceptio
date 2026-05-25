@@ -1,0 +1,6 @@
+# Local dev secrets. Copy to .dev.vars (gitignored) and fill in.
+# Production secrets are managed via `wrangler secret put`.
+
+# astrology-api.io API key. The dev-mode key (inceptio-dev-postman) is
+# "From anywhere"; production uses a separate "From my backend only" key.
+ASTROLOGY_API_KEY=your-dev-key-here
