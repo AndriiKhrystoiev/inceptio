@@ -22,7 +22,7 @@ The MVP supports four activities: **wedding, contracts, business_launch, travel*
 - **Activity** — the kind of event the user wants to choose a moment for (wedding, contracts, etc.). Maps directly to API's `activity` parameter.
 - **Window** — a continuous span of time when the sky favors the activity. Returned by the API in `top_windows[]`. Can be as short as 1 minute or as long as several hours.
 - **Score** — 0–100 numeric quality measure for a window. Higher is better.
-- **Grade** — categorical label derived from score: `poor`, `caution`, `fair`. The API also reserves `strong` and `exceptional` for higher tiers but these are very rare in real data.
+- **Grade** — categorical label derived from score: `poor`, `caution`, `fair`, `good`. The API also reserves `strong` and `exceptional` for higher tiers but these are very rare in real data. (`good` was added by the upstream API mid-2026 — sits between `fair` and `strong`; downstream code currently treats it the same as `fair`.)
 - **Moment** — the user-facing word for a specific recommended time. A moment may be a window or a single instant. The Moments tab is where saved ones live.
 - **Heatmap** — per-day summary array showing the best score available each day in the search range, plus blocked-day reasons.
 - **Excluded range** — a span of time the API explicitly removed from consideration (e.g. moon void of course, mercury retrograde). Comes with a `label` already in friendly-ish English.
@@ -139,6 +139,8 @@ The astrology-api.io response uses technical `factor_id`s like `venus_dignified_
 
 The Cloudflare Worker post-processes API responses into a `displayable` field structure that the mobile app reads. The mobile app **never sees raw factor IDs** in production.
 
+**Schema policy: permissive enums + logged fallbacks.** Three enum surfaces — `factor_id`, `reason_id`, `grade` — are validated with `z.string()` rather than `z.enum([...])`. The canonical known-values list lives in `@inceptio/shared-types` as `KNOWN_FACTOR_IDS`, `KNOWN_REASON_IDS`, `KNOWN_GRADES`. The translation layer (`workers/api-proxy/src/translations/translate.ts`) does a dictionary lookup keyed by the known list; on a miss it returns a neutral fallback phrasing and logs `[translate] unknown <field> from upstream:` via `console.warn`. This avoids a class of 502 outages we hit repeatedly mid-2026 when astrology-api.io added new enum values without notice (`good` grade, then `mercury_combust`, `mars_retrograde`, `jupiter_retrograde` reasons in the same week). When a new id appears in Worker logs: add it to the relevant `KNOWN_*` array AND the translation dictionary, in the same PR.
+
 **Verified factor IDs** (from real API responses across wedding, contracts, business_launch, travel):
 
 - `venus_dignified_direct_well_aspected`
@@ -168,7 +170,10 @@ That's 15 unique factor IDs covering all 4 MVP activities. The translation layer
 
 - `moon_voc` → API says "Moon void of course — the matter comes to nothing." → Inceptio: "The Moon is between signs — efforts begun now don't take root the way they do on other days."
 - `mercury_retrograde` → "Mercury is sleeping — communication needs extra care this week."
+- `mercury_combust` → "Mercury is hidden by the Sun's light — words don't carry far this stretch." *(added mid-2026 by upstream; draft phrasing pending astrologer review — Mercury within ~8° of the Sun, distinct from retrograde)*
 - `venus_retrograde` → "Venus is resting — not a season for new commitments."
+- `mars_retrograde` → "Mars is hesitating — bold moves don't carry the same force right now." *(added mid-2026 by upstream; draft phrasing pending astrologer review)*
+- `jupiter_retrograde` → "Jupiter is turning inward — growth needs patience this stretch." *(added mid-2026 by upstream; draft phrasing pending astrologer review)*
 - `saturn_retrograde` → "Saturn is turning inward — foundations need patience."
 - `eclipse_window` → "An eclipse window — the sky asks for stillness, not new beginnings."
 - `moon_via_combusta` → "The Moon walks the via combusta — a charged stretch worth waiting out."
@@ -214,6 +219,14 @@ Each API search costs **5 credits**. The Worker enforces:
 - Health check responses are not counted (they cost 1 credit but we don't expose them to users)
 - Glossary is cached aggressively (it costs 0 credits but rarely changes)
 
+**Environment-aware rate-limit ceilings** (Worker → `src/rate-limit.ts` `LIMITS` table):
+
+- **Production limit: 10 / 30 days** — set via `wrangler.toml` `[env.production.vars]` `ENV = "production"`
+- **Development limit: 1000 / 30 days** — automatically applied when running `wrangler dev` locally (`ENV = "development"` in top-level `[vars]`)
+- Deploy with `wrangler deploy --env production` to use production limits
+- Do NOT remove the dev-vs-prod distinction — local dev would block after 10 searches otherwise, stalling mobile work
+- Unknown / missing `ENV` falls back to the production ceiling (fail-safe, not fail-permissive)
+
 ---
 
 ## Real API behavior — what we verified
@@ -230,7 +243,7 @@ In real Kyiv data across 7 queries (wedding/contracts/business_launch/travel, ra
 |---|---|---|
 | 90–100 | Exceptional | Celebrate — very rare |
 | 75–89 | Strong | Excellent find |
-| 60–74 | Fair / Good | Realistic "good day" — design's win-state |
+| 60–74 | Fair / Good | Realistic "good day" — design's win-state. API now emits two distinct labels (`fair`, `good`) in this band; both treated as positives in downstream UI. |
 | 40–59 | Caution | Fallback with caveats |
 | 0–39 | Poor | Not recommended |
 
@@ -386,6 +399,7 @@ Invoke them with the standard `@react-developer`, `@code-reviewer`, `@test-engin
 - **Surgery deferred to v1.4:** App Store medical-content risk.
 - **v2 → v2.1 recalibration:** real API data showed scores rarely exceed 72; "no viable" is common; windows often 1 minute long; cold latency hits 42s. Design recalibrated to make `fair` the win-state, add no-viable screen (03b), make Calendar handle blocked-cell dominance, and make loading progressive.
 - **Paywall hidden in MVP (current decision):** stakeholder requested hiding payment UI. Infrastructure (RevenueCat, search counter, screen scaffolding) stays in codebase behind `PAYWALL_ENABLED=false` feature flag. Return timeline not specified.
+- **Permissive enums for upstream-derived fields (post-`good`/`mercury_combust`/etc. drift):** `factor_id`, `reason_id`, `grade` schemas are `z.string()`, not `z.enum([...])`. Known values live in `KNOWN_FACTOR_IDS`/`KNOWN_REASON_IDS`/`KNOWN_GRADES`. Translation falls back to a neutral phrase + `console.warn` on unknowns. Rationale: upstream repeatedly added enum values without notice, causing 502s on every change. Defensive permissive parse trades narrower compile-time types for runtime resilience. See "Translation layer" section for the policy in full.
 
 ---
 

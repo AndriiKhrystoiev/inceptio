@@ -1,7 +1,7 @@
 import {
+  ApiEnvelope,
+  ApiEnvelopeSchema,
   ElectionalSearchRequest,
-  ElectionalSearchResponse,
-  ElectionalSearchResponseSchema,
 } from '@inceptio/shared-types';
 import type { Env } from './env';
 
@@ -64,7 +64,7 @@ function parseDateParts(s: string): { year: number; month: number; day: number }
 export async function callUpstream(
   env: Env,
   req: ElectionalSearchRequest,
-): Promise<ElectionalSearchResponse> {
+): Promise<ApiEnvelope> {
   const url = `${env.UPSTREAM_BASE_URL}/electional/search`;
   const body = toUpstreamBody(req);
 
@@ -100,14 +100,10 @@ export async function callUpstream(
   }
 
   const json = await res.json();
-  const parsed = ElectionalSearchResponseSchema.safeParse(json);
-  if (!parsed.success) {
-    throw new UpstreamError(
-      `upstream response failed schema validation: ${parsed.error.message}`,
-      502,
-    );
-  }
-  return parsed.data;
+  // Throw the raw ZodError on schema mismatch; the search route's catch block
+  // logs `error.issues` for line-by-line diagnostics. Wrapping it in
+  // UpstreamError would hide the structured issues.
+  return ApiEnvelopeSchema.parse(json);
 }
 
 export async function probeUpstreamHealth(env: Env): Promise<boolean> {

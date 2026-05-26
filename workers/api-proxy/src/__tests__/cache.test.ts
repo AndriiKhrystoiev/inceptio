@@ -61,8 +61,9 @@ describe('computeCacheKey', () => {
     expect(k2).not.toBe(k3);
   });
 
-  it('produces a prefixed sha256 hex key', async () => {
+  it('produces a versioned, prefixed sha256 hex key', async () => {
     const k = await computeCacheKey(baseRequest);
-    expect(k).toMatch(/^search:v1:[0-9a-f]{64}$/);
+    // search:v1:t{TRANSLATIONS_VERSION}:{sha256}
+    expect(k).toMatch(/^search:v1:t\d+:[0-9a-f]{64}$/);
   });
 });

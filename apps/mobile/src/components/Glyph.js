@@ -52,22 +52,36 @@ export default function Glyph({ name, size = 18, color = '#B8B0CC' }) {
 }
 
 // Reason → glyph name. The calendar reasons map onto Glyph variants
-// (moon_voc and moon_via_combusta both use 'moon-void', etc.).
+// (moon_voc and moon_via_combusta both use 'moon-void', etc.). Unknown
+// reasons fall through to 'moon-void' — the schema is permissive, see
+// KNOWN_REASON_IDS in @inceptio/shared-types.
 export function reasonToGlyph(reason) {
   if (reason === 'moon_voc' || reason === 'moon_via_combusta') return 'moon-void';
-  if (reason === 'mercury_retrograde' || reason === 'venus_retrograde' || reason === 'saturn_retrograde') return 'retrograde';
+  if (
+    reason === 'mercury_retrograde' ||
+    reason === 'venus_retrograde' ||
+    reason === 'mars_retrograde' ||
+    reason === 'jupiter_retrograde' ||
+    reason === 'saturn_retrograde' ||
+    reason === 'mercury_combust'
+  ) return 'retrograde';
   if (reason === 'eclipse_window')      return 'eclipse';
   if (reason === 'fixed_star_on_angle') return 'fixed-star';
   if (reason === 'malefic_on_angle')    return 'malefic-angle';
   return 'moon-void';
 }
 
-// Friendly copy for the blocked-day bottom sheet.
+// Friendly copy for the blocked-day bottom sheet. New entries should track
+// KNOWN_REASON_IDS in @inceptio/shared-types. An unknown reason key returns
+// undefined here; CalendarScreen's `|| { title, body }` fallback covers it.
 export const FRIENDLY_REASON = {
   moon_voc:            { title: 'The Moon is between signs',       body: 'Decisions started now tend to drift. Wait until the Moon enters its next sign.' },
   moon_via_combusta:   { title: 'The Moon is in a tender stretch', body: 'A traditionally fragile path of sky. Better to let this day pass.' },
   mercury_retrograde:  { title: 'Mercury is sleeping',              body: 'Words and agreements made now often need to be revisited. Be patient.' },
+  mercury_combust:     { title: 'Mercury is hidden by the Sun',     body: "Words don't carry far this stretch. Hold the important conversations." },
   venus_retrograde:    { title: 'Venus is resting',                 body: 'A poor day for vows or affection-bound commitments.' },
+  mars_retrograde:     { title: 'Mars is hesitating',               body: "Bold moves don't carry the same force right now. Pause initiatives." },
+  jupiter_retrograde:  { title: 'Jupiter turns inward',             body: 'Growth needs patience this stretch. Plan, then expand later.' },
   saturn_retrograde:   { title: 'Saturn looks inward',              body: 'Structure is unstable. Avoid foundations laid today.' },
   eclipse_window:      { title: 'Inside an eclipse window',         body: 'The sky is volatile for two weeks around an eclipse. Pause begins now.' },
   fixed_star_on_angle: { title: 'A fixed star sits on an angle',    body: 'A piercing influence rises today. Better to wait it out.' },

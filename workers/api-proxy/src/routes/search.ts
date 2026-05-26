@@ -1,8 +1,10 @@
+import { z } from 'zod';
 import { ElectionalSearchRequestSchema } from '@inceptio/shared-types';
 import type { Env } from '../env';
 import { computeCacheKey, readCache, writeCache } from '../cache';
 import { checkAndIncrement } from '../rate-limit';
 import { callUpstream, UpstreamError } from '../upstream';
+import { translate } from '../translations';
 
 export async function handleSearch(
   req: Request,
@@ -38,7 +40,7 @@ export async function handleSearch(
   }
   const searchRequest = parsed.data;
 
-  const rl = await checkAndIncrement(env.CACHE, deviceId);
+  const rl = await checkAndIncrement(env, deviceId);
   if (!rl.allowed) {
     return Response.json(
       {
@@ -74,8 +76,12 @@ export async function handleSearch(
 
   try {
     const upstream = await callUpstream(env, searchRequest);
-    await writeCache(env.CACHE, cacheKey, upstream);
-    return Response.json(upstream, {
+    const translated = translate(upstream, searchRequest.activity);
+    // Cache the translated response. Cache key is already versioned by
+    // TRANSLATIONS_VERSION (see cache.ts), so dictionary updates invalidate
+    // stale entries naturally.
+    await writeCache(env.CACHE, cacheKey, translated);
+    return Response.json(translated, {
       headers: {
         'X-Cache': 'MISS',
         'X-RateLimit-Limit': String(rl.limit),
@@ -83,11 +89,46 @@ export async function handleSearch(
       },
     });
   } catch (err) {
-    if (err instanceof UpstreamError) {
+    // ZodError thrown from inside callUpstream() means upstream response did
+    // not match our schema. Log issues in full so we can see exactly which
+    // fields the API returned that we did not anticipate.
+    if (err instanceof z.ZodError) {
+      console.error('[search] upstream response failed schema validation');
+      console.error('[search] zod issues:', JSON.stringify(err.issues, null, 2));
       return Response.json(
-        { error: 'upstream_error', message: err.message, status: err.status },
+        {
+          error: 'upstream_schema_mismatch',
+          message: 'upstream response did not match expected schema',
+          issues: err.issues,
+        },
+        { status: 502 },
+      );
+    }
+    if (err instanceof UpstreamError) {
+      console.error('[search] upstream error:', err.status, err.message);
+      // For 4xx, forward the upstream's structured error body so the mobile
+      // app can show a specific message (e.g. INVALID_DATE_RANGE) instead of
+      // a generic 'Something went wrong'. The upstream body is JSON shaped as
+      // `{ detail: { success: false, error: { error_code, message, ... }}}`.
+      let upstreamPayload: unknown;
+      if (err.upstreamBody) {
+        try { upstreamPayload = JSON.parse(err.upstreamBody); } catch { /* keep undefined */ }
+      }
+      return Response.json(
+        {
+          error: 'upstream_error',
+          message: err.message,
+          status: err.status,
+          upstream: upstreamPayload,
+        },
         { status: err.status >= 500 ? 502 : err.status },
       );
+    }
+    // Unknown error — most likely a bug in translate() or cache write. Log
+    // the full error so the wrangler dev console shows the stack.
+    console.error('[search] unexpected error:', err);
+    if (err instanceof Error && err.stack) {
+      console.error('[search] stack:', err.stack);
     }
     return Response.json(
       {

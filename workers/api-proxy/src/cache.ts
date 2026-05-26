@@ -1,7 +1,11 @@
 import type { ElectionalSearchRequest } from '@inceptio/shared-types';
 import { CACHE_TTL_SECONDS } from './env';
+import { TRANSLATIONS_VERSION } from './translations';
 
-const CACHE_PREFIX = 'search:v1:';
+// Cache key format: `search:v1:t{TRANSLATIONS_VERSION}:{sha256(canonical request)}`.
+// Bumping TRANSLATIONS_VERSION on any dictionary/synthesizer change naturally
+// invalidates the prior cache entries.
+const CACHE_PREFIX = `search:v1:t${TRANSLATIONS_VERSION}:`;
 
 // Stable JSON: keys sorted alphabetically at every depth. Two requests with the
 // same fields in different declaration order produce the same cache key.

@@ -13,7 +13,18 @@ binding = "CACHE"
 id = "REPLACE_WITH_PRODUCTION_KV_ID"
 preview_id = "REPLACE_WITH_PREVIEW_KV_ID"
 
+# Default vars apply to `wrangler dev` (local development).
+# Production overrides live under [env.production.vars].
 [vars]
+ENV = "development"
+UPSTREAM_BASE_URL = "https://api.astrology-api.io/api/v3"
+WORKER_VERSION = "0.0.1"
+
+# Production environment — selected via `wrangler deploy --env production`.
+# A wrangler [env.*] block does NOT inherit top-level [vars], so we mirror
+# the full set here and flip ENV to "production".
+[env.production.vars]
+ENV = "production"
 UPSTREAM_BASE_URL = "https://api.astrology-api.io/api/v3"
 WORKER_VERSION = "0.0.1"
 

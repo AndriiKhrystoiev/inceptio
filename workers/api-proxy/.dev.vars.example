@@ -1,5 +1,8 @@
 # Local dev secrets. Copy to .dev.vars (gitignored) and fill in.
 # Production secrets are managed via `wrangler secret put`.
+#
+# Non-secret config (ENV, UPSTREAM_BASE_URL, WORKER_VERSION) is set in
+# wrangler.toml under [vars] / [env.production.vars] — not here.
 
 # astrology-api.io API key. The dev-mode key (inceptio-dev-postman) is
 # "From anywhere"; production uses a separate "From my backend only" key.

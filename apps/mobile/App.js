@@ -5,16 +5,19 @@
 
 import './global.css';
 import 'react-native-gesture-handler';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { useFonts as useFraunces, Fraunces_400Regular, Fraunces_500Medium, Fraunces_600SemiBold } from '@expo-google-fonts/fraunces';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 
 import { colors } from './src/theme';
+import { queryClient } from './src/lib/query-client';
+import { hydrateStorage } from './src/lib/storage';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import TodayScreen from './src/screens/TodayScreen';
 import ActivityPickerScreen from './src/screens/ActivityPickerScreen';
@@ -64,6 +67,14 @@ export default function App() {
 
   const [screen, setScreen] = useState('onboarding');
   const [tab, setTab]       = useState('today');
+  const [storageReady, setStorageReady] = useState(false);
+
+  // Hydrate the AsyncStorage → in-memory cache once, before any screen reads.
+  // Synchronous storage.getString() calls inside hooks return undefined until
+  // this completes, which is fine for the splash window but not for actual UI.
+  useEffect(() => {
+    hydrateStorage().then(() => setStorageReady(true));
+  }, []);
 
   const go = useCallback((id) => {
     setScreen(id);
@@ -78,10 +89,10 @@ export default function App() {
   }, [go]);
 
   const onLayoutRoot = useCallback(async () => {
-    if (fontsLoaded) await SplashScreen.hideAsync();
-  }, [fontsLoaded]);
+    if (fontsLoaded && storageReady) await SplashScreen.hideAsync();
+  }, [fontsLoaded, storageReady]);
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded || !storageReady) {
     return (
       <View style={styles.boot}>
         <ActivityIndicator color={colors.primaryGlow}/>
@@ -93,15 +104,17 @@ export default function App() {
   const showTabBar = !MODAL_SCREENS.has(screen);
 
   return (
-    <SafeAreaProvider>
-      <View style={styles.root} onLayout={onLayoutRoot}>
-        <StatusBar style="light"/>
-        <View style={styles.content}>
-          <Screen go={go}/>
+    <QueryClientProvider client={queryClient}>
+      <SafeAreaProvider>
+        <View style={styles.root} onLayout={onLayoutRoot}>
+          <StatusBar style="light"/>
+          <View style={styles.content}>
+            <Screen go={go}/>
+          </View>
+          {showTabBar && <TabBar active={tab} onChange={handleTab}/>}
         </View>
-        {showTabBar && <TabBar active={tab} onChange={handleTab}/>}
-      </View>
-    </SafeAreaProvider>
+      </SafeAreaProvider>
+    </QueryClientProvider>
   );
 }
 

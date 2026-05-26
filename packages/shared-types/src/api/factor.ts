@@ -1,9 +1,14 @@
 import { z } from 'zod';
 
-// The 15 factor IDs verified against real astrology-api.io v3 responses
-// across the four MVP activities (wedding, contracts, business_launch, travel).
-// Source: CLAUDE.md → "Verified factor IDs".
-export const FactorIdSchema = z.enum([
+// Canonical list of factor IDs we know how to translate. The schema below is
+// intentionally permissive (z.string()) so the response never fails to parse
+// when upstream adds a new factor — translation falls back to a generic
+// phrasing and logs the unknown id. Add new IDs here once their friendly
+// phrasing is authored in workers/api-proxy/src/translations/dictionary/.
+//
+// Source: CLAUDE.md → "Verified factor IDs" (15 IDs across the four MVP
+// activities: wedding, contracts, business_launch, travel).
+export const KNOWN_FACTOR_IDS = [
   'venus_dignified_direct_well_aspected',
   'moon_waxing_increasing_light',
   'moon_applying_to_benefic',
@@ -19,26 +24,43 @@ export const FactorIdSchema = z.enum([
   'no_malefic_on_angle',
   'part_of_fortune_in_good_house',
   'moon_and_asc_ruler_in_good_aspect',
-]);
-export type FactorId = z.infer<typeof FactorIdSchema>;
+] as const;
+export type FactorId = (typeof KNOWN_FACTOR_IDS)[number];
 
-// Per CLAUDE.md, weight_class varies per activity (high vs critical observed for
-// moon_applying_to_benefic between wedding/contracts). Until we see lower tiers
-// in the wild, schema accepts the full plausible scale.
+// Permissive on purpose — see KNOWN_FACTOR_IDS comment.
+export const FactorIdSchema = z.string().min(1);
+
 export const WeightClassSchema = z.enum(['low', 'medium', 'high', 'critical']);
 export type WeightClass = z.infer<typeof WeightClassSchema>;
 
-// status drives the translation layer's polarity-aware phrasing
-// (see CLAUDE.md → translation-layer factor entries: polarity_aware).
 export const FactorStatusSchema = z.enum(['pass', 'partial', 'fail']);
 export type FactorStatus = z.infer<typeof FactorStatusSchema>;
 
+// `details` shape varies per factor_id and is NULL when the upstream couldn't
+// produce a structured payload (e.g. `moon_applying_to_benefic` returns null
+// when no aspect was found in the window). Kept as unknown nullable in v1.
+// When the L2 narrative needs finer detail, we'll switch to a discriminated
+// union keyed by factor_id.
+export const FactorDetailsSchema = z.unknown().nullable();
+export type FactorDetails = z.infer<typeof FactorDetailsSchema>;
+
+// .passthrough() — the upstream is allowed to add fields without breaking us.
+// We intentionally do NOT use .strict() here; doing so caused the first real
+// call to fail because the API returned newer fields we hadn't anticipated.
 export const FactorSchema = z
   .object({
     factor_id: FactorIdSchema,
+    category: z.string(), // e.g. "electional"
+    observation: z.string(),
+    // Numeric score component this factor contributed to the window total.
+    // Real observed values: 15.58, 14.94, 12.31, etc. Used by the translation
+    // layer as the secondary sort for headline selection (after weight_class).
+    contribution: z.number(),
     weight_class: WeightClassSchema,
     status: FactorStatusSchema,
-    observation: z.string(),
+    score: z.number(),
+    rationale_short: z.string(),
+    details: FactorDetailsSchema,
   })
-  .strict();
+  .passthrough();
 export type Factor = z.infer<typeof FactorSchema>;
