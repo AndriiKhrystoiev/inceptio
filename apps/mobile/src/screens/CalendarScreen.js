@@ -1,6 +1,13 @@
-// 03 Calendar — heatmap with three cell states + bottom sheet.
-// Data source: useElectionalSearch() with today → today+30 days range,
-// built from draft store (last activity + last location, with Kyiv fallback).
+// 03 Calendar — true monthly heatmap with three cell states + bottom sheet.
+//
+// User holds a `viewMonth` ({year, month}); the grid renders all 28-31 days
+// of that month with leading-padding cells to align day 1 under its weekday.
+// Past days (date < today) render dimmed and non-interactive. The API fetch
+// covers from max(today, firstOfMonth) → lastOfMonth, because astrology-api
+// doesn't search past dates.
+//
+// Month chevrons mutate viewMonth. The back arrow is disabled at the current
+// month — there's no useful data behind it.
 
 import React, { useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Modal } from 'react-native';
@@ -17,9 +24,8 @@ import { useElectionalSearch } from '../hooks/useElectionalSearch';
 import { getLastActivity, getLastLocation } from '../lib/draft-store';
 import { locationToRequestFields } from '../lib/location-storage';
 import { friendlyMessage } from '../lib/error-messages';
-import { setWindowIndex } from '../lib/nav-params';
+import { setSelectedWindow } from '../lib/nav-params';
 
-// Kyiv fallback mirrors the constant in useTodayMoment.
 const FALLBACK_LOCATION = {
   lat: 50.4501,
   lng: 30.5234,
@@ -29,6 +35,9 @@ const FALLBACK_LOCATION = {
 
 const DAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
+const FMT_MONTH_YEAR = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
+const FMT_MON_DAY    = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+
 function isoDate(d) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -36,24 +45,68 @@ function isoDate(d) {
   return `${y}-${m}-${day}`;
 }
 
-function buildRequest() {
-  const now = new Date();
-  const today = isoDate(now);
-  const endMs = now.getTime() + 30 * 24 * 60 * 60 * 1000;
-  const endDate = isoDate(new Date(endMs));
+// month is 1-indexed. Day 0 of next month = last day of current.
+function lastDayOfMonth(year, month) {
+  return new Date(year, month, 0).getDate();
+}
 
-  const loc = getLastLocation() ?? FALLBACK_LOCATION;
-  const activity = getLastActivity() ?? 'wedding';
-
-  return { activity, start: today, end: endDate, ...locationToRequestFields(loc) };
+// JS getDay() is 0=Sun..6=Sat; we want 0=Mon..6=Sun.
+function weekdayMondayFirst(date) {
+  return (date.getDay() + 6) % 7;
 }
 
 export default function CalendarScreen({ go }) {
   const [sheet, setSheet] = useState(null);
 
-  // Build request once on mount — date range doesn't change during the session
-  const request = useMemo(() => buildRequest(), []);
-  const { data: result, isLoading, isError, error, refetch } = useElectionalSearch(request);
+  // Anchor "today" once on mount so day boundaries don't shift mid-session.
+  const today = useMemo(() => new Date(), []);
+  const todayYMD = useMemo(
+    () => ({
+      year: today.getFullYear(),
+      month: today.getMonth() + 1,
+      day: today.getDate(),
+    }),
+    [today],
+  );
+
+  const [viewMonth, setViewMonth] = useState({
+    year: todayYMD.year,
+    month: todayYMD.month,
+  });
+
+  // Past / current / future relative to today's month.
+  const monthRelation = useMemo(() => {
+    const a = viewMonth.year * 12 + viewMonth.month;
+    const b = todayYMD.year * 12 + todayYMD.month;
+    if (a < b) return 'past';
+    if (a > b) return 'future';
+    return 'current';
+  }, [viewMonth, todayYMD]);
+
+  // Past months get no API call — they're all dimmed days, nothing to query.
+  // Current month: start from today (API rejects past dates). Future month:
+  // start from day 1.
+  const request = useMemo(() => {
+    if (monthRelation === 'past') return null;
+    const lastDayNum = lastDayOfMonth(viewMonth.year, viewMonth.month);
+    const startDayNum = monthRelation === 'current' ? todayYMD.day : 1;
+    const startDate = new Date(viewMonth.year, viewMonth.month - 1, startDayNum);
+    const endDate = new Date(viewMonth.year, viewMonth.month - 1, lastDayNum);
+
+    const loc = getLastLocation() ?? FALLBACK_LOCATION;
+    const activity = getLastActivity() ?? 'wedding';
+    return {
+      activity,
+      start: isoDate(startDate),
+      end: isoDate(endDate),
+      ...locationToRequestFields(loc),
+    };
+  }, [viewMonth, monthRelation, todayYMD.day]);
+
+  // useElectionalSearch is auto-disabled when fields are missing; passing {} for
+  // past months keeps the query inert (no fetch, no error).
+  const { data: result, isLoading, isError, error, refetch } =
+    useElectionalSearch(request ?? {});
 
   const envelope = result?.envelope;
   const heatmap = envelope?.data?.heatmap ?? [];
@@ -61,40 +114,78 @@ export default function CalendarScreen({ go }) {
   const summary = envelope?.data?.summary;
   const noViable = summary?.no_viable_windows ?? false;
 
+  // Header copy depends on the visible month's API data
   const viableCount = heatmap.filter((d) => !d.blocked && d.viable_count > 0).length;
+  const headerCopy =
+    monthRelation === 'past'
+      ? 'A month in the past — for context only.'
+      : noViable
+      ? 'No viable windows in this month. The closest moments still exist — see below.'
+      : viableCount < 5
+      ? `Just ${viableCount} viable window${viableCount === 1 ? '' : 's'} this month — they're worth attention.`
+      : `${viableCount} viable windows this month`;
 
-  const headerCopy = noViable
-    ? 'No viable windows in this range. The closest moments still exist — see below.'
-    : viableCount < 5
-    ? `Just ${viableCount} viable window${viableCount === 1 ? '' : 's'} in your range — they're worth attention.`
-    : `${viableCount} viable windows in your range`;
+  const activityLabel = (getLastActivity() ?? 'wedding').replace('_', ' ');
+  const cityLabel = (getLastLocation() ?? FALLBACK_LOCATION).city;
 
-  const activityLabel = request.activity.replace('_', ' ');
-  const cityLabel = request.city;
-
-  const FMT_MONTH_YEAR = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
-  const FMT_MON_DAY    = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
-
-  // Build month label from first heatmap entry
-  const monthLabel = useMemo(() => {
-    if (heatmap.length === 0) return FMT_MONTH_YEAR.format(new Date());
-    const first = heatmap[0].date;
-    return FMT_MONTH_YEAR.format(new Date(first.year, first.month - 1, first.day));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heatmap]);
-
-  // Build date range label
+  // Month nav label + range row
+  const monthLabel = useMemo(
+    () => FMT_MONTH_YEAR.format(new Date(viewMonth.year, viewMonth.month - 1, 1)),
+    [viewMonth],
+  );
   const rangeLabel = useMemo(() => {
-    if (heatmap.length === 0) return '';
-    const first = heatmap[0].date;
-    const last  = heatmap[heatmap.length - 1].date;
-    const s = new Date(first.year, first.month - 1, first.day);
-    const e = new Date(last.year,  last.month  - 1, last.day);
-    return `${FMT_MON_DAY.format(s)} → ${FMT_MON_DAY.format(e)}`;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heatmap]);
+    const first = new Date(viewMonth.year, viewMonth.month - 1, 1);
+    const last = new Date(viewMonth.year, viewMonth.month - 1, lastDayOfMonth(viewMonth.year, viewMonth.month));
+    return `${FMT_MON_DAY.format(first)} → ${FMT_MON_DAY.format(last)}`;
+  }, [viewMonth]);
 
-  if (isLoading) {
+  // Grid scaffolding
+  const lastDayNum = lastDayOfMonth(viewMonth.year, viewMonth.month);
+  const monthDays = useMemo(
+    () => Array.from({ length: lastDayNum }, (_, i) => i + 1),
+    [lastDayNum],
+  );
+  const leadingPadCount = useMemo(
+    () => weekdayMondayFirst(new Date(viewMonth.year, viewMonth.month - 1, 1)),
+    [viewMonth],
+  );
+
+  function isPastDay(dayNum) {
+    if (monthRelation === 'past') return true;
+    if (monthRelation === 'future') return false;
+    return dayNum < todayYMD.day;
+  }
+
+  function findHeatmapDay(dayNum) {
+    return heatmap.find(
+      (d) =>
+        d.date.year === viewMonth.year &&
+        d.date.month === viewMonth.month &&
+        d.date.day === dayNum,
+    );
+  }
+
+  function goPrevMonth() {
+    setViewMonth(({ year, month }) => {
+      if (month === 1) return { year: year - 1, month: 12 };
+      return { year, month: month - 1 };
+    });
+  }
+
+  function goNextMonth() {
+    setViewMonth(({ year, month }) => {
+      if (month === 12) return { year: year + 1, month: 1 };
+      return { year, month: month + 1 };
+    });
+  }
+
+  const canGoPrev = monthRelation === 'future'; // only future months can step back
+
+  // Only show full-screen loading on the very first fetch (no data yet).
+  // Month switches keep the calendar shell visible while React Query refetches.
+  const showFullScreenLoading = isLoading && !envelope && monthRelation !== 'past';
+
+  if (showFullScreenLoading) {
     return (
       <View className="flex-1 bg-base items-center justify-center gap-6">
         <Pulse />
@@ -153,21 +244,29 @@ export default function CalendarScreen({ go }) {
       </View>
 
       <View className="px-6 pt-6">
-        {/* Month nav — navigation between months not yet implemented; shows current range */}
+        {/* Month nav */}
         <View className="flex-row items-center justify-center gap-[18px]">
-          <IconBtn>
-            <ChevronLeft color="#B8B0CC" size={16} strokeWidth={1.5} />
+          <IconBtn onPress={canGoPrev ? goPrevMonth : undefined}>
+            {/* Color shifts to a near-invisible grey when disabled — IconBtn
+                itself doesn't support a `disabled` prop, but `onPress=undefined`
+                already swallows taps, so the visual hint is the only contract
+                we need. */}
+            <ChevronLeft
+              color={canGoPrev ? '#B8B0CC' : '#3A3258'}
+              size={16}
+              strokeWidth={1.5}
+            />
           </IconBtn>
           <Text className="font-display text-[22px] text-cream tracking-[-0.2px] min-w-[150px] text-center">
             {monthLabel}
           </Text>
-          <IconBtn>
+          <IconBtn onPress={goNextMonth}>
             <ChevronRight color="#B8B0CC" size={16} strokeWidth={1.5} />
           </IconBtn>
         </View>
 
         {/* Day labels */}
-        <View className="flex-row mt-5 gap-[6px]">
+        <View className="flex-row mt-5">
           {DAY_LABELS.map((d) => (
             <View key={d} style={styles.cellSlot}>
               <Text className="font-ui-med text-[12px] text-subtle text-center">{d}</Text>
@@ -175,15 +274,31 @@ export default function CalendarScreen({ go }) {
           ))}
         </View>
 
-        {/* Cells — rendered from live heatmap */}
-        <View className="flex-row mt-5 gap-[6px] flex-wrap" style={{ rowGap: 8 }}>
-          {heatmap.map((day, i) => {
-            const dayNum = day.date.day;
+        {/* Cells — iterates 1..lastDayOfMonth so the grid is always a true
+            calendar month, regardless of what the API returned. Past days are
+            dimmed; future days look up their heatmap entry by date. */}
+        <View className="flex-row mt-5 flex-wrap" style={{ rowGap: 8 }}>
+          {Array.from({ length: leadingPadCount }).map((_, i) => (
+            <PadCell key={`pad-${i}`} />
+          ))}
+          {monthDays.map((dayNum) => {
+            if (isPastDay(dayNum)) {
+              return <PastCell key={dayNum} day={dayNum} />;
+            }
+
+            const day = findHeatmapDay(dayNum);
+            if (!day) {
+              // Future day but no heatmap entry yet (loading, or unexpected
+              // API gap). Render an empty placeholder so the column stays
+              // aligned; don't make it tappable.
+              return <NoDataCell key={dayNum} day={dayNum} />;
+            }
+
             if (day.blocked) {
               const reason = day.blocked_reasons?.[0] ?? 'moon_voc';
               return (
                 <Cell
-                  key={i}
+                  key={dayNum}
                   day={dayNum}
                   kind="b"
                   value={reason}
@@ -192,25 +307,39 @@ export default function CalendarScreen({ go }) {
               );
             }
 
-            // Find the matching top_window for this day so we can pass windowIndex
-            const windowIdx = topWindows.findIndex((w) => {
-              if (!w.start) return false;
-              const ws = new Date(w.start);
-              return (
-                ws.getFullYear() === day.date.year &&
-                ws.getMonth() + 1 === day.date.month &&
-                ws.getDate() === day.date.day
-              );
-            });
-
             return (
               <Cell
-                key={i}
+                key={dayNum}
                 day={dayNum}
                 kind="v"
                 value={day.best_score}
                 onPress={() => {
-                  setWindowIndex(windowIdx >= 0 ? windowIdx : 0);
+                  // Match by exact best_window_start ISO timestamp — the
+                  // heatmap day already carries it. If no exact top_windows
+                  // entry exists for this day, synthesize a minimal window so
+                  // MomentDetail shows THIS day, not the rank-1 fallback.
+                  let picked = null;
+                  if (day.best_window_start) {
+                    picked = topWindows.find((w) => w.start === day.best_window_start);
+                  }
+                  if (!picked && day.best_window_start) {
+                    picked = {
+                      start: day.best_window_start,
+                      end: day.best_window_start,
+                      score: day.best_score,
+                      grade: day.best_grade,
+                      duration_minutes: null,
+                      factors: [],
+                      displayable: {
+                        headline: 'A window worth looking at.',
+                        factors: [],
+                      },
+                      rank: -1,
+                      _synthetic: true,
+                    };
+                  }
+                  if (!picked) return;
+                  setSelectedWindow(picked);
                   go('detail');
                 }}
               />
@@ -247,7 +376,7 @@ export default function CalendarScreen({ go }) {
                     score={w.score}
                     grade={w.grade}
                     onPress={() => {
-                      setWindowIndex(i);
+                      setSelectedWindow(w);
                       go('detail');
                     }}
                   />
@@ -263,6 +392,39 @@ export default function CalendarScreen({ go }) {
         {sheet && <BlockedSheet sheet={sheet} onClose={() => setSheet(null)} />}
       </Modal>
     </ScrollView>
+  );
+}
+
+// Invisible placeholder for leading-weekday offset. Same dimensions as a real
+// Cell so the columns stay aligned.
+function PadCell() {
+  return (
+    <View style={styles.cellSlot}>
+      <Text className="font-ui-med text-[13px] opacity-0"> </Text>
+      <View className="w-full aspect-square max-h-[38px]" />
+    </View>
+  );
+}
+
+// Past day — visible but dimmed and non-interactive. Number only, no colored
+// square or glyph.
+function PastCell({ day }) {
+  return (
+    <View style={[styles.cellSlot, { opacity: 0.35 }]}>
+      <Text className="font-ui-med text-[13px] text-subtle">{day}</Text>
+      <View className="w-full aspect-square max-h-[38px]" />
+    </View>
+  );
+}
+
+// Future day with no heatmap entry yet (e.g., during a month-switch refetch).
+// Visually neutral — shows the day number but no colored square.
+function NoDataCell({ day }) {
+  return (
+    <View style={styles.cellSlot}>
+      <Text className="font-ui-med text-[13px] text-cream">{day}</Text>
+      <View className="w-full aspect-square max-h-[38px] rounded-[8px] border border-soft" style={{ opacity: 0.3 }} />
+    </View>
   );
 }
 
@@ -366,7 +528,16 @@ function BlockedSheet({ sheet, onClose }) {
   );
 }
 
-// cellSlot width is a calculated percentage — can't express in Tailwind without a plugin
+// cellSlot is exactly 1/7 of the row. The visual gap between cells comes from
+// horizontal padding INSIDE each cell (3px each side → 6px between any two
+// adjacent cells' content). Doing it this way keeps the math
+// screen-width-independent — the prior `100/7 - 0.86%` formula was hand-tuned
+// for one device width and dropped a column on wider/narrower screens.
 const styles = StyleSheet.create({
-  cellSlot: { width: `${100 / 7 - 0.86}%`, alignItems: 'center', gap: 6 },
+  cellSlot: {
+    width: `${100 / 7}%`,
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 3,
+  },
 });

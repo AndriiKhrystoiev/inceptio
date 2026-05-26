@@ -14,14 +14,14 @@ import Moon from '../components/Moon';
 import ScorePill from '../components/ScorePill';
 import PrimaryButton from '../components/PrimaryButton';
 import SecondaryButton from '../components/SecondaryButton';
-import StatePicker from '../components/StatePicker';
 import StatusLine from '../components/StatusLine';
 import Pulse from '../components/Pulse';
 import { useElectionalSearch } from '../hooks/useElectionalSearch';
 import { getLastActivity, getLastLocation, saveMoment } from '../lib/draft-store';
 import { locationToRequestFields } from '../lib/location-storage';
 import { friendlyMessage } from '../lib/error-messages';
-import { getWindowIndex } from '../lib/nav-params';
+import { getSelectedWindow } from '../lib/nav-params';
+import { formatWindowTime, getDurationVariant, buildNarrative } from '../lib/format-window';
 
 const FALLBACK_LOCATION = {
   lat: 50.4501,
@@ -61,44 +61,29 @@ function gradeToScorePill(grade) {
   return { kind: 'poor', label: 'Not recommended' };
 }
 
-const FMT_TIME = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: false });
-
-// Duration-aware time display per design-v2.1
-function formatWindowTime(w) {
-  const minutes = w.duration_minutes;
-  const start = new Date(w.start);
-  const end = new Date(w.end);
-  const startStr = FMT_TIME.format(start);
-  const endStr   = FMT_TIME.format(end);
-
-  if (minutes < 5) {
-    return { label: `${startStr} exactly`, paren: null, sub: 'A single, pristine moment. Be ready.' };
-  }
-  if (minutes <= 25) {
-    return { label: `${startStr} – ${endStr}`, paren: `${minutes} minutes`, sub: 'A precise window — set a reminder.' };
-  }
-  // > 25 min
-  const hours = Math.floor(minutes / 60);
-  const mins  = minutes % 60;
-  const dur   = hours > 0
-    ? `${hours}h${mins > 0 ? ` ${mins}m` : ''}`
-    : `${mins}m`;
-  return { label: `${startStr} – ${endStr}`, paren: dur, sub: null };
-}
-
 export default function MomentDetailScreen({ go }) {
   const [showTechnical, setShowTechnical] = useState(false);
 
-  const request = useMemo(() => buildRequest(), []);
-  const { data: result, isLoading, isError, error } = useElectionalSearch(request);
+  // The window the user tapped on Today/Calendar — set via nav-params before
+  // navigation. Captured once at mount so this screen renders the same window
+  // even if the caller mutates nav-params later (e.g. user backs out).
+  const selectedWindow = useMemo(() => getSelectedWindow(), []);
 
-  const windowIndex = getWindowIndex();
+  // Defensive fallback: if MomentDetail is reached without a selected window
+  // (e.g. tab-bar deep entry, or future entry points), fetch the 30-day search
+  // and pick its first window. Skipped when we already have one — saves the
+  // roundtrip and guarantees the user sees the window they tapped.
+  const request = useMemo(
+    () => (selectedWindow ? null : buildRequest()),
+    [selectedWindow],
+  );
+  const { data: result, isLoading, isError, error } = useElectionalSearch(
+    request ?? {},
+  );
+
   const envelope = result?.envelope;
   const topWindows = envelope?.data?.top_windows ?? [];
-  const w = topWindows[windowIndex] ?? topWindows[0];
-
-  // StatePicker for duration variant — QA only; drives same display logic
-  const [durationOverride, setDurationOverride] = useState(null);
+  const w = selectedWindow ?? topWindows[0];
 
   if (isLoading) {
     return (
@@ -133,17 +118,15 @@ export default function MomentDetailScreen({ go }) {
   const headline = displayable.headline ?? w.rationale ?? 'A moment to consider.';
   const pillProps = gradeToScorePill(w.grade);
 
-  // Duration display — override simulates different durations for QA
-  const effectiveMinutes = durationOverride != null ? durationOverride : w.duration_minutes;
-  const effectiveW = durationOverride != null
-    ? { ...w, duration_minutes: durationOverride }
-    : w;
-  const { label: timeLabel, paren: timeParen, sub: timeSub } = formatWindowTime(effectiveW);
+  // Time display — variant-driven, always derived from the API window
+  // (no QA override; the user doesn't pick this).
+  const { primary: timePrimary, secondary: timeSecondary } = formatWindowTime(w);
+  const timeVariant = getDurationVariant(w.duration_minutes);
 
-  // Factors: L2 shows pass+partial; L3 shows all
-  const allFactors = displayable.factors ?? [];
-  const l2Factors = allFactors.filter((f) => f.status !== 'fail');
-  const rawFactors = w.factors ?? []; // for L3 technical view
+  // Narrative — 1-3 paragraphs from translated factors per design-v2.1
+  const narrative = buildNarrative(w);
+
+  const rawFactors = w.factors ?? []; // L3 technical view shows ALL raw factors
 
   const windowDate = w.start
     ? new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
@@ -193,10 +176,10 @@ export default function MomentDetailScreen({ go }) {
                   {windowDate}
                 </Text>
                 <View className="mt-[14px]">
-                  <TimeLine timeLabel={timeLabel} timeParen={timeParen} minutes={effectiveMinutes} />
+                  <TimeLine primary={timePrimary} variant={timeVariant} />
                   <Text className="font-ui text-base leading-6 text-muted">{city}</Text>
-                  {timeSub && (
-                    <Text className="font-ui italic text-[14px] text-gold-glow mt-2">{timeSub}</Text>
+                  {timeSecondary && (
+                    <Text className="font-ui italic text-[14px] text-gold-glow mt-2">{timeSecondary}</Text>
                   )}
                 </View>
               </View>
@@ -205,20 +188,6 @@ export default function MomentDetailScreen({ go }) {
           </View>
         </SafeAreaView>
       </View>
-
-      {/* Duration QA StatePicker */}
-      <StatePicker
-        label="duration"
-        value={durationOverride ?? effectiveMinutes}
-        onChange={setDurationOverride}
-        options={[
-          [null,  'real data'],
-          [190,   'long · >60m'],
-          [25,    'medium · 25m'],
-          [10,    'short · 10m'],
-          [1,     'single · 1m'],
-        ]}
-      />
 
       {/* Score block */}
       <View className="px-6 pt-6 flex-row items-center gap-4">
@@ -236,30 +205,37 @@ export default function MomentDetailScreen({ go }) {
         <View className="w-[50%] h-px bg-soft" />
       </View>
 
-      {/* Narrative — L2: friendly factor phrases */}
+      {/* Narrative — L2: 1-3 paragraphs picked from translated factors.
+          buildNarrative handles all the picking logic (status filter,
+          weight_class filter for fails, synthetic-window fallback). */}
       {!showTechnical && (
         <View className="px-6 pt-8">
           <Text className="font-ui-med text-[13px] text-muted">Why this moment</Text>
           <View className="mt-4 gap-4">
-            {l2Factors.length > 0
-              ? l2Factors.map((f, i) => (
-                  <Text key={f.factor_id ?? i} className="font-ui text-base leading-[26px] text-cream">
-                    {f.phrase_full ?? f.phrase_short ?? ''}
-                  </Text>
-                ))
-              : /* Fallback if Worker hasn't added displayable yet */
-                <Text className="font-ui text-base leading-[26px] text-cream">{headline}</Text>
-            }
+            {narrative.length > 0 ? (
+              narrative.map((p, i) => (
+                <Text key={i} className="font-ui text-base leading-[26px] text-cream">
+                  {p}
+                </Text>
+              ))
+            ) : (
+              <Text className="font-ui text-base leading-[26px] text-cream">{headline}</Text>
+            )}
           </View>
 
-          <View className="items-center mt-8">
-            <Pressable
-              onPress={() => setShowTechnical(true)}
-              className="flex-row items-center gap-[6px] p-2">
-              <Text className="font-ui-med text-[14px] text-muted">See technical details</Text>
-              <ChevronRight color="#B8B0CC" size={14} strokeWidth={1.5} />
-            </Pressable>
-          </View>
+          {/* Hide the L3 disclosure when there are no raw factors — synthetic
+              windows from heatmap cells without a top_windows[] entry have
+              w.factors === [], so opening L3 would show a blank page. */}
+          {rawFactors.length > 0 && (
+            <View className="items-center mt-8">
+              <Pressable
+                onPress={() => setShowTechnical(true)}
+                className="flex-row items-center gap-[6px] p-2">
+                <Text className="font-ui-med text-[14px] text-muted">See technical details</Text>
+                <ChevronRight color="#B8B0CC" size={14} strokeWidth={1.5} />
+              </Pressable>
+            </View>
+          )}
         </View>
       )}
 
@@ -268,19 +244,25 @@ export default function MomentDetailScreen({ go }) {
         <View className="px-6 pt-8">
           <Text className="font-ui-med text-[13px] text-muted">Technical details</Text>
           <View className="mt-4 gap-4">
-            {rawFactors.map((f, i) => (
-              <View key={f.factor_id ?? i} className="gap-[6px] border-b border-soft pb-4">
-                {/* Mono font intentionally in L3 only — see CLAUDE.md visual direction */}
-                <Text className="font-mono text-[12px] text-primary-glow">{f.factor_id}</Text>
-                <Text className="font-mono text-[11px] text-muted">
-                  {f.weight_class} · {f.status} · +{Number(f.contribution ?? 0).toFixed(2)}
-                </Text>
-                <Text className="font-ui text-[13px] leading-[18px] text-cream">{f.observation}</Text>
-                {f.details ? (
-                  <Text className="font-mono text-[10px] text-subtle">{JSON.stringify(f.details)}</Text>
-                ) : null}
-              </View>
-            ))}
+            {rawFactors.length === 0 ? (
+              <Text className="font-ui text-base leading-[26px] text-cream">
+                No factor data is available for this day. The summary view shows everything we have.
+              </Text>
+            ) : (
+              rawFactors.map((f, i) => (
+                <View key={f.factor_id ?? i} className="gap-[6px] border-b border-soft pb-4">
+                  {/* Mono font intentionally in L3 only — see CLAUDE.md visual direction */}
+                  <Text className="font-mono text-[12px] text-primary-glow">{f.factor_id}</Text>
+                  <Text className="font-mono text-[11px] text-muted">
+                    {f.weight_class} · {f.status} · +{Number(f.contribution ?? 0).toFixed(2)}
+                  </Text>
+                  <Text className="font-ui text-[13px] leading-[18px] text-cream">{f.observation}</Text>
+                  {f.details ? (
+                    <Text className="font-mono text-[10px] text-subtle">{JSON.stringify(f.details)}</Text>
+                  ) : null}
+                </View>
+              ))
+            )}
           </View>
 
           <View className="items-center mt-8">
@@ -313,27 +295,16 @@ export default function MomentDetailScreen({ go }) {
   );
 }
 
-function TimeLine({ timeLabel, timeParen, minutes }) {
-  if (minutes < 5) {
+function TimeLine({ primary, variant }) {
+  // Long windows and synthetic/unknown read calmly — body weight cream.
+  // Single/short/medium emphasise the time in gold (the design lights up
+  // narrower windows to convey "you have to be there").
+  if (variant === 'long' || variant === 'unknown') {
     return (
-      <Text className="font-ui text-base leading-6 text-muted">
-        <Text className="font-ui-semi text-gold-glow">{timeLabel}</Text>
-      </Text>
+      <Text className="font-ui text-base leading-6 text-cream">{primary}</Text>
     );
   }
-  if (minutes <= 25) {
-    return (
-      <Text className="font-ui text-base leading-6 text-muted">
-        <Text className="font-ui-semi text-gold-glow">{timeLabel}</Text>
-        <Text className="font-ui text-gold-glow"> · {timeParen}</Text>
-      </Text>
-    );
-  }
-  // > 25 min — show range + duration
   return (
-    <Text className="font-ui text-base leading-6 text-muted">
-      <Text>{timeLabel} </Text>
-      <Text className="text-muted">{timeParen}</Text>
-    </Text>
+    <Text className="font-ui-semi text-base leading-6 text-gold-glow">{primary}</Text>
   );
 }

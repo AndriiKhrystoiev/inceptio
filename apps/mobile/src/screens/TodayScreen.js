@@ -21,6 +21,7 @@ import Glyph, { reasonToGlyph } from '../components/Glyph';
 import Pulse from '../components/Pulse';
 import { useTodayMoment } from '../hooks/useTodayMoment';
 import { friendlyMessage } from '../lib/error-messages';
+import { setSelectedWindow } from '../lib/nav-params';
 
 // Derive the screen state from real API data.
 // Returns 'viable' | 'caution' | 'blocked'
@@ -163,7 +164,13 @@ export default function TodayScreen({ go }) {
                     time={windowHeadline}
                     score={w.score}
                     grade={w.grade}
-                    onPress={() => go('detail')}
+                    onPress={() => {
+                      // Stash the tapped window so MomentDetail renders this
+                      // specific one — not whichever happens to sit at the
+                      // same index in its own 30-day fetch.
+                      setSelectedWindow(w);
+                      go('detail');
+                    }}
                   />
                 );
               })

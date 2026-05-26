@@ -3,17 +3,36 @@
  * introducing react-navigation. Phase 5 will replace this with navigation
  * params when the router is swapped in.
  *
- * Only Calendar → MomentDetail currently uses this. If you add more
- * param-passing needs before Phase 5, add keys here rather than coupling
- * screens together via callbacks.
+ * The selected window flows: TodayScreen / CalendarScreen → MomentDetail.
+ * We pass the whole Window object (not an index) because the source screen
+ * and the detail screen may run different searches — TodayScreen does a
+ * single-day query via useTodayMoment, CalendarScreen does a 30-day query.
+ * Passing an index against a different React Query cache produces "tapped
+ * Tuesday, see Saturday" bugs.
  */
 
-let _windowIndex = 0;
+// Loosely typed — JS screens consume it without TypeScript imports.
+type AnyWindow = Record<string, unknown> & {
+  start?: string;
+  end?: string;
+  score?: number;
+  grade?: string;
+  duration_minutes?: number;
+  factors?: unknown[];
+  displayable?: { headline?: string; factors?: unknown[] };
+  rank?: number;
+};
 
-export function setWindowIndex(index: number): void {
-  _windowIndex = index;
+let _selectedWindow: AnyWindow | null = null;
+
+export function setSelectedWindow(window: AnyWindow | null): void {
+  _selectedWindow = window;
 }
 
-export function getWindowIndex(): number {
-  return _windowIndex;
+export function getSelectedWindow(): AnyWindow | null {
+  return _selectedWindow;
+}
+
+export function clearSelectedWindow(): void {
+  _selectedWindow = null;
 }
