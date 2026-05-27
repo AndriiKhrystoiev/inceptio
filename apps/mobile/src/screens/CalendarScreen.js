@@ -72,6 +72,30 @@ function defaultRange() {
   return { start: isoDate(now), end: isoDate(new Date(endMs)) };
 }
 
+/**
+ * Map a heatmap day + range/today context to one of 4 cell states defined
+ * by `docs/inceptio-design-changes-v2.1.md` (lines 125-158). The doc is
+ * explicitly score-driven, not grade- or viable_count-driven — a day with
+ * best_score=58 and viable_count=0 is still "viable, score 0-74" per the
+ * design language, showing the score on a gradient cell.
+ *
+ *   - out_of_range  : outside the picker's range (UI-only state)
+ *   - blocked       : data.heatmap[i].blocked === true → glyph
+ *   - celebrate     : best_score >= 75 → gold + ring (state 3)
+ *   - viable        : best_score 1-74 → gradient cell with score (state 2)
+ *   - (best_score === 0 && !blocked) is folded into out_of_range visually
+ *     since it's the same "no signal" cue. Real API data only produces
+ *     score=0 alongside blocked=true, so this fallback is defensive.
+ */
+function classifyCell({ outOfRange, day }) {
+  if (outOfRange) return 'out_of_range';
+  if (!day) return 'out_of_range';
+  if (day.blocked) return 'blocked';
+  if (day.best_score >= 75) return 'celebrate';
+  if (day.best_score > 0) return 'viable';
+  return 'out_of_range';
+}
+
 export default function CalendarScreen({ go }) {
   const [sheet, setSheet] = useState(null);
 
@@ -130,13 +154,33 @@ export default function CalendarScreen({ go }) {
   const summary = envelope?.data?.summary;
   const noViable = summary?.no_viable_windows ?? false;
 
-  // Header copy reflects the picker's full range, not the visible month.
-  const viableCount = heatmap.filter((d) => !d.blocked && d.viable_count > 0).length;
+  // Header copy reflects the picker's full range. Uses the API's true window
+  // count (summary.viable_windows_count = total viable windows across the
+  // range), NOT a day-level filter — those are different metrics. A range
+  // can have 5 viable days that together yield 12 viable windows.
+  const viableWindowsCount = summary?.viable_windows_count ?? 0;
   const headerCopy = noViable
     ? 'No viable windows in this range. The closest moments still exist — see below.'
-    : viableCount < 5
-    ? `Just ${viableCount} viable window${viableCount === 1 ? '' : 's'} in your range — they're worth attention.`
-    : `${viableCount} viable windows in your range`;
+    : viableWindowsCount < 5
+    ? `Just ${viableWindowsCount} viable window${viableWindowsCount === 1 ? '' : 's'} in your range — they're worth attention.`
+    : `${viableWindowsCount} viable windows in your range`;
+
+  // Day-level pills above the grid. Buckets match the design-v2.1 cell-state
+  // taxonomy: many = "celebrate" state (score ≥ 75), few = "viable" state
+  // (1-74), none = no signal at all. Blocked days are excluded — they have
+  // their own glyph in the grid and aren't in any pill.
+  // Phase 1: info-only (no filter interactivity). Phase 2 (later) would let
+  // the user toggle these to dim non-matching cells.
+  const filterCounts = useMemo(() => {
+    let many = 0, few = 0, none = 0;
+    for (const d of heatmap) {
+      if (d.blocked) continue;
+      if (d.best_score >= 75) many++;
+      else if (d.best_score > 0) few++;
+      else none++;
+    }
+    return { many, few, none };
+  }, [heatmap]);
 
   const activityLabel = (getLastActivity() ?? 'wedding').replace('_', ' ');
   const cityLabel = (getLastLocation() ?? FALLBACK_LOCATION).city;
@@ -309,6 +353,17 @@ export default function CalendarScreen({ go }) {
           </IconBtn>
         </View>
 
+        {/* Viable filter pills — counts of (non-blocked) days bucketed by
+            viable_count. Info-only in Phase 1. */}
+        <View className="flex-row items-center gap-2 mt-5">
+          <Text className="font-ui-semi text-[11px] text-subtle tracking-[1px] uppercase mr-1">
+            Viable
+          </Text>
+          <ViableFilterPill label="many" count={filterCounts.many} />
+          <ViableFilterPill label="few" count={filterCounts.few} />
+          <ViableFilterPill label="none" count={filterCounts.none} />
+        </View>
+
         {/* Day labels */}
         <View className="flex-row mt-5">
           {DAY_LABELS.map((d) => (
@@ -319,86 +374,100 @@ export default function CalendarScreen({ go }) {
         </View>
 
         {/* Cells — iterates 1..lastDayOfMonth so the grid is always a true
-            calendar month, regardless of what the API returned. Past days are
-            dimmed; future days look up their heatmap entry by date. */}
+            calendar month, regardless of what the API returned. Cell state
+            comes from classifyCell() per design-v2.1's 6-state spec. */}
         <View className="flex-row mt-5 flex-wrap" style={{ rowGap: 8 }}>
           {Array.from({ length: leadingPadCount }).map((_, i) => (
             <PadCell key={`pad-${i}`} />
           ))}
           {monthDays.map((dayNum) => {
-            // Past relative to today, OR outside the picker's search range
-            // (e.g., Jun 1-26 when the user picked Jun 27 → Aug 29). Both
-            // render the same way: dimmed and non-interactive.
-            if (isPastDay(dayNum) || isOutsideRange(dayNum)) {
-              return <PastCell key={dayNum} day={dayNum} />;
+            const outOfRange = isPastDay(dayNum) || isOutsideRange(dayNum);
+            const day = outOfRange ? null : findHeatmapDay(dayNum);
+            const state = classifyCell({ outOfRange, day });
+
+            // Tap behavior depends on state. Out-of-range cells aren't
+            // tappable. Blocked cells open the BlockedSheet for the reason.
+            // Everything else opens MomentDetail with either the matching
+            // top_window or a synthesized one.
+            let onPress;
+            if (state === 'out_of_range') {
+              onPress = undefined;
+            } else if (state === 'blocked') {
+              const reason = day?.blocked_reasons?.[0] ?? 'moon_voc';
+              onPress = () => setSheet({ day: dayNum, reason });
+            } else {
+              onPress = () => {
+                let picked = null;
+                if (day?.best_window_start) {
+                  picked = topWindows.find((w) => w.start === day.best_window_start);
+                }
+                if (!picked && day?.best_window_start) {
+                  picked = {
+                    start: day.best_window_start,
+                    end: day.best_window_start,
+                    score: day.best_score,
+                    grade: day.best_grade,
+                    duration_minutes: null,
+                    factors: [],
+                    displayable: {
+                      headline: 'A window worth looking at.',
+                      factors: [],
+                    },
+                    rank: -1,
+                    _synthetic: true,
+                  };
+                }
+                if (!picked) return;
+                setSelectedWindow(picked);
+                go('detail');
+              };
             }
 
-            const day = findHeatmapDay(dayNum);
-            if (!day) {
-              // Future day but no heatmap entry yet (loading, or unexpected
-              // API gap). Render an empty placeholder so the column stays
-              // aligned; don't make it tappable.
-              return <NoDataCell key={dayNum} day={dayNum} />;
-            }
-
-            if (day.blocked) {
-              const reason = day.blocked_reasons?.[0] ?? 'moon_voc';
-              return (
-                <Cell
-                  key={dayNum}
-                  day={dayNum}
-                  kind="b"
-                  value={reason}
-                  onPress={() => setSheet({ day: dayNum, reason })}
-                />
-              );
-            }
-
+            const reason = day?.blocked_reasons?.[0] ?? 'moon_voc';
             return (
               <Cell
                 key={dayNum}
+                state={state}
                 day={dayNum}
-                kind="v"
-                value={day.best_score}
-                onPress={() => {
-                  // Match by exact best_window_start ISO timestamp — the
-                  // heatmap day already carries it. If no exact top_windows
-                  // entry exists for this day, synthesize a minimal window so
-                  // MomentDetail shows THIS day, not the rank-1 fallback.
-                  let picked = null;
-                  if (day.best_window_start) {
-                    picked = topWindows.find((w) => w.start === day.best_window_start);
-                  }
-                  if (!picked && day.best_window_start) {
-                    picked = {
-                      start: day.best_window_start,
-                      end: day.best_window_start,
-                      score: day.best_score,
-                      grade: day.best_grade,
-                      duration_minutes: null,
-                      factors: [],
-                      displayable: {
-                        headline: 'A window worth looking at.',
-                        factors: [],
-                      },
-                      rank: -1,
-                      _synthetic: true,
-                    };
-                  }
-                  if (!picked) return;
-                  setSelectedWindow(picked);
-                  go('detail');
-                }}
+                score={day?.best_score}
+                reason={reason}
+                onPress={onPress}
               />
             );
           })}
         </View>
 
-        {/* Legend */}
-        <View className="mt-[22px] p-[14px] rounded-[12px] bg-gradient border border-surface-2 flex-row items-center gap-3">
-          <Glyph name="moon-void" size={18} color="#7A7195" />
-          <Text className="flex-1 font-ui text-[12px] leading-[18px] text-muted">
-            Glyphs mark days the sky doesn't favor. Filled cells show available windows. Gold rings mark the strongest moments.
+        {/* Legend — three glyph rows + a closing summary sentence. Glyph
+            size (16) and color (#5B4F8A) match the in-grid cell rendering
+            so users can recognize the same shapes here. The dot row uses
+            the same `·` Text node that out-of-range cells render. */}
+        <View className="mt-[22px] p-[14px] rounded-[12px] bg-gradient border border-surface-2 gap-2">
+          <View className="flex-row items-center gap-3">
+            <View className="w-[20px] items-center">
+              <Glyph name="moon-void" size={16} color="#5B4F8A" />
+            </View>
+            <Text className="flex-1 font-ui text-[14px] leading-[20px] text-muted">
+              Moon void of course — the sky is between rooms
+            </Text>
+          </View>
+          <View className="flex-row items-center gap-3">
+            <View className="w-[20px] items-center">
+              <Glyph name="malefic-angle" size={16} color="#5B4F8A" />
+            </View>
+            <Text className="flex-1 font-ui text-[14px] leading-[20px] text-muted">
+              A difficult planet rises — move with care
+            </Text>
+          </View>
+          <View className="flex-row items-center gap-3">
+            <View className="w-[20px] items-center">
+              <View className="w-[8px] h-[8px] rounded-full bg-subtle" />
+            </View>
+            <Text className="flex-1 font-ui text-[14px] leading-[20px] text-muted">
+              Outside your search range
+            </Text>
+          </View>
+          <Text className="font-ui text-[12px] leading-[18px] text-muted mt-2">
+            Filled cells show available windows. Gold rings mark the strongest.
           </Text>
         </View>
 
@@ -453,77 +522,108 @@ function PadCell() {
   );
 }
 
-// Past day — visible but dimmed and non-interactive. Number only, no colored
-// square or glyph.
-function PastCell({ day }) {
-  return (
-    <View style={[styles.cellSlot, { opacity: 0.35 }]}>
-      <Text className="font-ui-med text-[13px] text-subtle">{day}</Text>
-      <View className="w-full aspect-square max-h-[38px]" />
-    </View>
-  );
+// Centered gold ring for celebrate cells (score ≥ 75). shadowOffset {0,0}
+// is iOS-only (Android falls back to elevation); kept inline per the
+// project shadow rule.
+const CELEBRATE_RING = {
+  shadowColor: '#E5C77D',
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0.55,
+  shadowRadius: 7,
+  elevation: 4,
+  borderColor: 'rgba(255,238,200,0.7)',
+  borderWidth: 1.5,
+};
+
+// Score-driven viable-cell color tier per the design doc's "gradient from
+// muted-indigo (low) to warm-violet (mid) to gold-tint (high-fair)". Three
+// buckets within the 1-74 range — finer interpolation isn't worth the math
+// at this cell size (38px square).
+function viableCellBg(score) {
+  if (score >= 60) return '#8B6FE8';   // heat-good / warm-violet (high-fair)
+  if (score >= 45) return '#6E5DAB';   // mid (between indigo and violet)
+  return '#5B4F8A';                    // heat-ok / muted-indigo (low)
 }
 
-// Future day with no heatmap entry yet (e.g., during a month-switch refetch).
-// Visually neutral — shows the day number but no colored square.
-function NoDataCell({ day }) {
-  return (
-    <View style={styles.cellSlot}>
-      <Text className="font-ui-med text-[13px] text-cream">{day}</Text>
-      <View className="w-full aspect-square max-h-[38px] rounded-[8px] border border-soft" style={{ opacity: 0.3 }} />
-    </View>
-  );
-}
+/**
+ * Single Cell component, switched on state — design-v2.1 lines 125-158
+ * specify 3 cell states (blocked / viable / celebrate). We add a 4th UI
+ * state (out_of_range) for days outside the picker's selection.
+ *
+ * Tap behavior is provided by the caller (out_of_range cells get
+ * onPress=undefined; everything else gets a real handler).
+ */
+function Cell({ state, day, score, reason, onPress }) {
+  if (state === 'out_of_range') {
+    // Non-interactive. Day number muted; inner container hosts a subtle dot
+    // so the grid stays visually uniform across every day of the month.
+    return (
+      <View style={styles.cellSlot}>
+        <Text className="font-ui-med text-[13px] text-subtle opacity-60">{day}</Text>
+        <View className="w-full aspect-square max-h-[38px] rounded-[8px] bg-[rgba(31,24,56,0.35)] items-center justify-center">
+          <View className="w-[8px] h-[8px] rounded-full bg-subtle" />
+        </View>
+      </View>
+    );
+  }
 
-function Cell({ day, kind, value, onPress }) {
-  if (kind === 'b') {
+  if (state === 'blocked') {
     return (
       <Pressable onPress={onPress} style={styles.cellSlot}>
         <Text className="font-ui-med text-[13px] text-glow">{day}</Text>
         <View className="w-full aspect-square max-h-[38px] rounded-[8px] bg-[rgba(31,24,56,0.55)] border border-surface-2 items-center justify-center">
-          <Glyph name={reasonToGlyph(value)} size={14} color="#5B4F8A" />
+          <Glyph name={reasonToGlyph(reason)} size={14} color="#5B4F8A" />
         </View>
       </Pressable>
     );
   }
 
-  const score = value;
-  const celebrate = score >= 75;
-  // Score-derived bg color is fully dynamic — kept inline
-  const bg = celebrate
-    ? '#D4B872'
-    : score >= 65
-    ? '#8B6FE8'
-    : score >= 50
-    ? '#6E5DAB'
-    : '#5B4F8A';
+  if (state === 'celebrate') {
+    // Score ≥ 75: gold fill, ring, dark text. Design language calls this
+    // "the user's payoff for searching."
+    return (
+      <Pressable onPress={onPress} style={styles.cellSlot}>
+        <Text className="font-ui-med text-[13px] text-cream">{day}</Text>
+        <View
+          className="w-full aspect-square max-h-[38px] rounded-[8px] items-center justify-center"
+          style={[{ backgroundColor: '#E5C77D' }, CELEBRATE_RING]}>
+          <Text
+            className="font-ui-semi text-[11px]"
+            style={{ color: '#0F0A1F' }}>
+            {score}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }
 
-  // Celebrate glow: centered shadowOffset {0,0} — kept inline per rule 6
-  const celebrateShadow = celebrate
-    ? {
-        shadowColor: '#E5C77D',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.45,
-        shadowRadius: 6,
-        elevation: 3,
-        borderColor: 'rgba(255,238,200,0.6)',
-        borderWidth: 1.5,
-      }
-    : null;
-
+  // 'viable' — score 1-74. Color picked from the gradient bucket; score
+  // visible regardless of grade. Caution-tier days (40-59) get a dimmer
+  // purple; fair (60-74) gets brighter; no asterisks anywhere — the design
+  // language treats every non-blocked scored day as "viable".
   return (
     <Pressable onPress={onPress} style={styles.cellSlot}>
       <Text className="font-ui-med text-[13px] text-cream">{day}</Text>
       <View
         className="w-full aspect-square max-h-[38px] rounded-[8px] items-center justify-center"
-        style={[{ backgroundColor: bg }, celebrateShadow]}>
-        <Text
-          className="font-ui-semi text-[11px] opacity-90"
-          style={{ color: celebrate ? '#0F0A1F' : '#FFFFFF' }}>
+        style={{ backgroundColor: viableCellBg(score) }}>
+        <Text className="font-ui-semi text-[11px]" style={{ color: '#FFFFFF' }}>
           {score}
         </Text>
       </View>
     </Pressable>
+  );
+}
+
+// Info-only filter pill — count of days in a viable bucket. Phase 2 wires
+// these to a filter state that dims non-matching cells.
+function ViableFilterPill({ label, count }) {
+  return (
+    <View className="flex-row items-center gap-[6px] py-1 px-3 rounded-full border border-soft">
+      <Text className="font-ui-med text-[12px] text-cream">{label}</Text>
+      <Text className="font-ui text-[12px] text-subtle">·</Text>
+      <Text className="font-ui-semi text-[12px] text-primary-glow">{count}</Text>
+    </View>
   );
 }
 
