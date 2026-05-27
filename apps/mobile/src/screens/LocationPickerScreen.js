@@ -3,31 +3,34 @@
 // On selection: writes the chosen location to AsyncStorage via saveLocation()
 // and the in-flight draft via patchDraft(). "Find moments" navigates to loading.
 
-import React, { useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, ActivityIndicator } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  TextInput,
+  ActivityIndicator,
+  Alert,
+  Linking,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import { ArrowLeft, X, Search, MapPin, Locate } from 'lucide-react-native';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import IconBtn from '../components/IconBtn';
 import PrimaryButton from '../components/PrimaryButton';
+import Toast from '../components/Toast';
 import { patchDraft, getDraft } from '../lib/draft-store';
 import { saveLocation, getLastLocation, deviceTimezone } from '../lib/location-storage';
 import { useLocationSearch } from '../hooks/useLocationSearch';
-import { NominatimRateLimitError, NominatimError } from '../lib/nominatim';
-
-function lastLocationToPick(loc) {
-  if (!loc) return null;
-  return {
-    place_id: -1,
-    lat: loc.lat,
-    lng: loc.lng,
-    city: loc.city,
-    country: loc.country,
-    display_name: loc.country ? `${loc.city}, ${loc.country}` : loc.city,
-  };
-}
+import {
+  NominatimRateLimitError,
+  NominatimError,
+  reverseGeocode,
+} from '../lib/nominatim';
 
 function pickToSavedLocation(pick) {
   return {
@@ -51,12 +54,25 @@ function errorMessage(err) {
 }
 
 export default function LocationPickerScreen({ go }) {
-  // Pre-populate from the user's last saved pick if any — UX bonus.
+  // Pre-fill the search query from the user's last saved city as a typing
+  // shortcut. Selection is intentionally NOT restored — the "Find moments"
+  // button stays disabled until the user explicitly taps a result row in
+  // this session. Previously we hydrated `selectedPick` from the last
+  // location too, which made the button look enabled on entry even when
+  // the user had not chosen anything yet.
   const initialLast = getLastLocation();
   const [query, setQuery] = useState(initialLast?.city ?? '');
-  // Track the chosen NominatimResult (or restored last-pick) rather than an
-  // index, so selection survives query/result churn.
-  const [selectedPick, setSelectedPick] = useState(lastLocationToPick(initialLast));
+  const [selectedPick, setSelectedPick] = useState(null);
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  // Transient confirmation pill — used for soft errors that don't need a
+  // blocking dialog (network failure, no city resolvable, etc.). The
+  // permission-denied path uses Alert instead because it needs the
+  // "Open Settings" affordance.
+  const [toast, setToast] = useState(null);
+  const showToast = useCallback((message, tone = 'neutral') => {
+    setToast({ message, tone, key: Date.now() });
+  }, []);
+  const dismissToast = useCallback(() => setToast(null), []);
 
   const draft = getDraft();
   const activity = draft.activity ?? 'wedding';
@@ -73,13 +89,65 @@ export default function LocationPickerScreen({ go }) {
     patchDraft({ lat: loc.lat, lng: loc.lng, timezone: loc.timezone, city: loc.city });
   }
 
-  // TODO Phase 5: replace with `expo-location` → reverse geocode to a city
-  // string. For now, pick the first available search result.
-  function handleUseCurrentLocation() {
-    const first = results[0];
-    if (!first) return;
-    setQuery(first.city || first.display_name.split(',')[0].trim());
-    handleSelect(first);
+  // Real device-location flow. The previous implementation picked the first
+  // forward-search hit, which produced wrong results when the user had
+  // typed something else (typing "Paris" then tapping the button while in
+  // Berlin would pick Paris). Now: GPS → reverse geocode via Nominatim →
+  // populate query + select.
+  //
+  // Errors handled separately:
+  //   - permission denied + canAskAgain=false → Alert with "Open Settings"
+  //   - permission denied + canAskAgain=true   → silent (system already
+  //     showed the dialog; nagging via toast is hostile)
+  //   - GPS fix failed / network error         → Toast, keep user where
+  //     they are so they can fall back to typing
+  //   - reverse returned no city (ocean etc.)  → Toast, keep user typing
+  async function handleUseCurrentLocation() {
+    if (loadingLocation) return;
+    setLoadingLocation(true);
+    try {
+      const perm = await Location.requestForegroundPermissionsAsync();
+      if (perm.status !== 'granted') {
+        if (!perm.canAskAgain) {
+          Alert.alert(
+            'Location access needed',
+            'To use your current location, allow access in Settings.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => Linking.openSettings() },
+            ],
+          );
+        }
+        // canAskAgain=true means the user just dismissed the system dialog;
+        // they made an active choice this turn and don't need a second nudge.
+        return;
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const { latitude, longitude } = position.coords;
+
+      const result = await reverseGeocode(latitude, longitude);
+      if (!result) {
+        showToast("Couldn't find a city for your location. Search manually.", 'warn');
+        return;
+      }
+
+      const cityName =
+        result.city || result.display_name.split(',')[0].trim();
+      setQuery(cityName);
+      // Use the GPS coordinates verbatim — Nominatim's lat/lng for the
+      // resolved city would shift the event location to the city's
+      // centroid (could be tens of km off). For electional astrology
+      // the user's actual position is the truer input.
+      handleSelect({ ...result, lat: latitude, lng: longitude });
+    } catch (err) {
+      if (__DEV__) console.log('[location] error:', err);
+      showToast("Couldn't reach your location. Search manually.", 'warn');
+    } finally {
+      setLoadingLocation(false);
+    }
   }
 
   function handleContinue() {
@@ -96,6 +164,10 @@ export default function LocationPickerScreen({ go }) {
   const showEmptyResults = query.trim().length >= 2 && !isLoading && !error && results.length === 0;
 
   return (
+    // Wrap in a flex View so the Toast can be a sibling of the ScrollView —
+    // a Toast inside the ScrollView would scroll with the content instead
+    // of floating at a fixed screen position. Same pattern MomentDetail uses.
+    <View className="flex-1">
     <ScrollView className="flex-1 bg-base" contentContainerStyle={{ paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
       <View className="overflow-hidden">
         <HeroGradient height={300} />
@@ -189,13 +261,26 @@ export default function LocationPickerScreen({ go }) {
           ))}
       </View>
 
-      {/* Use current location — stub; Phase 5 wires expo-location */}
+      {/* Use current location — real GPS + reverse geocode. Dimmed while
+          the GPS fix + Nominatim lookup are in flight (typically 1-3s on
+          a warm location service, longer on first request when iOS shows
+          the permission dialog). Pressable swallows repeat taps via the
+          loadingLocation guard in the handler. */}
       <View className="items-center pt-6">
         <Pressable
           onPress={handleUseCurrentLocation}
-          className="flex-row items-center gap-[10px] h-12 px-5 rounded-md border border-glow active:border-primary-glow active:bg-primary/[0.08]">
-          <Locate color="#F5EFE4" size={16} strokeWidth={1.5} />
-          <Text className="font-ui-med text-[15px] text-cream">Use current location</Text>
+          disabled={loadingLocation}
+          accessibilityState={{ disabled: loadingLocation }}
+          className="flex-row items-center gap-[10px] h-12 px-5 rounded-md border border-glow active:border-primary-glow active:bg-primary/[0.08]"
+          style={{ opacity: loadingLocation ? 0.6 : 1 }}>
+          {loadingLocation ? (
+            <ActivityIndicator color="#A98DFF" size="small" />
+          ) : (
+            <Locate color="#F5EFE4" size={16} strokeWidth={1.5} />
+          )}
+          <Text className="font-ui-med text-[15px] text-cream">
+            {loadingLocation ? 'Finding your location…' : 'Use current location'}
+          </Text>
         </Pressable>
       </View>
 
@@ -204,17 +289,21 @@ export default function LocationPickerScreen({ go }) {
       </Text>
 
       <View className="px-6 pt-8">
-        {/* Disabled when no location is selected. onPress=undefined swallows
-            taps via Pressable; the 0.4 opacity is the visual cue. Forwarded
-            through PrimaryButton's `style` prop, which it merges into its
-            Pressable style array. */}
-        <PrimaryButton
-          onPress={selectedPick ? handleContinue : undefined}
-          style={selectedPick ? undefined : { opacity: 0.4 }}>
+        {/* Disabled until the user has tapped a result row. PrimaryButton
+            handles the dead-state visual (no glow, muted gradient, dimmed
+            label) so we don't need to thread opacity at the call-site. */}
+        <PrimaryButton onPress={handleContinue} disabled={!selectedPick}>
           Find moments
         </PrimaryButton>
       </View>
     </ScrollView>
+    <Toast
+      key={toast?.key}
+      message={toast?.message}
+      tone={toast?.tone}
+      onDismiss={dismissToast}
+    />
+    </View>
   );
 }
 

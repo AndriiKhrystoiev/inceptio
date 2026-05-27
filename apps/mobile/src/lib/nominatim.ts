@@ -7,6 +7,7 @@
 
 const USER_AGENT = 'Inceptio-Mobile/1.0 (https://inceptio.app)';
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search';
+const NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse';
 
 export interface NominatimResult {
   /** Stable id from Nominatim — use as React key. */
@@ -103,6 +104,81 @@ export async function searchLocations(
   return raw
     .map((item) => normalize(item as RawNominatim))
     .filter((r): r is NominatimResult => r !== null);
+}
+
+/**
+ * Reverse geocoding — turn device GPS coordinates into a city name.
+ *
+ * Used by the "Use current location" button on the location picker. Returns
+ * the same normalized shape as `searchLocations` so callers can drop the
+ * result directly into the existing selection path.
+ *
+ * The `place_id` Nominatim returns for reverse queries can collide with
+ * forward-search ids, but since this result is selected immediately (not
+ * compared against a list of forward hits), that's a non-issue here.
+ *
+ * Throws the same NominatimError hierarchy as forward search.
+ */
+export async function reverseGeocode(
+  lat: number,
+  lng: number,
+  signal?: AbortSignal,
+): Promise<NominatimResult | null> {
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lon: String(lng),
+    format: 'json',
+    addressdetails: '1',
+    zoom: '10', // city-level granularity
+    'accept-language': 'en',
+  });
+
+  let res: Response;
+  try {
+    res = await fetch(`${NOMINATIM_REVERSE_URL}?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'User-Agent': USER_AGENT },
+      signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') throw err;
+    throw new NominatimNetworkError(err);
+  }
+
+  if (res.status === 429) throw new NominatimRateLimitError();
+  if (!res.ok) {
+    throw new NominatimError(`Nominatim HTTP ${res.status}`, res.status);
+  }
+
+  const raw = (await res.json()) as RawNominatim;
+  // Middle-of-ocean / Antarctica lookups return a 200 with an `error` field
+  // and no usable address. Treat as "no city" so the caller can fall back.
+  if (!raw || (raw as { error?: string }).error || !raw.lat || !raw.lon) {
+    return null;
+  }
+
+  // The reverse endpoint occasionally returns a result without `place_id`
+  // (lakes, parks, unusual reverse hits). We synthesize one — id is only
+  // used as a React key and the reverse result is used immediately, not
+  // compared against the forward-search list.
+  const parsedLat = parseFloat(raw.lat);
+  const parsedLng = parseFloat(raw.lon);
+  if (Number.isNaN(parsedLat) || Number.isNaN(parsedLng)) return null;
+  const addr = raw.address ?? {};
+  const city =
+    addr.city ||
+    addr.town ||
+    addr.village ||
+    raw.display_name?.split(',')[0]?.trim() ||
+    '';
+  return {
+    place_id: typeof raw.place_id === 'number' ? raw.place_id : -2,
+    lat: parsedLat,
+    lng: parsedLng,
+    display_name: raw.display_name ?? '',
+    city,
+    country: addr.country ?? '',
+  };
 }
 
 interface RawNominatim {

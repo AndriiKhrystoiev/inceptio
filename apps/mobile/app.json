@@ -33,6 +33,12 @@
         {
           "calendarPermission": "Inceptio adds your chosen moments to your phone's calendar."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Inceptio uses your location to find astrologically favorable moments for events near you."
+        }
       ]
     ]
   }

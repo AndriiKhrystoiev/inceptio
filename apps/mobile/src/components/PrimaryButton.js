@@ -14,13 +14,27 @@ const GLOW_STYLE = {
   elevation: 6,
 };
 
-export default function PrimaryButton({ children, onPress, style }) {
+// Active gradient = the warm-violet "tap me" fill. Disabled gradient sits
+// in the same color family but desaturated so the button still reads as
+// "the primary action" without inviting a tap. Pairing this with no glow
+// + dimmed text gives an unambiguous dead state — the previous opacity-0.4
+// override at the call-site couldn't dim the shadow, so the button still
+// glowed violet while supposedly disabled.
+const ACTIVE_COLORS = ['#A98DFF', '#8B6FE8'];
+const DISABLED_COLORS = ['#3A3258', '#2A2247'];
+
+export default function PrimaryButton({ children, onPress, style, disabled = false }) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
+      accessibilityState={{ disabled }}
       style={({ pressed }) => [
-        GLOW_STYLE,
-        { borderRadius: 14, opacity: pressed ? 0.92 : 1, transform: [{ scale: pressed ? 0.985 : 1 }] },
+        disabled ? null : GLOW_STYLE,
+        {
+          borderRadius: 14,
+          opacity: disabled ? 0.55 : pressed ? 0.92 : 1,
+          transform: [{ scale: !disabled && pressed ? 0.985 : 1 }],
+        },
         style,
       ]}>
       {/* Layout lives on a plain View — NativeWind's class application is
@@ -29,12 +43,15 @@ export default function PrimaryButton({ children, onPress, style }) {
           gradient is purely a background paint layer behind the content. */}
       <View className="h-14 items-center justify-center px-6 rounded-[14px] overflow-hidden">
         <LinearGradient
-          colors={['#A98DFF', '#8B6FE8']}
+          colors={disabled ? DISABLED_COLORS : ACTIVE_COLORS}
           start={{ x: 0.5, y: 0 }}
           end={{ x: 0.5, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-        <Text className="text-cream font-ui-semi text-base tracking-[0.1px]">
+        <Text
+          className={`font-ui-semi text-base tracking-[0.1px] ${
+            disabled ? 'text-muted' : 'text-cream'
+          }`}>
           {children}
         </Text>
       </View>
