@@ -27,6 +27,7 @@ import { locationToRequestFields } from '../lib/location-storage';
 import { friendlyMessage } from '../lib/error-messages';
 import { setSelectedWindow } from '../lib/nav-params';
 import { storage } from '../lib/storage';
+import { clusterWindows } from '../lib/cluster-windows';
 
 const VIEW_KEY = 'inceptio.results_view'; // 'list' | 'calendar'
 
@@ -225,6 +226,12 @@ export default function CalendarScreen({ go }) {
       (b?.score ?? 0) > (a?.score ?? 0) ? b : a,
     );
   }
+
+  // List-view cards: cluster consecutive same-signature top_windows so a
+  // 7-sample Jupiter evening collapses into one card with a time range,
+  // rather than seven near-identical rows. The clustering rule lives in
+  // lib/cluster-windows.ts.
+  const listCards = useMemo(() => clusterWindows(topWindows), [topWindows]);
 
   // Effective score = max(heatmap.best_score, top_windows[date].max_score).
   // Same override classifyCell() uses, applied per-day so the pill counts
@@ -469,9 +476,9 @@ export default function CalendarScreen({ go }) {
         {view === 'list' && (
           <View className="mt-7">
             <ResultsListView
-              windows={topWindows}
-              onWindowPress={(w) => {
-                setSelectedWindow(w);
+              cards={listCards}
+              onCardPress={(card) => {
+                setSelectedWindow(card.representative);
                 go('detail');
               }}
               onAdjustSearch={() => go('picker')}

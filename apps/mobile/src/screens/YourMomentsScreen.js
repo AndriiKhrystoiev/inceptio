@@ -7,10 +7,9 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Settings, ChevronRight } from 'lucide-react-native';
+import { ChevronRight } from 'lucide-react-native';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
-import IconBtn from '../components/IconBtn';
 import { getSavedMoments } from '../lib/draft-store';
 
 const FMT_TIME      = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: false });
@@ -106,12 +105,14 @@ export default function YourMomentsScreen({ go }) {
         <HeroGradient height={260} />
         <Starfield density="heavy" />
         <SafeAreaView edges={['top']}>
+          {/* Two equal-width spacers keep the title visually centered without
+              changing the flex-between layout that other screens share. The
+              Settings cog used to live on the right but Settings now lives
+              on the You tab; a duplicate icon with no handler read as broken. */}
           <View className="px-4 pt-2 flex-row items-center justify-between">
             <View className="w-[38px]" />
             <Text className="font-display text-[18px] text-cream tracking-[-0.2px]">Your moments</Text>
-            <IconBtn label="Settings">
-              <Settings color="#B8B0CC" size={20} strokeWidth={1.5} />
-            </IconBtn>
+            <View className="w-[38px]" />
           </View>
           <View className="px-6 pt-6 pb-8">
             <Text className="font-display text-[32px] leading-[38px] tracking-[-0.3px] text-cream">

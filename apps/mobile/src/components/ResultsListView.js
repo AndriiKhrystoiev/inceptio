@@ -1,18 +1,17 @@
-// Results list — alternate view of the Calendar screen's data. Renders the
-// API's `top_windows[]` as ranked cards (already sorted by score from the
-// Worker). Header pills + range row stay in CalendarScreen; this component
-// owns only the section label, the card list, and the empty state.
+// Results list — alternate view of the Calendar screen's data. Renders
+// clustered top_windows[] as ranked cards. Each card represents one
+// favorable stretch (one cluster of consecutive same-signature windows)
+// rather than each API sample, so a 7-sample Jupiter evening shows as
+// one card with a time range instead of 7 near-identical rows.
+//
+// Cards are built upstream by `lib/cluster-windows.ts` — this component
+// only renders. Header pills + range row stay in CalendarScreen; this
+// component owns only the section label, the card list, and the empty
+// state.
 
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
 import ScorePill from './ScorePill';
-import { formatWindowTime } from '../lib/format-window';
-
-const FMT_FULL_DATE = new Intl.DateTimeFormat('en-US', {
-  weekday: 'long',
-  month: 'long',
-  day: 'numeric',
-});
 
 // Short labels for the per-card pill — design-ref screenshot shows
 // "Exceptional" / "Strong" not the verbose "Exceptional moment" /
@@ -57,25 +56,28 @@ function tagline(w) {
   );
 }
 
-export default function ResultsListView({ windows, onWindowPress, onAdjustSearch }) {
-  if (!windows || windows.length === 0) {
+export default function ResultsListView({ cards, onCardPress, onAdjustSearch }) {
+  if (!cards || cards.length === 0) {
     return <ListEmptyState onAdjustSearch={onAdjustSearch} />;
   }
   return (
     <View>
       <Text className="font-ui text-[14px] text-muted">Strongest moments first</Text>
       <View className="gap-3 mt-4">
-        {windows.map((w, i) => (
-          <Card key={w.rank ?? i} window={w} onPress={() => onWindowPress(w)} />
+        {cards.map((c, i) => (
+          <Card
+            key={c.representative?.rank ?? `${c.representative?.start}-${i}`}
+            card={c}
+            onPress={() => onCardPress(c)}
+          />
         ))}
       </View>
     </View>
   );
 }
 
-function Card({ window: w, onPress }) {
-  const { primary: timePrimary, secondary: timeSecondary } = formatWindowTime(w);
-  const dateText = w.start ? FMT_FULL_DATE.format(new Date(w.start)) : '';
+function Card({ card, onPress }) {
+  const { representative: w, count, dateText, timePrimary, timeSecondary } = card;
 
   return (
     <Pressable
@@ -104,6 +106,11 @@ function Card({ window: w, onPress }) {
       {timeSecondary ? (
         <Text className="font-ui italic text-[13px] leading-[18px] text-gold-glow mt-[6px]">
           {timeSecondary}
+        </Text>
+      ) : null}
+      {count > 1 ? (
+        <Text className="font-ui text-[12px] text-muted mt-[6px]">
+          {count} moments today · tap for the strongest
         </Text>
       ) : null}
       <Text
