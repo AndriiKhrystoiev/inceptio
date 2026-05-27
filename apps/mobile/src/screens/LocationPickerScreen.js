@@ -204,7 +204,15 @@ export default function LocationPickerScreen({ go }) {
       </Text>
 
       <View className="px-6 pt-8">
-        <PrimaryButton onPress={handleContinue}>Find moments</PrimaryButton>
+        {/* Disabled when no location is selected. onPress=undefined swallows
+            taps via Pressable; the 0.4 opacity is the visual cue. Forwarded
+            through PrimaryButton's `style` prop, which it merges into its
+            Pressable style array. */}
+        <PrimaryButton
+          onPress={selectedPick ? handleContinue : undefined}
+          style={selectedPick ? undefined : { opacity: 0.4 }}>
+          Find moments
+        </PrimaryButton>
       </View>
     </ScrollView>
   );

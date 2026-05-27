@@ -3,8 +3,8 @@
 // (deduped by React Query — no extra fetch). Window index comes from
 // nav-params.ts, set by CalendarScreen before calling go('detail').
 
-import React, { useState, useMemo } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, ScrollView, Pressable, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Share2, ChevronRight, Bookmark } from 'lucide-react-native';
 import HeroGradient from '../components/HeroGradient';
@@ -16,12 +16,14 @@ import PrimaryButton from '../components/PrimaryButton';
 import SecondaryButton from '../components/SecondaryButton';
 import StatusLine from '../components/StatusLine';
 import Pulse from '../components/Pulse';
+import Toast from '../components/Toast';
 import { useElectionalSearch } from '../hooks/useElectionalSearch';
 import { getLastActivity, getLastLocation, saveMoment } from '../lib/draft-store';
 import { locationToRequestFields } from '../lib/location-storage';
 import { friendlyMessage } from '../lib/error-messages';
 import { getSelectedWindow } from '../lib/nav-params';
 import { formatWindowTime, getDurationVariant, buildNarrative } from '../lib/format-window';
+import { addWindowToCalendar } from '../lib/calendar-export';
 
 const FALLBACK_LOCATION = {
   lat: 50.4501,
@@ -135,11 +137,25 @@ export default function MomentDetailScreen({ go }) {
     : '';
   const city = getLastLocation()?.city ?? FALLBACK_LOCATION.city;
 
+  // Toast state — single message at a time. Toast component handles its own
+  // fade-in/hold/fade-out timing; we just provide message + onDismiss.
+  const [toast, setToast] = useState(null);
+  const showToast = useCallback((message, tone = 'neutral') => {
+    // Replace any in-flight toast immediately. Toast component restarts its
+    // own animation on message change.
+    setToast({ message, tone, key: Date.now() });
+  }, []);
+  const dismissToast = useCallback(() => setToast(null), []);
+
+  // Activity flows here from either the original draft (if reached via the
+  // picker chain) or getLastActivity (defensive fallback). Keep one source.
+  const activity = (request?.activity ?? getLastActivity() ?? 'wedding');
+
   function handleSave() {
     if (!w) return;
     saveMoment({
-      id: `${w.start}_${request.activity}`,
-      activity: request.activity,
+      id: `${w.start}_${activity}`,
+      activity,
       city,
       start: w.start,
       end: w.end,
@@ -149,9 +165,47 @@ export default function MomentDetailScreen({ go }) {
       headline,
       saved_at: new Date().toISOString(),
     });
+    showToast('Saved to Your moments');
+  }
+
+  async function handleAddToCalendar() {
+    if (!w) return;
+    const result = await addWindowToCalendar(w, activity, city);
+    if (result.ok) {
+      showToast('Added to your phone calendar');
+    } else if (result.reason === 'permission') {
+      showToast('Calendar access denied. Enable it in Settings.', 'warn');
+    } else {
+      showToast(`Couldn't add: ${result.message}`, 'warn');
+    }
+  }
+
+  async function handleShare() {
+    if (!w) return;
+    const startDate = new Date(w.start);
+    const dateStr = new Intl.DateTimeFormat('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    }).format(startDate);
+    const message =
+      `${headline}\n\n` +
+      `${dateStr} · ${city}\n` +
+      `Score: ${w.score} / 100\n\n` +
+      `Found via Inceptio.`;
+    try {
+      await Share.share({ message });
+      // Share sheet itself confirms success; no toast on the happy path.
+    } catch (err) {
+      showToast("Couldn't open the share sheet.", 'warn');
+    }
   }
 
   return (
+    // Wrap in a flex View so the Toast can be a sibling of the ScrollView —
+    // Toast inside a ScrollView would scroll along with the content instead
+    // of floating at a fixed screen position.
+    <View className="flex-1">
     <ScrollView className="flex-1 bg-base" contentContainerStyle={{ paddingBottom: 60 }}>
       {/* Hero */}
       <View className="overflow-hidden">
@@ -276,7 +330,7 @@ export default function MomentDetailScreen({ go }) {
       )}
 
       <View className="px-6 mt-12">
-        <PrimaryButton onPress={() => go('today')}>Add to calendar</PrimaryButton>
+        <PrimaryButton onPress={handleAddToCalendar}>Add to phone calendar</PrimaryButton>
         <View className="flex-row gap-2 mt-3">
           <SecondaryButton
             style={{ flex: 1 }}
@@ -286,12 +340,23 @@ export default function MomentDetailScreen({ go }) {
           </SecondaryButton>
           <SecondaryButton
             style={{ flex: 1 }}
-            icon={<Share2 color="#F5EFE4" size={16} strokeWidth={1.5} />}>
+            icon={<Share2 color="#F5EFE4" size={16} strokeWidth={1.5} />}
+            onPress={handleShare}>
             Share
           </SecondaryButton>
         </View>
       </View>
+
     </ScrollView>
+    {toast && (
+      <Toast
+        key={toast.key}
+        message={toast.message}
+        tone={toast.tone}
+        onDismiss={dismissToast}
+      />
+    )}
+    </View>
   );
 }
 

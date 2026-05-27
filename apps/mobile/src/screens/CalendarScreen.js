@@ -21,7 +21,7 @@ import WindowCard from '../components/WindowCard';
 import Glyph, { reasonToGlyph, FRIENDLY_REASON } from '../components/Glyph';
 import Pulse from '../components/Pulse';
 import { useElectionalSearch } from '../hooks/useElectionalSearch';
-import { getLastActivity, getLastLocation } from '../lib/draft-store';
+import { getDraft, getLastActivity, getLastLocation } from '../lib/draft-store';
 import { locationToRequestFields } from '../lib/location-storage';
 import { friendlyMessage } from '../lib/error-messages';
 import { setSelectedWindow } from '../lib/nav-params';
@@ -55,6 +55,23 @@ function weekdayMondayFirst(date) {
   return (date.getDay() + 6) % 7;
 }
 
+// Parse a YYYY-MM-DD picker string into {year, month, day}. Returns null on
+// malformed input.
+function parseYMD(s) {
+  if (!s || typeof s !== 'string') return null;
+  const [y, m, d] = s.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return { year: y, month: m, day: d };
+}
+
+// Default fallback range when the user reaches Calendar without picking
+// dates (e.g., tapping the tab bar directly). 30 days from today.
+function defaultRange() {
+  const now = new Date();
+  const endMs = now.getTime() + 30 * 24 * 60 * 60 * 1000;
+  return { start: isoDate(now), end: isoDate(new Date(endMs)) };
+}
+
 export default function CalendarScreen({ go }) {
   const [sheet, setSheet] = useState(null);
 
@@ -69,44 +86,43 @@ export default function CalendarScreen({ go }) {
     [today],
   );
 
-  const [viewMonth, setViewMonth] = useState({
-    year: todayYMD.year,
-    month: todayYMD.month,
-  });
+  // The picker's selection is the search range. Captured once on mount — the
+  // user can't go back to the picker without leaving this screen, so the
+  // draft is effectively immutable here.
+  const searchRange = useMemo(() => {
+    const draft = getDraft();
+    if (draft.start && draft.end) {
+      return { start: draft.start, end: draft.end };
+    }
+    return defaultRange();
+  }, []);
+  const searchStartYMD = useMemo(() => parseYMD(searchRange.start), [searchRange.start]);
+  const searchEndYMD = useMemo(() => parseYMD(searchRange.end), [searchRange.end]);
 
-  // Past / current / future relative to today's month.
-  const monthRelation = useMemo(() => {
-    const a = viewMonth.year * 12 + viewMonth.month;
-    const b = todayYMD.year * 12 + todayYMD.month;
-    if (a < b) return 'past';
-    if (a > b) return 'future';
-    return 'current';
-  }, [viewMonth, todayYMD]);
+  // viewMonth is UI navigation only — which month's grid is rendered.
+  // Defaults to the picker's start month (NOT the current month), so the
+  // user lands on the month they actually searched.
+  const [viewMonth, setViewMonth] = useState(() =>
+    searchStartYMD
+      ? { year: searchStartYMD.year, month: searchStartYMD.month }
+      : { year: todayYMD.year, month: todayYMD.month },
+  );
 
-  // Past months get no API call — they're all dimmed days, nothing to query.
-  // Current month: start from today (API rejects past dates). Future month:
-  // start from day 1.
+  // One API call for the picker's full range. Switching months below is a
+  // free UI operation against the cached response.
   const request = useMemo(() => {
-    if (monthRelation === 'past') return null;
-    const lastDayNum = lastDayOfMonth(viewMonth.year, viewMonth.month);
-    const startDayNum = monthRelation === 'current' ? todayYMD.day : 1;
-    const startDate = new Date(viewMonth.year, viewMonth.month - 1, startDayNum);
-    const endDate = new Date(viewMonth.year, viewMonth.month - 1, lastDayNum);
-
     const loc = getLastLocation() ?? FALLBACK_LOCATION;
     const activity = getLastActivity() ?? 'wedding';
     return {
       activity,
-      start: isoDate(startDate),
-      end: isoDate(endDate),
+      start: searchRange.start,
+      end: searchRange.end,
       ...locationToRequestFields(loc),
     };
-  }, [viewMonth, monthRelation, todayYMD.day]);
+  }, [searchRange]);
 
-  // useElectionalSearch is auto-disabled when fields are missing; passing {} for
-  // past months keeps the query inert (no fetch, no error).
   const { data: result, isLoading, isError, error, refetch } =
-    useElectionalSearch(request ?? {});
+    useElectionalSearch(request);
 
   const envelope = result?.envelope;
   const heatmap = envelope?.data?.heatmap ?? [];
@@ -114,30 +130,29 @@ export default function CalendarScreen({ go }) {
   const summary = envelope?.data?.summary;
   const noViable = summary?.no_viable_windows ?? false;
 
-  // Header copy depends on the visible month's API data
+  // Header copy reflects the picker's full range, not the visible month.
   const viableCount = heatmap.filter((d) => !d.blocked && d.viable_count > 0).length;
-  const headerCopy =
-    monthRelation === 'past'
-      ? 'A month in the past — for context only.'
-      : noViable
-      ? 'No viable windows in this month. The closest moments still exist — see below.'
-      : viableCount < 5
-      ? `Just ${viableCount} viable window${viableCount === 1 ? '' : 's'} this month — they're worth attention.`
-      : `${viableCount} viable windows this month`;
+  const headerCopy = noViable
+    ? 'No viable windows in this range. The closest moments still exist — see below.'
+    : viableCount < 5
+    ? `Just ${viableCount} viable window${viableCount === 1 ? '' : 's'} in your range — they're worth attention.`
+    : `${viableCount} viable windows in your range`;
 
   const activityLabel = (getLastActivity() ?? 'wedding').replace('_', ' ');
   const cityLabel = (getLastLocation() ?? FALLBACK_LOCATION).city;
 
-  // Month nav label + range row
+  // Month name in the grid header tracks the visible month. The "Jun 27 →
+  // Aug 29" range row tracks the picker's selection (i.e., the search range).
   const monthLabel = useMemo(
     () => FMT_MONTH_YEAR.format(new Date(viewMonth.year, viewMonth.month - 1, 1)),
     [viewMonth],
   );
   const rangeLabel = useMemo(() => {
-    const first = new Date(viewMonth.year, viewMonth.month - 1, 1);
-    const last = new Date(viewMonth.year, viewMonth.month - 1, lastDayOfMonth(viewMonth.year, viewMonth.month));
+    if (!searchStartYMD || !searchEndYMD) return '';
+    const first = new Date(searchStartYMD.year, searchStartYMD.month - 1, searchStartYMD.day);
+    const last = new Date(searchEndYMD.year, searchEndYMD.month - 1, searchEndYMD.day);
     return `${FMT_MON_DAY.format(first)} → ${FMT_MON_DAY.format(last)}`;
-  }, [viewMonth]);
+  }, [searchStartYMD, searchEndYMD]);
 
   // Grid scaffolding
   const lastDayNum = lastDayOfMonth(viewMonth.year, viewMonth.month);
@@ -151,9 +166,23 @@ export default function CalendarScreen({ go }) {
   );
 
   function isPastDay(dayNum) {
-    if (monthRelation === 'past') return true;
-    if (monthRelation === 'future') return false;
+    // Past relative to today's date.
+    if (viewMonth.year < todayYMD.year) return true;
+    if (viewMonth.year > todayYMD.year) return false;
+    if (viewMonth.month < todayYMD.month) return true;
+    if (viewMonth.month > todayYMD.month) return false;
     return dayNum < todayYMD.day;
+  }
+
+  // A day can be "outside the search range" if the user picked, say,
+  // Jun 27 → Aug 29: days Jun 1-26 are visible in the June grid but weren't
+  // searched. Render them dimmed (treated like past days visually).
+  function isOutsideRange(dayNum) {
+    if (!searchStartYMD || !searchEndYMD) return false;
+    const idx = viewMonth.year * 10000 + viewMonth.month * 100 + dayNum;
+    const lo = searchStartYMD.year * 10000 + searchStartYMD.month * 100 + searchStartYMD.day;
+    const hi = searchEndYMD.year * 10000 + searchEndYMD.month * 100 + searchEndYMD.day;
+    return idx < lo || idx > hi;
   }
 
   function findHeatmapDay(dayNum) {
@@ -179,11 +208,22 @@ export default function CalendarScreen({ go }) {
     });
   }
 
-  const canGoPrev = monthRelation === 'future'; // only future months can step back
+  // Chevrons are bounded to the picker's selected month-range. Inside that
+  // range, the user can browse freely; outside, the chevron dims.
+  const viewIdx = viewMonth.year * 12 + viewMonth.month;
+  const minIdx = searchStartYMD
+    ? searchStartYMD.year * 12 + searchStartYMD.month
+    : viewIdx;
+  const maxIdx = searchEndYMD
+    ? searchEndYMD.year * 12 + searchEndYMD.month
+    : viewIdx;
+  const canGoPrev = viewIdx > minIdx;
+  const canGoNext = viewIdx < maxIdx;
 
   // Only show full-screen loading on the very first fetch (no data yet).
-  // Month switches keep the calendar shell visible while React Query refetches.
-  const showFullScreenLoading = isLoading && !envelope && monthRelation !== 'past';
+  // Month switches no longer trigger a refetch (single request for the full
+  // picker range), so this only fires on initial mount.
+  const showFullScreenLoading = isLoading && !envelope;
 
   if (showFullScreenLoading) {
     return (
@@ -260,8 +300,12 @@ export default function CalendarScreen({ go }) {
           <Text className="font-display text-[22px] text-cream tracking-[-0.2px] min-w-[150px] text-center">
             {monthLabel}
           </Text>
-          <IconBtn onPress={goNextMonth}>
-            <ChevronRight color="#B8B0CC" size={16} strokeWidth={1.5} />
+          <IconBtn onPress={canGoNext ? goNextMonth : undefined}>
+            <ChevronRight
+              color={canGoNext ? '#B8B0CC' : '#3A3258'}
+              size={16}
+              strokeWidth={1.5}
+            />
           </IconBtn>
         </View>
 
@@ -282,7 +326,10 @@ export default function CalendarScreen({ go }) {
             <PadCell key={`pad-${i}`} />
           ))}
           {monthDays.map((dayNum) => {
-            if (isPastDay(dayNum)) {
+            // Past relative to today, OR outside the picker's search range
+            // (e.g., Jun 1-26 when the user picked Jun 27 → Aug 29). Both
+            // render the same way: dimmed and non-interactive.
+            if (isPastDay(dayNum) || isOutsideRange(dayNum)) {
               return <PastCell key={dayNum} day={dayNum} />;
             }
 

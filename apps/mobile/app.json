@@ -27,7 +27,13 @@
     },
     "plugins": [
       "expo-font",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Inceptio adds your chosen moments to your phone's calendar."
+        }
+      ]
     ]
   }
 }

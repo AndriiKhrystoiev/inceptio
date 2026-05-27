@@ -44,7 +44,16 @@ export function useElectionalSearch(
   const enabled = isCompleteRequest(request);
   return useQuery({
     queryKey: makeKey(request),
-    queryFn: () => searchElectional(request as ElectionalSearchRequest),
+    queryFn: () => {
+      // Dev-only — confirms what we actually send to the Worker. Lets us
+      // catch silent param drops (e.g., a screen ignoring the picker
+      // selection and falling back to a default) without UI plumbing.
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.log('[search-request]', JSON.stringify(request));
+      }
+      return searchElectional(request as ElectionalSearchRequest);
+    },
     enabled,
   });
 }

@@ -20,6 +20,7 @@
     "expo": "~55.0.0",
     "expo-application": "~55.0.15",
     "expo-blur": "~55.0.14",
+    "expo-calendar": "~55.0.15",
     "expo-font": "~55.0.8",
     "expo-linear-gradient": "~55.0.14",
     "expo-splash-screen": "~55.0.21",
