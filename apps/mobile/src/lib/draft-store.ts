@@ -141,3 +141,8 @@ export function removeSavedMoment(id: string): void {
   const filtered = getSavedMoments().filter((m) => m.id !== id);
   writeJson(KEY_SAVED_MOMENTS, filtered);
 }
+
+/** Drop the entire saved-moments list. Dev/debug only. */
+export function clearSavedMoments(): void {
+  storage.delete(KEY_SAVED_MOMENTS);
+}

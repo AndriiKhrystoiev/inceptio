@@ -27,6 +27,7 @@ import LoadingScreen from './src/screens/LoadingScreen';
 import CalendarScreen from './src/screens/CalendarScreen';
 import NoViableScreen from './src/screens/NoViableScreen';
 import MomentDetailScreen from './src/screens/MomentDetailScreen';
+import YourMomentsScreen from './src/screens/YourMomentsScreen';
 import YouScreen from './src/screens/YouScreen';
 import PaywallScreen from './src/screens/PaywallScreen';
 import TabBar from './src/components/TabBar';
@@ -43,6 +44,7 @@ const SCREENS = {
   calendar:   CalendarScreen,
   noviable:   NoViableScreen,
   detail:     MomentDetailScreen,
+  moments:    YourMomentsScreen,
   you:        YouScreen,
   paywall:    PaywallScreen,
 };
@@ -52,7 +54,7 @@ const MODAL_SCREENS = new Set(['onboarding', 'picker', 'date', 'location', 'load
 
 // Tab id (one of: today / calendar / moments / you) is independent
 // of screen id so a modal flow doesn't deactivate the tab below it.
-const TAB_FOR_SCREEN = { today: 'today', calendar: 'calendar', you: 'you' };
+const TAB_FOR_SCREEN = { today: 'today', calendar: 'calendar', moments: 'moments', you: 'you' };
 
 export default function App() {
   const [fontsLoaded] = useFraunces({
@@ -84,8 +86,8 @@ export default function App() {
   const handleTab = useCallback((id) => {
     if (id === 'today')    go('today');
     if (id === 'calendar') go('calendar');
-    if (id === 'moments')  go('detail');
-    if (id === 'you')      go('you');
+    if (id === 'moments')  go('moments'); // YourMomentsScreen — saved-moments list
+    if (id === 'you')      go('you');     // YouScreen — settings
   }, [go]);
 
   const onLayoutRoot = useCallback(async () => {

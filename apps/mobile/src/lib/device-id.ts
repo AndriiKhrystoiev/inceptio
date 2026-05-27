@@ -35,3 +35,13 @@ export async function getDeviceId(): Promise<string> {
   storage.set(DEVICE_ID_KEY, id);
   return id;
 }
+
+/**
+ * Clear the cached device id. The next getDeviceId() call will regenerate
+ * a fresh one. Useful for dev — the Worker rate-limit counter is keyed on
+ * X-Device-Id, so resetting here effectively gives a "fresh user" state
+ * without uninstalling the app.
+ */
+export function clearDeviceId(): void {
+  storage.delete(DEVICE_ID_KEY);
+}

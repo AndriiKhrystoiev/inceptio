@@ -1,245 +1,238 @@
-// 05 Your Moments — saved upcoming + past.
-// Source of truth: MMKV via getSavedMoments() — no API call on this tab.
-// "Passed" detection is local: compare saved moment's end timestamp to now.
-// Phase 5 TODO: add per-moment refetch to re-validate scores against the API.
+// 06 You — Settings screen.
+// Preferences mirror what's in storage (last_activity, last_location).
+// About surfaces app version + placeholders for legal copy.
+// Debug section is gated behind __DEV__ — dev affordances for testing the
+// Worker (reset device_id), clearing local state, etc.
 
-import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, RefreshControl } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Settings, ChevronRight } from 'lucide-react-native';
+import Constants from 'expo-constants';
+import * as Clipboard from 'expo-clipboard';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
-import IconBtn from '../components/IconBtn';
-import { getSavedMoments } from '../lib/draft-store';
+import Toast from '../components/Toast';
+import { getLastActivity } from '../lib/draft-store';
+import { clearSavedMoments } from '../lib/draft-store';
+import { getLastLocation } from '../lib/location-storage';
+import { getDeviceId, clearDeviceId } from '../lib/device-id';
 
-const FMT_TIME      = new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', hour12: false });
-const FMT_FULL_DATE = new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-
-// Grade → status key for the StatusPill styling map
-function gradeToStatus(grade) {
-  if (grade === 'exceptional' || grade === 'strong') return 'highly';
-  if (grade === 'fair' || grade === 'good') return 'favorable';
-  return 'moderate';
+function capitalize(s) {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function isPast(moment) {
-  return new Date(moment.end) < new Date();
-}
+export default function YouScreen() {
+  // Toast state — mirrors the pattern from MomentDetailScreen.
+  const [toast, setToast] = useState(null);
+  const showToast = useCallback((message, tone = 'neutral') => {
+    setToast({ message, tone, key: Date.now() });
+  }, []);
+  const dismissToast = useCallback(() => setToast(null), []);
 
-function relativeLabel(dateStr) {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const diffMs = d - now;
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  // Debug section is hidden by default even in dev. Long-press the
+  // "About Inceptio" header for 3s to reveal it. The flag resets on
+  // component unmount (app restart) — there's no persistence by design.
+  const [showDebug, setShowDebug] = useState(false);
+  const handleAboutLongPress = useCallback(() => {
+    if (__DEV__ && !showDebug) {
+      setShowDebug(true);
+      Alert.alert('Debug mode on', 'Developer section is now visible.');
+    }
+  }, [showDebug]);
 
-  if (diffDays < 0) {
-    const ago = Math.abs(diffDays);
-    if (ago < 7) return `${ago} day${ago !== 1 ? 's' : ''} ago`;
-    const weeks = Math.round(ago / 7);
-    if (weeks < 5) return `${weeks} week${weeks !== 1 ? 's' : ''} ago`;
-    const months = Math.round(ago / 30);
-    return `${months} month${months !== 1 ? 's' : ''} ago`;
+  // Preferences read once on mount + on each "tick" so Reset operations
+  // re-render the row values without a full screen remount.
+  const [tick, setTick] = useState(0);
+  const bumpTick = useCallback(() => setTick((t) => t + 1), []);
+
+  const lastActivity = getLastActivity() ?? 'wedding';
+  const lastLocation = getLastLocation();
+
+  // Device id is async (platform vendor lookup on first call). Cache locally.
+  const [deviceId, setDeviceId] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    getDeviceId().then((id) => {
+      if (!cancelled) setDeviceId(id);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [tick]); // re-read after a Reset
+
+  // Read from app.json (`expo.version`), NOT Application.nativeApplicationVersion
+  // — the latter returns Expo Go's own version (e.g. "55.0.34") when running
+  // inside Expo Go, which has nothing to do with our app.
+  const appVersion = Constants.expoConfig?.version ?? '0.0.0';
+
+  // -- Handlers --------------------------------------------------------------
+
+  const comingSoon = useCallback(() => showToast('Coming soon'), [showToast]);
+
+  async function copyDeviceId() {
+    if (!deviceId) return;
+    try {
+      await Clipboard.setStringAsync(deviceId);
+      showToast('Device ID copied');
+    } catch {
+      showToast("Couldn't copy. Long-press the value to select.", 'warn');
+    }
   }
 
-  if (diffDays === 0) return 'today';
-  if (diffDays < 7) return `in ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
-  const weeks = Math.round(diffDays / 7);
-  if (weeks < 5) return `in ${weeks} week${weeks !== 1 ? 's' : ''}`;
-  const months = Math.round(diffDays / 30);
-  return `in ${months} month${months !== 1 ? 's' : ''}`;
-}
+  function confirmResetDeviceId() {
+    Alert.alert(
+      'Reset device ID?',
+      'This clears your rate-limit counter on the Worker and treats you as a new device. Useful for development testing.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: () => {
+            clearDeviceId();
+            bumpTick();
+            showToast('Device ID reset');
+          },
+        },
+      ],
+    );
+  }
 
-function formatMomentSub(moment) {
-  const start = new Date(moment.start);
-  const end   = new Date(moment.end);
-  const timeStr = FMT_TIME.format(start);
-  const endStr  = FMT_TIME.format(end);
-  const timeRange = moment.duration_minutes < 5 ? timeStr : `${timeStr} — ${endStr}`;
-  const ampm = start.getHours() < 12 ? 'morning' : start.getHours() < 17 ? 'afternoon' : 'evening';
-  return `${ampm} · ${timeRange} · ${moment.city}`;
-}
+  function confirmClearSavedMoments() {
+    Alert.alert(
+      'Clear all saved moments?',
+      'This removes everything from Your Moments tab. Cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: () => {
+            clearSavedMoments();
+            showToast('Saved moments cleared');
+          },
+        },
+      ],
+    );
+  }
 
-function formatMomentDate(moment) {
-  return FMT_FULL_DATE.format(new Date(moment.start));
-}
-
-export default function YouScreen({ go }) {
-  // Re-read from MMKV on each render (and on pull-to-refresh) so newly saved
-  // moments appear without a full app restart.
-  const [refreshing, setRefreshing] = useState(false);
-  const [tick, setTick] = useState(0);
-
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    // Re-read MMKV by bumping tick (forces re-render, re-calls getSavedMoments)
-    setTick((t) => t + 1);
-    setRefreshing(false);
-  }, []);
-
-  // tick is a dependency so ESLint doesn't warn; it forces re-evaluation
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const allMoments = getSavedMoments();
-
-  const upcoming = allMoments.filter((m) => !isPast(m));
-  const past     = allMoments.filter((m) => isPast(m));
-
-  const upcomingCount = upcoming.length;
-  const pastCount     = past.length;
-
-  const summaryLine = allMoments.length === 0
-    ? 'No moments saved yet'
-    : `${upcomingCount} ahead, ${pastCount} behind you in time`;
+  const activityLabel = capitalize(lastActivity.replace('_', ' '));
+  const locationLabel = lastLocation?.city ?? 'Not set';
+  const truncatedDeviceId = deviceId
+    ? deviceId.length > 16
+      ? `${deviceId.slice(0, 16)}…`
+      : deviceId
+    : 'loading…';
 
   return (
-    <ScrollView
-      className="flex-1 bg-base"
-      contentContainerStyle={{ paddingBottom: 40 }}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor="#B8B0CC"
-        />
-      }>
-      <View className="overflow-hidden">
-        <HeroGradient height={260} />
-        <Starfield density="heavy" />
-        <SafeAreaView edges={['top']}>
-          <View className="px-4 pt-2 flex-row items-center justify-between">
-            <View className="w-[38px]" />
-            <Text className="font-display text-[18px] text-cream tracking-[-0.2px]">Your moments</Text>
-            <IconBtn label="Settings">
-              <Settings color="#B8B0CC" size={20} strokeWidth={1.5} />
-            </IconBtn>
-          </View>
-          <View className="px-6 pt-6 pb-8">
-            <Text className="font-display text-[32px] leading-[38px] tracking-[-0.3px] text-cream">
-              Moments you've saved
-            </Text>
-            <Text className="font-ui text-[14px] leading-5 text-muted mt-[10px]">{summaryLine}</Text>
-          </View>
-        </SafeAreaView>
-      </View>
-
-      {allMoments.length === 0 ? (
-        <View className="px-6 pt-12 items-center gap-4">
-          <Text className="font-display-reg text-[22px] leading-[30px] text-cream text-center">
-            Nothing saved yet.
-          </Text>
-          <Text className="font-ui text-[14px] leading-5 text-muted text-center max-w-[280px]">
-            When you find a favorable window, tap Save on the moment detail to keep it here.
-          </Text>
-          <Pressable
-            onPress={() => go('picker')}
-            className="mt-4 py-3 px-8 rounded-full border border-glow">
-            <Text className="font-ui-med text-[15px] text-cream">Find a moment</Text>
-          </Pressable>
+    <View className="flex-1">
+      <ScrollView
+        className="flex-1 bg-base"
+        contentContainerStyle={{ paddingBottom: 40 }}>
+        <View className="overflow-hidden">
+          <HeroGradient height={220} />
+          <Starfield density="heavy" />
+          <SafeAreaView edges={['top']}>
+            <View className="px-6 pt-6 pb-8">
+              <Text className="font-display text-[32px] leading-[38px] tracking-[-0.3px] text-cream">
+                You
+              </Text>
+              <Text className="font-ui text-[14px] leading-5 text-muted mt-[10px]">
+                A quiet kind of timing.
+              </Text>
+            </View>
+          </SafeAreaView>
         </View>
-      ) : (
-        <>
-          {upcoming.length > 0 && (
-            <>
-              <Section>Coming up</Section>
-              <View className="px-6 gap-3">
-                {upcoming.map((m) => (
-                  <MomentCard
-                    key={m.id}
-                    moment={m}
-                    past={false}
-                    onPress={() => go('detail')}
-                  />
-                ))}
-              </View>
-            </>
-          )}
 
-          {past.length > 0 && (
-            <>
-              <Section>Behind you</Section>
-              <View className="px-6 gap-3 opacity-70">
-                {past.map((m) => (
-                  <MomentCard
-                    key={m.id}
-                    moment={m}
-                    past={true}
-                    onPress={() => go('detail')}
-                  />
-                ))}
-              </View>
-            </>
-          )}
-        </>
+        <Section title="Your preferences" />
+        <Row label="Default activity" detail={activityLabel} onPress={comingSoon} />
+        <Row label="Default location" detail={locationLabel} onPress={comingSoon} />
+
+        {/* Long-press the About header for 3s to reveal the Debug section
+            below. In production builds (__DEV__ === false), the long-press
+            is a no-op — the Debug section never renders regardless. */}
+        <Pressable onLongPress={handleAboutLongPress} delayLongPress={3000}>
+          <Section title="About Inceptio" />
+        </Pressable>
+        <Row label="Version" detail={appVersion} />
+        <Row label="Privacy" detail="" onPress={comingSoon} />
+        <Row label="Terms" detail="" onPress={comingSoon} />
+
+        {__DEV__ && showDebug && (
+          <>
+            <Section title="Debug" />
+            <Row
+              label="Device ID"
+              detail={truncatedDeviceId}
+              onPress={copyDeviceId}
+              hint="Tap to copy"
+            />
+            <Row
+              label="Reset device ID"
+              detail=""
+              destructive
+              onPress={confirmResetDeviceId}
+            />
+            <Row
+              label="Clear saved moments"
+              detail=""
+              destructive
+              onPress={confirmClearSavedMoments}
+            />
+          </>
+        )}
+      </ScrollView>
+
+      {toast && (
+        <Toast
+          key={toast.key}
+          message={toast.message}
+          tone={toast.tone}
+          onDismiss={dismissToast}
+        />
       )}
-    </ScrollView>
+    </View>
   );
 }
 
-function Section({ children }) {
+// -- Section + Row primitives. Kept local to this screen — settings rows are
+// uniquely shaped enough that adding them to `components/` would invite
+// unwanted reuse pressure. If a second settings-style surface appears,
+// promote them. ---------------------------------------------------------------
+
+function Section({ title }) {
   return (
-    <View className="px-6 pt-8 flex-row items-center gap-[14px] mb-4">
-      <Text className="font-ui-med text-[13px] text-muted">{children}</Text>
+    <View className="px-6 pt-9 pb-3 flex-row items-center gap-[14px]">
+      <Text className="font-ui-semi text-[11px] text-subtle tracking-[1px] uppercase">
+        {title}
+      </Text>
       <View className="flex-1 h-px bg-soft" />
     </View>
   );
 }
 
-function StatusPill({ status, past }) {
-  const map = {
-    highly:    { fgClass: 'text-gold-glow',    bg: 'rgba(229,199,125,0.18)', br: 'rgba(240,216,154,0.45)', label: 'Highly favorable', sparkle: true },
-    favorable: { fgClass: 'text-gold-muted',   bg: 'rgba(212,184,114,0.10)', br: 'rgba(212,184,114,0.30)', label: 'Favorable' },
-    moderate:  { fgClass: 'text-primary-glow', bg: 'rgba(139,111,232,0.10)', br: 'rgba(139,111,232,0.30)', label: 'Moderate' },
-  }[status] ?? {
-    fgClass: 'text-muted', bg: 'rgba(100,100,100,0.10)', br: 'rgba(100,100,100,0.30)', label: 'Saved',
-  };
-
-  // Dynamic bg/border colors use inline style; only fgClass goes via className
+function Row({ label, detail, onPress, destructive, hint }) {
+  const labelClass = destructive
+    ? 'font-ui text-base text-difficult'
+    : 'font-ui text-base text-cream';
   return (
-    <View
-      className={[
-        'flex-row items-center gap-[6px] py-1 px-[10px] rounded-full border self-start',
-        past ? 'opacity-[0.85]' : '',
-      ].join(' ')}
-      style={{ backgroundColor: map.bg, borderColor: map.br }}>
-      {map.sparkle && <Text className={['text-[10px]', map.fgClass].join(' ')}>✦</Text>}
-      <Text className={['font-ui-semi text-[11px] tracking-[0.1px]', map.fgClass].join(' ')}>
-        {map.label}
-      </Text>
-    </View>
-  );
-}
-
-function MomentCard({ moment, past, onPress }) {
-  const status = gradeToStatus(moment.grade);
-  const when   = relativeLabel(moment.start);
-  const date   = formatMomentDate(moment);
-  const sub    = formatMomentSub(moment);
-
-  return (
-    <Pressable onPress={onPress} className="active:opacity-[0.92]">
-      <LinearGradient
-        colors={['#1F1838', '#2A2247']}
-        style={{ borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#3A3258' }}>
-        <View className="flex-row items-center justify-between gap-[10px]">
-          <StatusPill status={status} past={past} />
-          <Text className="font-ui text-[12px] text-subtle">{when}</Text>
-        </View>
-        <Text className="mt-3 font-display-reg text-[22px] leading-7 text-cream">{date}</Text>
-        <Text className="mt-[2px] font-ui text-[14px] leading-5 text-muted">{sub}</Text>
-        {past && (
-          <Text className="mt-1 font-ui-med text-[11px] text-subtle tracking-[0.4px]">Passed</Text>
-        )}
+    <Pressable
+      onPress={onPress}
+      className="px-6 h-14 flex-row items-center justify-between border-b border-soft active:bg-surface/[0.35]">
+      <View>
+        <Text className={labelClass}>{label}</Text>
+        {hint ? (
+          <Text className="font-ui text-[11px] text-subtle mt-[2px]">{hint}</Text>
+        ) : null}
+      </View>
+      {detail ? (
         <Text
-          className={[
-            'mt-[10px] font-ui text-[14px] leading-5 pr-7',
-            past ? 'text-muted' : 'text-cream',
-          ].join(' ')}>
-          {moment.headline}
+          className="font-ui text-[14px] text-muted ml-3 max-w-[55%] text-right"
+          numberOfLines={1}>
+          {detail}
         </Text>
-        <View className="absolute right-4 bottom-4">
-          <ChevronRight color="#7A7195" size={16} strokeWidth={1.5} />
-        </View>
-      </LinearGradient>
+      ) : null}
     </Pressable>
   );
 }
