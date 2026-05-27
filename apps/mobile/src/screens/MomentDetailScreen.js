@@ -53,14 +53,19 @@ function buildRequest() {
   return { activity, start: today, end: endDate, ...locationToRequestFields(loc) };
 }
 
-// Grade → ScorePill props mapping
+// Grade → ScorePill props mapping. The `kind` names align 1:1 with
+// ScorePill.STYLE_BY_KIND so colors track the API grade directly.
+// API's 'good' (observed on score 75-81 windows) maps to the visual 'strong'
+// tier per CLAUDE.md's score-grade calibration.
 function gradeToScorePill(grade) {
-  if (grade === 'exceptional') return { kind: 'excellent', label: 'Exceptional' };
-  if (grade === 'strong')      return { kind: 'excellent', label: 'Highly favorable' };
-  if (grade === 'good')        return { kind: 'good',      label: 'Favorable' };
-  if (grade === 'fair')        return { kind: 'good',      label: 'Favorable' };
-  if (grade === 'caution')     return { kind: 'caution',   label: 'Move with care' };
-  return { kind: 'poor', label: 'Not recommended' };
+  if (grade === 'exceptional')               return { kind: 'exceptional', label: 'Exceptional moment' };
+  if (grade === 'strong' || grade === 'good') return { kind: 'strong',      label: 'Highly favorable' };
+  if (grade === 'fair')                       return { kind: 'fair',        label: 'Favorable' };
+  if (grade === 'caution')                    return { kind: 'caution',     label: 'Move with care' };
+  if (grade === 'poor')                       return { kind: 'poor',        label: 'Not recommended' };
+  // Defensive: unknown grade → neutral favorable. Should not happen with
+  // the current Worker grade values, but the Zod schema is permissive.
+  return { kind: 'fair', label: 'Favorable' };
 }
 
 export default function MomentDetailScreen({ go }) {
