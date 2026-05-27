@@ -61,9 +61,22 @@ export interface DisplayableFactor {
   phrase_full: string;
 }
 
+/**
+ * Per-window tagline picked for cross-window distinguishability — see
+ * `pickTagline()` in translate.ts. May come from a factor (in which case
+ * factor_id + phrase_full are populated) or from a contextual fallback
+ * (morning/afternoon/evening — only phrase_short is set).
+ */
+export interface DisplayableTagline {
+  factor_id?: string;
+  phrase_short: string;
+  phrase_full?: string;
+}
+
 export interface DisplayableWindow {
   headline: string;
   factors: DisplayableFactor[];
+  tagline: DisplayableTagline;
 }
 
 // reason_id is `string` for the same reason factor_id is — see DisplayableFactor.

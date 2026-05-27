@@ -17,7 +17,7 @@ import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 
 import { colors } from './src/theme';
 import { queryClient } from './src/lib/query-client';
-import { hydrateStorage } from './src/lib/storage';
+import { hydrateStorage, storage } from './src/lib/storage';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import TodayScreen from './src/screens/TodayScreen';
 import ActivityPickerScreen from './src/screens/ActivityPickerScreen';
@@ -75,7 +75,13 @@ export default function App() {
   // Synchronous storage.getString() calls inside hooks return undefined until
   // this completes, which is fine for the splash window but not for actual UI.
   useEffect(() => {
-    hydrateStorage().then(() => setStorageReady(true));
+    hydrateStorage().then(() => {
+      // Cold-start resets for per-session UI preferences. These persist
+      // across in-session navigation (back from MomentDetail keeps your
+      // view) but each fresh app launch starts on the defaults.
+      storage.delete('inceptio.results_view');
+      setStorageReady(true);
+    });
   }, []);
 
   const go = useCallback((id) => {

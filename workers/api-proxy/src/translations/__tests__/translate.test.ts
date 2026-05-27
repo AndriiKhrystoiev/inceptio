@@ -237,3 +237,119 @@ describe('translate — fallback to generic stem', () => {
     expect(out.data.summary.displayable.headline).toMatch(/^An open day —/);
   });
 });
+
+describe('translate — per-window tagline diversification', () => {
+  // Three Venus-led wedding windows that share factor[0] but diverge at [1].
+  // Without diversification all three would tag with "Venus brings tenderness"
+  // — that's the bug the new tagline picker fixes.
+  function makeFactor(
+    id: string,
+    status: 'pass' | 'partial' | 'fail' = 'pass',
+    weight: 'low' | 'medium' | 'high' | 'critical' = 'high',
+    contribution = 10,
+  ) {
+    return factor({
+      factor_id: id,
+      status,
+      weight_class: weight,
+      contribution,
+      details: null,
+    });
+  }
+
+  it('skips the shared factor[0] and picks the next one when ≥60% of windows share factor[0]', () => {
+    const env = envelope({
+      top_windows: [
+        window_({
+          rank: 1,
+          start: '2026-08-20T11:05:00+00:00',
+          factors: [
+            makeFactor('venus_dignified_direct_well_aspected', 'pass', 'critical', 16),
+            makeFactor('house_ruler_dignified_well_placed', 'pass', 'high', 9),
+          ],
+        }),
+        window_({
+          rank: 2,
+          start: '2026-08-20T17:55:00+00:00',
+          factors: [
+            makeFactor('venus_dignified_direct_well_aspected', 'pass', 'critical', 16),
+            makeFactor('moon_waxing_increasing_light', 'pass', 'high', 8),
+          ],
+        }),
+        window_({
+          rank: 3,
+          start: '2026-08-20T22:50:00+00:00',
+          factors: [
+            makeFactor('venus_dignified_direct_well_aspected', 'pass', 'critical', 16),
+            makeFactor('house_ruler_dignified_well_placed', 'pass', 'high', 9),
+          ],
+        }),
+      ],
+    });
+    const out = translate(env, 'wedding');
+    // Index access preserves the TranslatedResponse intersection narrowing
+    // (`.map()` loses it — TS quirk with the schema-passthrough intersection).
+    const t0 = out.data.top_windows[0]!.displayable.tagline.phrase_short;
+    const t1 = out.data.top_windows[1]!.displayable.tagline.phrase_short;
+    const t2 = out.data.top_windows[2]!.displayable.tagline.phrase_short;
+    // First window's tagline should come from house_ruler (factor[1]), NOT
+    // Venus (factor[0], which is shared by all 3 windows).
+    expect(t0).not.toContain('Venus');
+    // Two distinct taglines across three windows: house_ruler (×2) and
+    // moon_waxing (×1) variation at factor[1].
+    const unique = new Set([t0, t1, t2]);
+    expect(unique.size).toBe(2);
+  });
+
+  it('uses factor[0] when only one window exists (diversification is moot)', () => {
+    const env = envelope({
+      top_windows: [
+        window_({
+          factors: [
+            makeFactor('venus_dignified_direct_well_aspected', 'pass', 'critical', 16),
+            makeFactor('moon_waxing_increasing_light', 'pass', 'high', 8),
+          ],
+        }),
+      ],
+    });
+    const out = translate(env, 'wedding');
+    const tagline = out.data.top_windows[0]!.displayable.tagline;
+    expect(tagline.factor_id).toBe('venus_dignified_direct_well_aspected');
+    expect(tagline.phrase_short).toBe('Venus brings tenderness');
+  });
+
+  it('falls back to a time-of-day contextual tag when every factor is dominantly shared', () => {
+    // Construct a degenerate case: three windows whose only factor is
+    // venus. Every factor of every window is dominant at position [0].
+    const env = envelope({
+      top_windows: [
+        window_({
+          rank: 1,
+          start: '2026-08-20T09:00:00+00:00', // morning
+          factors: [makeFactor('venus_dignified_direct_well_aspected', 'pass', 'critical', 16)],
+        }),
+        window_({
+          rank: 2,
+          start: '2026-08-20T14:30:00+00:00', // afternoon
+          factors: [makeFactor('venus_dignified_direct_well_aspected', 'pass', 'critical', 16)],
+        }),
+        window_({
+          rank: 3,
+          start: '2026-08-20T19:45:00+00:00', // evening
+          factors: [makeFactor('venus_dignified_direct_well_aspected', 'pass', 'critical', 16)],
+        }),
+      ],
+    });
+    const out = translate(env, 'wedding');
+    const t0 = out.data.top_windows[0]!.displayable.tagline;
+    const t1 = out.data.top_windows[1]!.displayable.tagline;
+    const t2 = out.data.top_windows[2]!.displayable.tagline;
+    expect([t0.phrase_short, t1.phrase_short, t2.phrase_short]).toEqual([
+      'A morning moment',
+      'An afternoon moment',
+      'An evening moment',
+    ]);
+    // Contextual taglines carry no factor_id (no factor was usable).
+    expect(t0.factor_id).toBeUndefined();
+  });
+});

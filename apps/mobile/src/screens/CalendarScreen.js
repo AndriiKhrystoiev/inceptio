@@ -9,7 +9,7 @@
 // Month chevrons mutate viewMonth. The back arrow is disabled at the current
 // month — there's no useful data behind it.
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Pressable, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Share2, ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -20,11 +20,15 @@ import SecondaryButton from '../components/SecondaryButton';
 import WindowCard from '../components/WindowCard';
 import Glyph, { reasonToGlyph, FRIENDLY_REASON } from '../components/Glyph';
 import Pulse from '../components/Pulse';
+import ResultsListView from '../components/ResultsListView';
 import { useElectionalSearch } from '../hooks/useElectionalSearch';
 import { getDraft, getLastActivity, getLastLocation } from '../lib/draft-store';
 import { locationToRequestFields } from '../lib/location-storage';
 import { friendlyMessage } from '../lib/error-messages';
 import { setSelectedWindow } from '../lib/nav-params';
+import { storage } from '../lib/storage';
+
+const VIEW_KEY = 'inceptio.results_view'; // 'list' | 'calendar'
 
 const FALLBACK_LOCATION = {
   lat: 50.4501,
@@ -73,31 +77,50 @@ function defaultRange() {
 }
 
 /**
- * Map a heatmap day + range/today context to one of 4 cell states defined
- * by `docs/inceptio-design-changes-v2.1.md` (lines 125-158). The doc is
- * explicitly score-driven, not grade- or viable_count-driven — a day with
- * best_score=58 and viable_count=0 is still "viable, score 0-74" per the
- * design language, showing the score on a gradient cell.
+ * Map a heatmap day + cross-checked top_windows to one of 4 cell states.
  *
- *   - out_of_range  : outside the picker's range (UI-only state)
- *   - blocked       : data.heatmap[i].blocked === true → glyph
- *   - celebrate     : best_score >= 75 → gold + ring (state 3)
- *   - viable        : best_score 1-74 → gradient cell with score (state 2)
- *   - (best_score === 0 && !blocked) is folded into out_of_range visually
- *     since it's the same "no signal" cue. Real API data only produces
- *     score=0 alongside blocked=true, so this fallback is defensive.
+ * Override rule (resolves the API's heatmap-vs-top_windows disagreement):
+ *   When `dayWindows` is non-empty AND the heatmap day says blocked or has
+ *   score 0, we prefer the top_windows view. This happens for moon-void
+ *   days where the void covers most of the day but a few minutes outside
+ *   it still hold viable moments. The list view shows those moments — the
+ *   calendar should agree.
+ *
+ * Returns both the cell state and the effective score the cell should
+ * display (max of dayWindows.score, falling back to heatmap.best_score).
  */
-function classifyCell({ outOfRange, day }) {
-  if (outOfRange) return 'out_of_range';
-  if (!day) return 'out_of_range';
-  if (day.blocked) return 'blocked';
-  if (day.best_score >= 75) return 'celebrate';
-  if (day.best_score > 0) return 'viable';
-  return 'out_of_range';
+function classifyCell({ outOfRange, day, dayWindows }) {
+  if (outOfRange || !day) return { state: 'out_of_range', score: 0 };
+
+  const bestWindowScore = (dayWindows && dayWindows.length > 0)
+    ? Math.max(...dayWindows.map((w) => w?.score ?? 0))
+    : 0;
+  // Effective score: prefer the top_windows-derived value when it beats the
+  // heatmap. For "blocked but has moments" days, heatmap.best_score is 0,
+  // so the override kicks in.
+  const score = Math.max(bestWindowScore, day.best_score ?? 0);
+
+  if (score >= 75) return { state: 'celebrate', score };
+  if (score > 0) return { state: 'viable', score };
+  if (day.blocked) return { state: 'blocked', score: 0 };
+  return { state: 'out_of_range', score: 0 };
 }
 
 export default function CalendarScreen({ go }) {
   const [sheet, setSheet] = useState(null);
+
+  // 'list' | 'calendar'. Initialised from storage (persists across in-session
+  // navigation: tap a card → MomentDetail → back keeps you in the same view).
+  // Reset on cold start by App.js, so each app launch starts on 'calendar'
+  // unless the user explicitly switched within this session.
+  const [view, setView] = useState(() => {
+    const saved = storage.getString(VIEW_KEY);
+    return saved === 'list' || saved === 'calendar' ? saved : 'calendar';
+  });
+  const handleViewChange = useCallback((next) => {
+    setView(next);
+    storage.set(VIEW_KEY, next);
+  }, []);
 
   // Anchor "today" once on mount so day boundaries don't shift mid-session.
   const today = useMemo(() => new Date(), []);
@@ -165,22 +188,86 @@ export default function CalendarScreen({ go }) {
     ? `Just ${viableWindowsCount} viable window${viableWindowsCount === 1 ? '' : 's'} in your range — they're worth attention.`
     : `${viableWindowsCount} viable windows in your range`;
 
-  // Day-level pills above the grid. Buckets match the design-v2.1 cell-state
-  // taxonomy: many = "celebrate" state (score ≥ 75), few = "viable" state
-  // (1-74), none = no signal at all. Blocked days are excluded — they have
-  // their own glyph in the grid and aren't in any pill.
+  // Day-level pills above the grid. Buckets mirror the cell rendering, so
+  // pill totals always agree with what's drawn:
+  //   many = effective score ≥ 75 (celebrate cells)
+  //   few  = effective score 1-74 (viable cells)
+  //   none = no signal AND not blocked (no cell color, no glyph)
+  // Truly-blocked days (heatmap.blocked AND no top_windows override) belong
+  // to the moon-void/malefic glyph, not any pill.
   // Phase 1: info-only (no filter interactivity). Phase 2 (later) would let
   // the user toggle these to dim non-matching cells.
+  // Index top_windows by 'YYYY-MM-DD'. Used by classifyCell to override
+  // heatmap.blocked on days where viable moments exist outside the day's
+  // dominant block (e.g. moon-void days that still have a usable hour).
+  const windowsByDate = useMemo(() => {
+    const map = new Map();
+    for (const w of topWindows) {
+      if (!w?.start) continue;
+      const key = w.start.slice(0, 10);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(w);
+    }
+    return map;
+  }, [topWindows]);
+
+  function dayWindowsFor(dayNum) {
+    const m = String(viewMonth.month).padStart(2, '0');
+    const d = String(dayNum).padStart(2, '0');
+    return windowsByDate.get(`${viewMonth.year}-${m}-${d}`) ?? [];
+  }
+
+  // Highest-scored window of a given day's list — used both for cell score
+  // and for the onPress destination.
+  function bestWindowOfDay(dayWindows) {
+    if (!dayWindows || dayWindows.length === 0) return null;
+    return dayWindows.reduce((a, b) =>
+      (b?.score ?? 0) > (a?.score ?? 0) ? b : a,
+    );
+  }
+
+  // Effective score = max(heatmap.best_score, top_windows[date].max_score).
+  // Same override classifyCell() uses, applied per-day so the pill counts
+  // agree with what's rendered. Without this, moon-void days where the API
+  // returns `blocked:true, best_score:0` but still emits top_windows with
+  // scores 60+ would be silently dropped from every bucket — symptom that
+  // motivated this fix: pills said 0/0/0 while the grid clearly showed
+  // a gold "75" and a violet "64".
+  //
+  // In-range guard: the API already returns only days within the search
+  // range, but a defensive check protects against future Worker changes.
+  // Truly-blocked days (no overriding top_windows) get no pill bucket —
+  // they have their own glyph in the grid.
   const filterCounts = useMemo(() => {
+    const lo = searchStartYMD
+      ? searchStartYMD.year * 10000 + searchStartYMD.month * 100 + searchStartYMD.day
+      : -Infinity;
+    const hi = searchEndYMD
+      ? searchEndYMD.year * 10000 + searchEndYMD.month * 100 + searchEndYMD.day
+      : Infinity;
+
     let many = 0, few = 0, none = 0;
     for (const d of heatmap) {
-      if (d.blocked) continue;
-      if (d.best_score >= 75) many++;
-      else if (d.best_score > 0) few++;
-      else none++;
+      if (!d?.date) continue;
+      const idx = d.date.year * 10000 + d.date.month * 100 + d.date.day;
+      if (idx < lo || idx > hi) continue;
+
+      const m = String(d.date.month).padStart(2, '0');
+      const dd = String(d.date.day).padStart(2, '0');
+      const key = `${d.date.year}-${m}-${dd}`;
+      const dayWindows = windowsByDate.get(key) ?? [];
+      const bestWindowScore = dayWindows.length > 0
+        ? Math.max(...dayWindows.map((w) => w?.score ?? 0))
+        : 0;
+      const effective = Math.max(bestWindowScore, d.best_score ?? 0);
+
+      if (effective >= 75) many++;
+      else if (effective > 0) few++;
+      else if (!d.blocked) none++;
+      // else: truly-blocked day with no override — excluded from all pills.
     }
     return { many, few, none };
-  }, [heatmap]);
+  }, [heatmap, windowsByDate, searchStartYMD, searchEndYMD]);
 
   const activityLabel = (getLastActivity() ?? 'wedding').replace('_', ' ');
   const cityLabel = (getLastLocation() ?? FALLBACK_LOCATION).city;
@@ -321,41 +408,53 @@ export default function CalendarScreen({ go }) {
           </View>
 
           <View className="flex-row justify-center gap-2 mt-5 pb-6">
-            <TogglePill label="List" active={false} />
-            <TogglePill label="Calendar" active={true} />
+            <TogglePill
+              label="List"
+              active={view === 'list'}
+              onPress={() => handleViewChange('list')}
+            />
+            <TogglePill
+              label="Calendar"
+              active={view === 'calendar'}
+              onPress={() => handleViewChange('calendar')}
+            />
           </View>
         </SafeAreaView>
       </View>
 
       <View className="px-6 pt-6">
-        {/* Month nav */}
-        <View className="flex-row items-center justify-center gap-[18px]">
-          <IconBtn onPress={canGoPrev ? goPrevMonth : undefined}>
-            {/* Color shifts to a near-invisible grey when disabled — IconBtn
-                itself doesn't support a `disabled` prop, but `onPress=undefined`
-                already swallows taps, so the visual hint is the only contract
-                we need. */}
-            <ChevronLeft
-              color={canGoPrev ? '#B8B0CC' : '#3A3258'}
-              size={16}
-              strokeWidth={1.5}
-            />
-          </IconBtn>
-          <Text className="font-display text-[22px] text-cream tracking-[-0.2px] min-w-[150px] text-center">
-            {monthLabel}
-          </Text>
-          <IconBtn onPress={canGoNext ? goNextMonth : undefined}>
-            <ChevronRight
-              color={canGoNext ? '#B8B0CC' : '#3A3258'}
-              size={16}
-              strokeWidth={1.5}
-            />
-          </IconBtn>
-        </View>
+        {/* Month nav — only meaningful for the grid view. */}
+        {view === 'calendar' && (
+          <View className="flex-row items-center justify-center gap-[18px]">
+            <IconBtn onPress={canGoPrev ? goPrevMonth : undefined}>
+              {/* Color shifts to a near-invisible grey when disabled — IconBtn
+                  itself doesn't support a `disabled` prop, but `onPress=undefined`
+                  already swallows taps, so the visual hint is the only contract
+                  we need. */}
+              <ChevronLeft
+                color={canGoPrev ? '#B8B0CC' : '#3A3258'}
+                size={16}
+                strokeWidth={1.5}
+              />
+            </IconBtn>
+            <Text className="font-display text-[22px] text-cream tracking-[-0.2px] min-w-[150px] text-center">
+              {monthLabel}
+            </Text>
+            <IconBtn onPress={canGoNext ? goNextMonth : undefined}>
+              <ChevronRight
+                color={canGoNext ? '#B8B0CC' : '#3A3258'}
+                size={16}
+                strokeWidth={1.5}
+              />
+            </IconBtn>
+          </View>
+        )}
 
         {/* Viable filter pills — counts of (non-blocked) days bucketed by
-            viable_count. Info-only in Phase 1. */}
-        <View className="flex-row items-center gap-2 mt-5">
+            effective score. Visible in both views. mt-5 only when month nav
+            sits above; in list view the filter row anchors to the hero's
+            bottom padding directly. */}
+        <View className={`flex-row items-center gap-2 ${view === 'calendar' ? 'mt-5' : ''}`}>
           <Text className="font-ui-semi text-[11px] text-subtle tracking-[1px] uppercase mr-1">
             Viable
           </Text>
@@ -364,7 +463,24 @@ export default function CalendarScreen({ go }) {
           <ViableFilterPill label="none" count={filterCounts.none} />
         </View>
 
+        {/* List view — alternate visualisation of top_windows. Same data
+            source as the grid; tapping a card opens MomentDetail with the
+            picked window. Empty state navigates to the activity picker. */}
+        {view === 'list' && (
+          <View className="mt-7">
+            <ResultsListView
+              windows={topWindows}
+              onWindowPress={(w) => {
+                setSelectedWindow(w);
+                go('detail');
+              }}
+              onAdjustSearch={() => go('picker')}
+            />
+          </View>
+        )}
+
         {/* Day labels */}
+        {view === 'calendar' && <>
         <View className="flex-row mt-5">
           {DAY_LABELS.map((d) => (
             <View key={d} style={styles.cellSlot}>
@@ -383,12 +499,15 @@ export default function CalendarScreen({ go }) {
           {monthDays.map((dayNum) => {
             const outOfRange = isPastDay(dayNum) || isOutsideRange(dayNum);
             const day = outOfRange ? null : findHeatmapDay(dayNum);
-            const state = classifyCell({ outOfRange, day });
+            const dayWindows = outOfRange ? [] : dayWindowsFor(dayNum);
+            const { state, score } = classifyCell({ outOfRange, day, dayWindows });
 
             // Tap behavior depends on state. Out-of-range cells aren't
             // tappable. Blocked cells open the BlockedSheet for the reason.
-            // Everything else opens MomentDetail with either the matching
-            // top_window or a synthesized one.
+            // Viable/celebrate cells open MomentDetail with the best window
+            // for the day — prefer the highest-scored top_window, otherwise
+            // fall back to the heatmap's best_window_start, otherwise
+            // synthesize from heatmap day data.
             let onPress;
             if (state === 'out_of_range') {
               onPress = undefined;
@@ -397,8 +516,8 @@ export default function CalendarScreen({ go }) {
               onPress = () => setSheet({ day: dayNum, reason });
             } else {
               onPress = () => {
-                let picked = null;
-                if (day?.best_window_start) {
+                let picked = bestWindowOfDay(dayWindows);
+                if (!picked && day?.best_window_start) {
                   picked = topWindows.find((w) => w.start === day.best_window_start);
                 }
                 if (!picked && day?.best_window_start) {
@@ -412,6 +531,7 @@ export default function CalendarScreen({ go }) {
                     displayable: {
                       headline: 'A window worth looking at.',
                       factors: [],
+                      tagline: { phrase_short: 'A window worth looking at' },
                     },
                     rank: -1,
                     _synthetic: true,
@@ -429,7 +549,7 @@ export default function CalendarScreen({ go }) {
                 key={dayNum}
                 state={state}
                 day={dayNum}
-                score={day?.best_score}
+                score={score}
                 reason={reason}
                 onPress={onPress}
               />
@@ -437,14 +557,15 @@ export default function CalendarScreen({ go }) {
           })}
         </View>
 
-        {/* Legend — three glyph rows + a closing summary sentence. Glyph
-            size (16) and color (#5B4F8A) match the in-grid cell rendering
-            so users can recognize the same shapes here. The dot row uses
-            the same `·` Text node that out-of-range cells render. */}
+        {/* Legend — three glyph rows + a closing summary sentence. Swatch
+            colors mirror the in-grid cells: blocked glyphs at #B8B0CC (the
+            "carries signal" tone), out-of-range dot at #3A3258 (the "empty
+            placeholder" tone). Update both surfaces together if either
+            changes — they only work as a legend when they match. */}
         <View className="mt-[22px] p-[14px] rounded-[12px] bg-gradient border border-surface-2 gap-2">
           <View className="flex-row items-center gap-3">
             <View className="w-[20px] items-center">
-              <Glyph name="moon-void" size={16} color="#5B4F8A" />
+              <Glyph name="moon-void" size={16} color="#B8B0CC" />
             </View>
             <Text className="flex-1 font-ui text-[14px] leading-[20px] text-muted">
               Moon void of course — the sky is between rooms
@@ -452,7 +573,7 @@ export default function CalendarScreen({ go }) {
           </View>
           <View className="flex-row items-center gap-3">
             <View className="w-[20px] items-center">
-              <Glyph name="malefic-angle" size={16} color="#5B4F8A" />
+              <Glyph name="malefic-angle" size={16} color="#B8B0CC" />
             </View>
             <Text className="flex-1 font-ui text-[14px] leading-[20px] text-muted">
               A difficult planet rises — move with care
@@ -460,7 +581,10 @@ export default function CalendarScreen({ go }) {
           </View>
           <View className="flex-row items-center gap-3">
             <View className="w-[20px] items-center">
-              <View className="w-[8px] h-[8px] rounded-full bg-subtle" />
+              <View
+                className="w-[6px] h-[6px] rounded-full"
+                style={{ backgroundColor: '#3A3258' }}
+              />
             </View>
             <Text className="flex-1 font-ui text-[14px] leading-[20px] text-muted">
               Outside your search range
@@ -470,9 +594,11 @@ export default function CalendarScreen({ go }) {
             Filled cells show available windows. Gold rings mark the strongest.
           </Text>
         </View>
+        </>}
 
-        {/* Closest moments when all are blocked */}
-        {noViable && topWindows.length > 0 && (
+        {/* Closest moments when all are blocked — calendar view only.
+            In list view the cards already surface top_windows ranked. */}
+        {view === 'calendar' && noViable && topWindows.length > 0 && (
           <View className="mt-7">
             <Text className="font-display-reg text-[20px] leading-[26px] text-cream">The closest moments</Text>
             <View className="gap-[10px] mt-3">
@@ -555,24 +681,31 @@ function viableCellBg(score) {
  */
 function Cell({ state, day, score, reason, onPress }) {
   if (state === 'out_of_range') {
-    // Non-interactive. Day number muted; inner container hosts a subtle dot
-    // so the grid stays visually uniform across every day of the month.
+    // Non-interactive. Day number muted; inner container hosts a dim dot
+    // so the grid stays visually uniform without competing with blocked
+    // cells (which carry meaningful glyphs).
     return (
       <View style={styles.cellSlot}>
         <Text className="font-ui-med text-[13px] text-subtle opacity-60">{day}</Text>
         <View className="w-full aspect-square max-h-[38px] rounded-[8px] bg-[rgba(31,24,56,0.35)] items-center justify-center">
-          <View className="w-[8px] h-[8px] rounded-full bg-subtle" />
+          <View
+            className="w-[6px] h-[6px] rounded-full"
+            style={{ backgroundColor: '#3A3258' }}
+          />
         </View>
       </View>
     );
   }
 
   if (state === 'blocked') {
+    // Glyph color sits brighter than the out-of-range dot so blocked days
+    // visibly carry signal (moon-void, malefic angle) rather than reading
+    // as "empty like the dotted days."
     return (
       <Pressable onPress={onPress} style={styles.cellSlot}>
         <Text className="font-ui-med text-[13px] text-glow">{day}</Text>
         <View className="w-full aspect-square max-h-[38px] rounded-[8px] bg-[rgba(31,24,56,0.55)] border border-surface-2 items-center justify-center">
-          <Glyph name={reasonToGlyph(reason)} size={14} color="#5B4F8A" />
+          <Glyph name={reasonToGlyph(reason)} size={15} color="#B8B0CC" />
         </View>
       </Pressable>
     );
@@ -627,9 +760,10 @@ function ViableFilterPill({ label, count }) {
   );
 }
 
-function TogglePill({ label, active }) {
+function TogglePill({ label, active, onPress }) {
   return (
     <Pressable
+      onPress={onPress}
       className={[
         'py-[7px] px-4 rounded-full border',
         active ? 'bg-gold-muted/[0.12] border-glow' : 'bg-transparent border-soft',

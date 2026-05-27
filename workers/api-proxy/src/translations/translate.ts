@@ -93,37 +93,79 @@ export function translateExcludedReason(reasonId: string): string {
   return entry.phrase;
 }
 
-/**
- * Build the L2 displayable for a single window: a synthesized headline plus
- * every factor translated to (phrase_short, phrase_full). Mobile filters by
- * status — pass+partial on L2, all (including fail) on L3.
- */
-function translateWindow(window: Window, activity: Activity): DisplayableWindow {
-  const ranked = [...window.factors].sort(compareFactors);
-  const factors: DisplayableFactor[] = ranked.map((f) => {
-    const phrasing = translateFactor(f.factor_id, f.status, activity);
-    return {
-      factor_id: f.factor_id,
-      status: f.status,
-      phrase_short: phrasing.phrase_short,
-      phrase_full: phrasing.phrase_full,
-    };
-  });
-
-  const headline = synthesizeHeadline({
-    topWindow: window,
-    activity,
-    noViableWindows: false,
-  });
-
-  return { headline, factors };
-}
-
 function translateExcluded(range: ExcludedRange): DisplayableExcludedRange {
   return {
     reason_id: range.reason_id,
     phrase: translateExcludedReason(range.reason_id),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Tagline picker — produces a per-window phrase distinct from siblings.
+//
+// Background: when a search produces clustered windows (e.g. a Venus-led
+// wedding week), every window's strongest factor is the same Venus entry.
+// Reading `factors[0].phrase_short` on the ListView results in 10 cards
+// saying "Venus brings tenderness" verbatim. Per the spec, we pick the
+// highest-priority factor in this window whose id is NOT a dominant
+// position-0 across the result set. Falls back to a time-of-day tag when
+// every factor of the window is itself dominant.
+// ---------------------------------------------------------------------------
+
+const SHARED_THRESHOLD = 0.6;
+
+// Parse the local hour directly from the ISO string. The hour digits in
+// an offset-bearing timestamp ("2026-08-20T21:30:00+03:00") already
+// represent local-at-location time — the +03:00 tail describes the zone.
+// Using `new Date(...).getHours()` would re-shift to the Worker's runtime
+// timezone (UTC on Cloudflare), so a Kyiv 21:00 reads 18:00 there.
+function localHourFromIso(s: string): number | null {
+  const match = s.match(/T(\d{2}):/);
+  if (!match || !match[1]) return null;
+  return parseInt(match[1], 10);
+}
+
+function contextualTag(window: Window): string {
+  if (!window.start) return 'A window worth looking at';
+  const hour = localHourFromIso(window.start);
+  if (hour == null) return 'A window worth looking at';
+  if (hour < 11) return 'A morning moment';
+  if (hour < 17) return 'An afternoon moment';
+  if (hour < 21) return 'An evening moment';
+  return 'A late-night moment';
+}
+
+function pickTagline(
+  thisFactors: DisplayableFactor[],
+  allFactor0Ids: string[],
+  window: Window,
+): { factor_id?: string; phrase_short: string; phrase_full?: string } {
+  const total = allFactor0Ids.length;
+
+  // Single-window response: diversification is meaningless. Use the strongest
+  // factor directly.
+  if (total <= 1 && thisFactors[0]) {
+    return {
+      factor_id: thisFactors[0].factor_id,
+      phrase_short: thisFactors[0].phrase_short,
+      phrase_full: thisFactors[0].phrase_full,
+    };
+  }
+
+  for (const candidate of thisFactors) {
+    const sharedAtZero = allFactor0Ids.filter((id) => id === candidate.factor_id).length;
+    if (sharedAtZero / total < SHARED_THRESHOLD) {
+      return {
+        factor_id: candidate.factor_id,
+        phrase_short: candidate.phrase_short,
+        phrase_full: candidate.phrase_full,
+      };
+    }
+  }
+
+  // Every factor in this window appears as a dominant factor[0] across the
+  // result set. Astrology is genuinely homogeneous — use time-of-day.
+  return { phrase_short: contextualTag(window) };
 }
 
 /**
@@ -167,6 +209,14 @@ export function translate(
     noViableWindows: data.summary.no_viable_windows,
   });
 
+  // Pre-compute each window's ranked factors and the factor[0].factor_id
+  // across the whole result set. `pickTagline()` reads the second array to
+  // decide whether each window's top factor is too widely shared.
+  const rankedPerWindow = data.top_windows.map((w) =>
+    [...w.factors].sort(compareFactors),
+  );
+  const allFactor0Ids = rankedPerWindow.map((r) => r[0]?.factor_id ?? '');
+
   return {
     ...envelope,
     data: {
@@ -175,10 +225,28 @@ export function translate(
         ...data.summary,
         displayable: { headline: summaryHeadline },
       },
-      top_windows: data.top_windows.map((w) => ({
-        ...w,
-        displayable: translateWindow(w, activity),
-      })),
+      top_windows: data.top_windows.map((w, i) => {
+        const ranked = rankedPerWindow[i] ?? [];
+        const factors: DisplayableFactor[] = ranked.map((f) => {
+          const phrasing = translateFactor(f.factor_id, f.status, activity);
+          return {
+            factor_id: f.factor_id,
+            status: f.status,
+            phrase_short: phrasing.phrase_short,
+            phrase_full: phrasing.phrase_full,
+          };
+        });
+        const headline = synthesizeHeadline({
+          topWindow: w,
+          activity,
+          noViableWindows: false,
+        });
+        const tagline = pickTagline(factors, allFactor0Ids, w);
+        return {
+          ...w,
+          displayable: { headline, factors, tagline },
+        };
+      }),
       excluded_ranges: data.excluded_ranges.map((r) => ({
         ...r,
         displayable: translateExcluded(r),

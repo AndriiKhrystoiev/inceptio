@@ -4,7 +4,10 @@
 //   `search:v1:${TRANSLATIONS_VERSION}:${requestHash}`
 //
 // Format: integer that monotonically increases. Don't reuse old numbers.
-export const TRANSLATIONS_VERSION = 1;
+// v2: per-window tagline added to DisplayableWindow. Bumping invalidates
+// any KV-cached responses from v1 that lack the new field, so mobile clients
+// get fresh translations on next request.
+export const TRANSLATIONS_VERSION = 2;
 
 export {
   translate,
