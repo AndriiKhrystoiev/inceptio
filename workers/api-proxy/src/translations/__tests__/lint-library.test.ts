@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DAILY_NOTES } from '../dictionary/daily-notes';
 import { DAILY_NOTE_FALLBACKS } from '../dictionary/daily-note-fallbacks';
+import { DAILY_NOTE_VARIANT_POOLS } from '../dictionary/daily-note-variants';
 import { lintPhrase } from '../daily-notes/lint';
 import { KNOWN_DAILY_NOTE_IDS } from '../types';
 
@@ -89,4 +90,35 @@ describe('library lint — every entry must pass boundary tests + char limits', 
       expect(supportingResult.reasons).toEqual([]);
     });
   });
+});
+
+describe('DAILY_NOTE_VARIANT_POOLS lint-clean', () => {
+  const pools = Object.values(DAILY_NOTE_VARIANT_POOLS).filter(
+    (p): p is NonNullable<typeof p> => p !== undefined,
+  );
+
+  for (const pool of pools) {
+    for (const variant of pool.variants) {
+      it(`pool ${pool.primary_entry_id} variant headline "${variant.headline}" within 48 chars`, () => {
+        expect(variant.headline.length).toBeLessThanOrEqual(48);
+      });
+      it(`pool ${pool.primary_entry_id} variant supporting_line within 140 chars`, () => {
+        expect(variant.supporting_line.length).toBeLessThanOrEqual(140);
+      });
+      it(`pool ${pool.primary_entry_id} variant lint-clean`, () => {
+        const headlineResult = lintPhrase({
+          surface: 'daily-note',
+          phrase: variant.headline,
+          today_offset_days: null,
+        });
+        expect(headlineResult.reasons).toEqual([]);
+        const supportingResult = lintPhrase({
+          surface: 'daily-note',
+          phrase: variant.supporting_line,
+          today_offset_days: null,
+        });
+        expect(supportingResult.reasons).toEqual([]);
+      });
+    }
+  }
 });

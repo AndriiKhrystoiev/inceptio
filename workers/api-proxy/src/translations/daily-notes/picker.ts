@@ -1,6 +1,7 @@
 import type { ExcludedRange, Window } from '@inceptio/shared-types';
 import { DAILY_NOTES } from '../dictionary/daily-notes';
 import { DAILY_NOTE_FALLBACKS } from '../dictionary/daily-note-fallbacks';
+import { DAILY_NOTE_VARIANT_POOLS } from '../dictionary/daily-note-variants';
 import type { DailyNoteEntry, KnownDailyNoteId, QualityBucket } from '../types';
 import { isHorizonWithin3Days, nextStationOf } from './horizon';
 import { assignBucket } from './quality-bucket';
@@ -230,13 +231,66 @@ function finalize(
   today_iso_date: string,
   exclusion_reason?: string,
 ): PickResult {
+  // Skip rotation for fallback entries — they already represent the
+  // horizon-fail branch and should be a single voice.
+  if (usedFallback) {
+    return {
+      entry_id: entry.id,
+      mood: entry.quality_bucket,
+      date: today_iso_date,
+      headline: entry.headline,
+      supporting: entry.supporting_line,
+      exclusion_reason,
+      used_fallback: true,
+    };
+  }
+
+  const pool = DAILY_NOTE_VARIANT_POOLS[entry.id as KnownDailyNoteId];
+  if (!pool) {
+    return {
+      entry_id: entry.id,
+      mood: entry.quality_bucket,
+      date: today_iso_date,
+      headline: entry.headline,
+      supporting: entry.supporting_line,
+      exclusion_reason,
+      used_fallback: false,
+    };
+  }
+
+  // All siblings: [primary, ...variants]
+  const siblings = [
+    { headline: entry.headline, supporting_line: entry.supporting_line },
+    ...pool.variants,
+  ];
+  const index = dateSeededHash(today_iso_date, entry.id) % siblings.length;
+  const chosen = siblings[index]!;
   return {
     entry_id: entry.id,
-    mood: entry.quality_bucket,             // derived — single source of truth
+    mood: entry.quality_bucket,
     date: today_iso_date,
-    headline: entry.headline,
-    supporting: entry.supporting_line,      // contract field name `supporting`; dictionary field is `supporting_line`
+    headline: chosen.headline,
+    supporting: chosen.supporting_line,
     exclusion_reason,
-    used_fallback: usedFallback,
+    used_fallback: false,
   };
+}
+
+/**
+ * Deterministic non-cryptographic hash of (date string, entry id). Same
+ * inputs always produce the same output — required for the daily-cache
+ * contract. Uses FNV-1a 32-bit; sufficient for variant-rotation diffusion.
+ *
+ * Takes `today_iso_date: string` (YYYY-MM-DD wall-clock in event tz) directly
+ * — no Date conversion needed for hashing. Matches the picker's tz-correctness
+ * contract (no UTC-vs-local ambiguity in the hash seed).
+ */
+function dateSeededHash(today_iso_date: string, salt: string): number {
+  const seed = today_iso_date + ':' + salt;
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = (h * 16777619) >>> 0;
+  }
+  return h;
 }
