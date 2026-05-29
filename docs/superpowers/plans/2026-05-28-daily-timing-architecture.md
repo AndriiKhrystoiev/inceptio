@@ -2671,11 +2671,13 @@ git commit -m "feat(daily-notes): saved-search 5-state derivation per design-pas
 
 # Phase 5b — Status-line ordering (was Phase 5)
 
-## Task 14: Multi-search status-line ordering + 3-cap (renumbered from Task 13)
+## Task 14: Multi-search status-line ordering + 3-cap (renumbered from Task 13; simplified for `SavedSearchStatusOutput`)
 
 **Files:**
 - Create: `workers/api-proxy/src/translations/daily-notes/status-line-ordering.ts`
 - Test: `workers/api-proxy/src/translations/__tests__/status-line-ordering.test.ts`
+
+**Simplified vs original plan:** the state-derivation task (Task 13) populates `priority` directly on `SavedSearchStatusOutput`, so the ordering function just sorts by that field and caps at 3. No separate snapshot type, no priority recomputation here — single source of truth lives in Task 13's `bandPriority`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2683,163 +2685,350 @@ Create `__tests__/status-line-ordering.test.ts`:
 
 ```ts
 import { describe, expect, it } from 'vitest';
-import { orderStatusLines, type SavedSearchSnapshot } from '../daily-notes/status-line-ordering';
+import { orderStatusLines } from '../daily-notes/status-line-ordering';
+import type { SavedSearchStatusOutput } from '../types';
 
-const TODAY = new Date('2026-05-28');
-
-function snap(overrides: Partial<SavedSearchSnapshot>): SavedSearchSnapshot {
+function status(
+  id: string,
+  priority: number,
+  overrides: Partial<SavedSearchStatusOutput> = {},
+): SavedSearchStatusOutput {
   return {
-    id: 'search-1',
+    id,
     activity: 'wedding',
     state: 'pre-window',
-    days_until: 30,
-    days_since_closed: null,
-    has_active_alert: false,
+    window_start: '2026-07-15T14:00:00+03:00',
+    window_end: '2026-07-15T16:00:00+03:00',
+    priority,
     ...overrides,
   };
 }
 
 describe('orderStatusLines', () => {
-  it('in-window beats new-window-alert beats pre-window beats post-window', () => {
-    const result = orderStatusLines(
-      [
-        snap({ id: 's-post', state: 'post-window', days_since_closed: 5 }),
-        snap({ id: 's-pre',  state: 'pre-window',  days_until: 7 }),
-        snap({ id: 's-alert', state: 'pre-window', days_until: 14, has_active_alert: true }),
-        snap({ id: 's-in',   state: 'in-window' }),
-      ],
-      TODAY,
-    );
-    expect(result.visible.map((s) => s.id)).toEqual(['s-in', 's-alert', 's-pre']);
+  it('sorts ascending by priority — in-window (0) before new-window (1M) before pre-window (2M) before none-yet (3M) before passed (4M)', () => {
+    const result = orderStatusLines([
+      status('s-passed',  4_000_000, { state: 'passed' }),
+      status('s-pre',     2_000_000),
+      status('s-new',     1_000_000, { state: 'new-window', is_stronger: true, alert_id: 'a1' }),
+      status('s-in',              0, { state: 'in-window' }),
+    ]);
+    expect(result.visible.map((s) => s.id)).toEqual(['s-in', 's-new', 's-pre']);
     expect(result.overflow_count).toBe(1);
   });
 
-  it('pre-window orders by ascending days_until', () => {
-    const result = orderStatusLines(
-      [
-        snap({ id: 'far',    days_until: 30 }),
-        snap({ id: 'close',  days_until: 3 }),
-        snap({ id: 'medium', days_until: 14 }),
-      ],
-      TODAY,
-    );
+  it('within the same band, lower priority wins (stable for ties)', () => {
+    // Five pre-window entries with monotonically increasing priority — the
+    // state-derivation function distinguishes them by tail digits (days_until,
+    // etc.). Here we just verify the ordering function respects the input.
+    const result = orderStatusLines([
+      status('far',    2_000_030),
+      status('close',  2_000_003),
+      status('medium', 2_000_014),
+    ]);
     expect(result.visible.map((s) => s.id)).toEqual(['close', 'medium', 'far']);
     expect(result.overflow_count).toBe(0);
   });
 
-  it('post-window orders by ascending days_since_closed', () => {
-    const result = orderStatusLines(
-      [
-        snap({ id: 'old',   state: 'post-window', days_since_closed: 30 }),
-        snap({ id: 'fresh', state: 'post-window', days_since_closed: 1 }),
-      ],
-      TODAY,
-    );
-    expect(result.visible.map((s) => s.id)).toEqual(['fresh', 'old']);
+  it('none-yet sits between pre-window and passed', () => {
+    const result = orderStatusLines([
+      status('s-passed', 4_000_000, { state: 'passed' }),
+      status('s-none',   3_000_000, { state: 'none-yet', window_start: null, window_end: null, searched_through: '2026-08-31' }),
+      status('s-pre',    2_000_000),
+    ]);
+    expect(result.visible.map((s) => s.id)).toEqual(['s-pre', 's-none', 's-passed']);
   });
 
   it('caps at 3 visible + overflow', () => {
     const all = Array.from({ length: 8 }, (_, i) =>
-      snap({ id: `s-${i}`, days_until: i + 1 }),
+      status(`s-${i}`, 2_000_000 + i),
     );
-    const result = orderStatusLines(all, TODAY);
+    const result = orderStatusLines(all);
     expect(result.visible.length).toBe(3);
     expect(result.overflow_count).toBe(5);
+    expect(result.visible.map((s) => s.id)).toEqual(['s-0', 's-1', 's-2']);
+  });
+
+  it('empty input → empty visible, zero overflow', () => {
+    const result = orderStatusLines([]);
+    expect(result.visible).toEqual([]);
+    expect(result.overflow_count).toBe(0);
   });
 });
 ```
 
 - [ ] **Step 2: Run test, verify it fails**
 
-Run: `cd workers/api-proxy && pnpm vitest run src/translations/__tests__/status-line-ordering.test.ts`
-Expected: FAIL — "Cannot find module '../daily-notes/status-line-ordering'".
+Run: `npx vitest run src/translations/__tests__/status-line-ordering.test.ts` from `workers/api-proxy/`.
+Expected: FAIL — module-not-found.
 
 - [ ] **Step 3: Implement `status-line-ordering.ts`**
 
 Create `daily-notes/status-line-ordering.ts`:
 
 ```ts
-import type { Activity } from '@inceptio/shared-types';
-
-export type SavedSearchState =
-  | 'pre-window'
-  | 'in-window'
-  | 'post-window';
-
-export interface SavedSearchSnapshot {
-  id: string;
-  activity: Activity;
-  state: SavedSearchState;
-  /** null when state !== 'pre-window' */
-  days_until: number | null;
-  /** null when state !== 'post-window' */
-  days_since_closed: number | null;
-  /** When true, a new-window-alert is currently active for this search. */
-  has_active_alert: boolean;
-}
+import type { SavedSearchStatusOutput } from '../types';
 
 export interface OrderResult {
-  visible: SavedSearchSnapshot[];
+  visible: SavedSearchStatusOutput[];
   overflow_count: number;
 }
 
 const VISIBLE_CAP = 3;
 
 /**
- * Order saved-search snapshots per spec §6.4. Hard cap at 3 visible status
- * lines; the remainder are rolled into `overflow_count` which the renderer
- * uses for the "+N more →" affordance.
+ * Order saved-search statuses by ascending `priority` and cap visible at 3.
  *
- * Priority order:
- *   1. in-window (emphasized)
- *   2. active new-window-alert
- *   3. pre-window, ascending days_until
- *   4. post-window, ascending days_since_closed
+ * The `priority` field is populated by `deriveSavedSearchStatus()` in
+ * `daily-notes/saved-search-state.ts` per the spec §6.4 band ordering +
+ * 2026-05-29 amendment slotting `none-yet`. Single source of truth lives
+ * there; this function is purely a sort-and-slice.
+ *
+ * Returns `overflow_count = max(0, input.length - 3)` so the client can
+ * render the "+N more →" affordance per spec §6.4.
  */
 export function orderStatusLines(
-  searches: SavedSearchSnapshot[],
-  _today: Date,
+  statuses: SavedSearchStatusOutput[],
 ): OrderResult {
-  const sorted = [...searches].sort((a, b) => priority(a) - priority(b));
+  const sorted = [...statuses].sort((a, b) => a.priority - b.priority);
   return {
     visible: sorted.slice(0, VISIBLE_CAP),
     overflow_count: Math.max(0, sorted.length - VISIBLE_CAP),
   };
 }
-
-function priority(s: SavedSearchSnapshot): number {
-  // Lower number = higher priority. The tail digit is used for stable
-  // intra-bucket ordering by horizon distance.
-  if (s.state === 'in-window') return 0;
-  if (s.has_active_alert) return 1_000 + 0;
-  if (s.state === 'pre-window') {
-    return 2_000_000 + (s.days_until ?? 999_999);
-  }
-  if (s.state === 'post-window') {
-    return 3_000_000 + (s.days_since_closed ?? 999_999);
-  }
-  return 4_000_000;
-}
 ```
 
 - [ ] **Step 4: Run test, verify it passes**
 
-Run: `cd workers/api-proxy && pnpm vitest run src/translations/__tests__/status-line-ordering.test.ts`
-Expected: PASS.
+Run: `npx vitest run src/translations/__tests__/status-line-ordering.test.ts` from `workers/api-proxy/`.
+Expected: PASS — 5/5 green.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add workers/api-proxy/src/translations/daily-notes/status-line-ordering.ts \
         workers/api-proxy/src/translations/__tests__/status-line-ordering.test.ts
-git commit -m "feat(daily-notes): status-line ordering + 3-cap with overflow (spec §6.4)"
+git commit -m "feat(daily-notes): status-line ordering by priority + 3-cap with overflow (spec §6.4)"
+```
+
+---
+
+# Phase 5c — Backend-owned envelope inputs (new tasks per 2026-05-29 contract)
+
+These two tasks produce the inputs the Worker endpoint stitches into the contract response (alongside the picker's `PickResult` and the saved-search statuses). Both are independent of Tasks 1-14 and of each other — safe to dispatch in parallel.
+
+## Task 15: Part-of-day cutoffs config (new task per contract §3)
+
+**Files:**
+- Create: `workers/api-proxy/src/translations/dictionary/part-of-day.ts`
+- Test: `workers/api-proxy/src/translations/__tests__/part-of-day.test.ts`
+
+Per PICKER-CONTRACT.md §3, the hour→part-of-day bands are **backend-owned config** that the Worker endpoint ships in the daily-note response. Client applies the bands but does NOT define them. The cutoffs must match the moment-detail surface's `phrase_short` part-of-day rendering, so the same window can't read "afternoon" on the daily note and "morning" on moment-detail.
+
+- [ ] **Step 1: Write the config + a sanity test**
+
+Create `__tests__/part-of-day.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest';
+import { PART_OF_DAY_CUTOFFS } from '../dictionary/part-of-day';
+
+describe('PART_OF_DAY_CUTOFFS', () => {
+  it('cutoffs are ascending hours within [0, 24)', () => {
+    const { morning_end_hour, afternoon_end_hour, evening_end_hour } = PART_OF_DAY_CUTOFFS;
+    expect(morning_end_hour).toBeGreaterThan(0);
+    expect(afternoon_end_hour).toBeGreaterThan(morning_end_hour);
+    expect(evening_end_hour).toBeGreaterThan(afternoon_end_hour);
+    expect(evening_end_hour).toBeLessThanOrEqual(24);
+  });
+
+  it('cutoffs are integers (no half-hour slop)', () => {
+    const { morning_end_hour, afternoon_end_hour, evening_end_hour } = PART_OF_DAY_CUTOFFS;
+    expect(Number.isInteger(morning_end_hour)).toBe(true);
+    expect(Number.isInteger(afternoon_end_hour)).toBe(true);
+    expect(Number.isInteger(evening_end_hour)).toBe(true);
+  });
+});
+```
+
+- [ ] **Step 2: Create the config file**
+
+Create `dictionary/part-of-day.ts`:
+
+```ts
+import type { PartOfDayCutoffs } from '../types';
+
+/**
+ * Backend-owned part-of-day cutoffs — see PICKER-CONTRACT.md §3.
+ *
+ * The Worker endpoint ships these in the daily-note response; the mobile
+ * client applies them when rendering "this morning / afternoon / evening".
+ *
+ * MUST stay in lockstep with the moment-detail surface's `phrase_short`
+ * part-of-day rendering. If you change these, the moment-detail rendering
+ * must change too — same window can't read "afternoon" on the daily note
+ * and "morning" on moment-detail.
+ *
+ * Hours are 0-23 in the event location's timezone. Bands:
+ *   morning   = [0, morning_end_hour)
+ *   afternoon = [morning_end_hour, afternoon_end_hour)
+ *   evening   = [afternoon_end_hour, evening_end_hour)
+ *   night     = [evening_end_hour, 24)
+ *
+ * Bump `LIBRARY_VERSION` in `types.ts` in the SAME PR as any change here —
+ * see PICKER-CONTRACT.md §6 atomic cache invalidation.
+ */
+export const PART_OF_DAY_CUTOFFS: PartOfDayCutoffs = {
+  morning_end_hour: 12,   // morning = 00:00..11:59
+  afternoon_end_hour: 17, // afternoon = 12:00..16:59
+  evening_end_hour: 21,   // evening = 17:00..20:59; night = 21:00..23:59
+};
+```
+
+- [ ] **Step 3: Run test + tsc**
+
+`npx vitest run src/translations/__tests__/part-of-day.test.ts` — expect 2/2 PASS.
+`npx tsc --noEmit` — expect clean.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add workers/api-proxy/src/translations/dictionary/part-of-day.ts \
+        workers/api-proxy/src/translations/__tests__/part-of-day.test.ts
+git commit -m "feat(daily-notes): part-of-day cutoffs config (contract §3, backend-owned)"
+```
+
+---
+
+## Task 16: Moon-phase computation (new task per contract §2)
+
+**Files:**
+- Create: `workers/api-proxy/src/translations/daily-notes/moon-phase.ts`
+- Test: `workers/api-proxy/src/translations/__tests__/moon-phase.test.ts`
+
+Per PICKER-CONTRACT.md §2, the daily-note response carries `moon_phase` for the hero moon glyph. The original CLAUDE.md note that moon phase is mobile-computed is SUPERSEDED by the design pass — backend computes it deterministically from `today_iso_date`.
+
+Algorithm: count days since a known new moon reference, modulo the synodic month (29.530588853 days), then map cycle position to 8 phases.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `__tests__/moon-phase.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest';
+import { computeMoonPhase } from '../daily-notes/moon-phase';
+
+describe('computeMoonPhase', () => {
+  it('returns one of the 8 phases', () => {
+    const phases = new Set([
+      'new', 'waxing-crescent', 'first-quarter', 'waxing-gibbous',
+      'full', 'waning-gibbous', 'last-quarter', 'waning-crescent',
+    ]);
+    expect(phases.has(computeMoonPhase('2026-05-29'))).toBe(true);
+  });
+
+  it('is deterministic for the same iso_date', () => {
+    expect(computeMoonPhase('2026-05-29')).toBe(computeMoonPhase('2026-05-29'));
+    expect(computeMoonPhase('2026-12-31')).toBe(computeMoonPhase('2026-12-31'));
+  });
+
+  it('reference date Jan 6 2000 ~18:14 UTC is "new" — phase 0 anchor', () => {
+    expect(computeMoonPhase('2000-01-06')).toBe('new');
+  });
+
+  it('advances through phases over a synodic cycle', () => {
+    // Sample 16 dates spanning ~32 days; the chosen segments should include
+    // at least 4 distinct phases — proves the cycle math is moving.
+    const start = new Date('2026-05-01T12:00:00Z');
+    const observed = new Set<string>();
+    for (let i = 0; i < 16; i++) {
+      const d = new Date(start.getTime() + i * 2 * 24 * 3600 * 1000);
+      observed.add(computeMoonPhase(d.toISOString().slice(0, 10)));
+    }
+    expect(observed.size).toBeGreaterThanOrEqual(4);
+  });
+
+  it('full moon ~14.77 days after a new moon', () => {
+    // Anchor a new moon then jump ~half a cycle (14 days from Jan 6 2000)
+    // and expect a gibbous-or-full phase, not new/crescent.
+    const phase = computeMoonPhase('2000-01-20'); // 14 days after anchor
+    expect(['waxing-gibbous', 'full', 'waning-gibbous']).toContain(phase);
+  });
+});
+```
+
+- [ ] **Step 2: Run test, verify it fails**
+
+`npx vitest run src/translations/__tests__/moon-phase.test.ts` from `workers/api-proxy/`.
+Expected: FAIL — module-not-found.
+
+- [ ] **Step 3: Implement `moon-phase.ts`**
+
+Create `daily-notes/moon-phase.ts`:
+
+```ts
+import type { MoonPhase } from '../types';
+
+/**
+ * Backend moon-phase computation — see PICKER-CONTRACT.md §2 (supersedes the
+ * CLAUDE.md note that moon phase is mobile-computed).
+ *
+ * Counts the number of synodic months elapsed since a known new-moon anchor,
+ * then maps the fractional part of the cycle to one of 8 phases.
+ *
+ * Reference: Jan 6, 2000 at 18:14 UTC was a new moon (a standard anchor used
+ * in many phase-calculation libraries). Synodic month length = 29.530588853
+ * mean solar days. Approximation accuracy is ~few hours over a few decades —
+ * adequate for day-granularity phase reporting (we surface one of 8 buckets,
+ * not exact illumination percentage).
+ *
+ * Input is the wall-clock date in event tz; we anchor at noon UTC of that
+ * date to keep the answer stable across all timezones (moon phase moves
+ * slowly enough that "noon UTC of this YYYY-MM-DD" is a good single value).
+ */
+const NEW_MOON_ANCHOR_UNIX_S = 947181240; // 2000-01-06T18:14:00Z
+const SYNODIC_MONTH_DAYS = 29.530588853;
+
+const PHASES: MoonPhase[] = [
+  'new',
+  'waxing-crescent',
+  'first-quarter',
+  'waxing-gibbous',
+  'full',
+  'waning-gibbous',
+  'last-quarter',
+  'waning-crescent',
+];
+
+export function computeMoonPhase(today_iso_date: string): MoonPhase {
+  const tUnixS = new Date(`${today_iso_date}T12:00:00Z`).getTime() / 1000;
+  const daysSinceAnchor = (tUnixS - NEW_MOON_ANCHOR_UNIX_S) / 86400;
+  // Normalise into [0, SYNODIC_MONTH_DAYS) — handles dates before the anchor too.
+  const cyclePos =
+    ((daysSinceAnchor % SYNODIC_MONTH_DAYS) + SYNODIC_MONTH_DAYS) %
+    SYNODIC_MONTH_DAYS;
+  const segment = Math.floor((cyclePos / SYNODIC_MONTH_DAYS) * 8);
+  // Clamp guards floating-point overflow on segment 8 → wrap to 0
+  return PHASES[segment % 8]!;
+}
+```
+
+- [ ] **Step 4: Run test, verify it passes**
+
+`npx vitest run src/translations/__tests__/moon-phase.test.ts`. Expected: PASS — 5/5.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add workers/api-proxy/src/translations/daily-notes/moon-phase.ts \
+        workers/api-proxy/src/translations/__tests__/moon-phase.test.ts
+git commit -m "feat(daily-notes): moon-phase computation (contract §2, backend-owned)"
 ```
 
 ---
 
 # Phase 6 — Worker integration
 
-## Task 14: Daily-note KV cache
+## Task 17: Daily-note KV cache (renumbered from Task 14)
 
 **Files:**
 - Create: `workers/api-proxy/src/daily-note-cache.ts`
