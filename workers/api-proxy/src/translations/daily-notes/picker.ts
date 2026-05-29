@@ -87,13 +87,20 @@ export function synthesizeDailyNote(input: SynthesizeInput): PickResult {
 
 function pickClosedEntry(input: SynthesizeInput): PickResult {
   // Prefer the most-specific named exclusion (highest severity, falling back
-  // to first in list). Severity is `low | medium | high` per shared-types.
-  const SEVERITY_RANK = { low: 0, medium: 1, high: 2 } as const;
+  // to first in list). Severity is `'hard_stop' | 'medium'` per shared-types
+  // (`packages/shared-types/src/api/excluded-range.ts:30` SeveritySchema).
+  // Hard stops outrank medium.
+  const SEVERITY_RANK = { medium: 0, hard_stop: 1 } as const;
   const sorted = [...input.excludedRangesActiveToday].sort(
     (a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity],
   );
   const reason = sorted[0]?.reason_id;
-  const entryId = (reason && REASON_TO_ENTRY[reason]) ?? 'closed-long-quiet-stretch';
+  // `reason ? X : undefined` keeps the narrowed type at KnownDailyNoteId | undefined.
+  // The shorter `reason && REASON_TO_ENTRY[reason]` evaluates to "" when reason
+  // is "", and ?? doesn't fall through on "" (only null/undefined), which would
+  // hand `entryId = ""` and crash the next DAILY_NOTES[entryId] lookup.
+  const mapped: KnownDailyNoteId | undefined = reason ? REASON_TO_ENTRY[reason] : undefined;
+  const entryId: KnownDailyNoteId = mapped ?? 'closed-long-quiet-stretch';
   const entry = DAILY_NOTES[entryId];
 
   // Concrete-class entries need horizon verification — fall through to the
