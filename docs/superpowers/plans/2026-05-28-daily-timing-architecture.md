@@ -3006,8 +3006,17 @@ export function computeMoonPhase(today_iso_date: string): MoonPhase {
   const cyclePos =
     ((daysSinceAnchor % SYNODIC_MONTH_DAYS) + SYNODIC_MONTH_DAYS) %
     SYNODIC_MONTH_DAYS;
-  const segment = Math.floor((cyclePos / SYNODIC_MONTH_DAYS) * 8);
-  // Clamp guards floating-point overflow on segment 8 → wrap to 0
+  // Centre each phase on its canonical moment (not its leading edge), shifting
+  // the bucket boundaries forward by half a segment. This makes the calendar
+  // date CONTAINING the anchor moment map to 'new' even when our noon-UTC
+  // sample lands just before the actual 18:14-UTC new-moon instant — which is
+  // the astronomically correct behaviour: at noon on 2000-01-06 the moon was
+  // a sliver of waning-crescent, but the DAY belongs to the new-moon bucket
+  // because the principal phase is named for the day it occurs on.
+  const HALF_SEGMENT_DAYS = SYNODIC_MONTH_DAYS / 16;
+  const centredPos = cyclePos + HALF_SEGMENT_DAYS;
+  const segment = Math.floor((centredPos / SYNODIC_MONTH_DAYS) * 8);
+  // segment % 8 handles the wrap when centredPos pushes past one full cycle
   return PHASES[segment % 8]!;
 }
 ```
