@@ -2,6 +2,7 @@ import type { Env } from './env';
 import { handleHealth } from './routes/health';
 import { handleSearch } from './routes/search';
 import { handleDailyNote } from './routes/daily-note';
+import { handleAlertAck } from './routes/alert-ack';
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -17,6 +18,10 @@ export default {
 
     if (url.pathname === '/daily-note' && req.method === 'GET') {
       return handleDailyNote(req, env);
+    }
+
+    if (url.pathname === '/daily-note/alert-ack' && req.method === 'POST') {
+      return handleAlertAck(req, env);
     }
 
     return Response.json(
