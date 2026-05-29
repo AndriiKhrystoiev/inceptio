@@ -2551,13 +2551,6 @@ export interface DeriveInput {
 export function deriveSavedSearchStatus(input: DeriveInput): SavedSearchStatusOutput {
   const { saved, topWindow, previousTopScore, acknowledgedAlertIds, today_iso_date } = input;
 
-  // We compare against "now" as UTC midnight of today_iso_date — sufficient
-  // day-granularity for state transitions. For in-window detection we use
-  // the iso_date's midnight as a coarse "today" check; finer-grained
-  // checks (intraday in-window minute boundaries) are the client's job per
-  // contract §3 "in/out-of-window self-check".
-  const nowApprox = new Date(`${today_iso_date}T00:00:00Z`).getTime();
-
   if (!topWindow) {
     return {
       id: saved.id,
@@ -2570,11 +2563,30 @@ export function deriveSavedSearchStatus(input: DeriveInput): SavedSearchStatusOu
     };
   }
 
-  const windowStartMs = new Date(topWindow.start).getTime();
-  const windowEndMs = new Date(topWindow.end).getTime();
+  // Day-granularity state classification via date-string comparison.
+  //
+  // The window's `start`/`end` are tz-aware ISO timestamps in the event
+  // location's zone (PICKER-CONTRACT.md §4). For day-granularity state
+  // classification we compare the local DATE parts (YYYY-MM-DD prefix) of
+  // start/end against `today_iso_date`, which is also a local-date string
+  // in the event tz. This avoids the UTC-vs-event-tz alignment problem of a
+  // millisecond comparison: at 03:00 local time in +03:00, UTC midnight is
+  // 03:00 *of the same wall-clock day*, which silently fails the in-window
+  // check for a 10:00–14:00 local window.
+  //
+  // ISO 8601 with offset (`2026-06-05T10:00:00+03:00`) puts the LOCAL date
+  // in the first 10 chars; the offset only affects the instant, not the
+  // YYYY-MM-DD prefix. Lexicographic ordering of "YYYY-MM-DD" matches date
+  // ordering, so `<`/`<=` on these strings is the correct day comparison.
+  //
+  // Intraday refinement (minute-precision in-window / about-to-close) is
+  // the client's job per contract §3 "in/out-of-window self-check"; the
+  // backend `state` is authoritative at day granularity.
+  const startDate = topWindow.start.slice(0, 10);
+  const endDate = topWindow.end.slice(0, 10);
 
-  // Branch 2: passed
-  if (windowEndMs < nowApprox) {
+  // Branch 2: passed (window's end-date is strictly before today)
+  if (endDate < today_iso_date) {
     return {
       id: saved.id,
       activity: saved.activity,
@@ -2585,8 +2597,8 @@ export function deriveSavedSearchStatus(input: DeriveInput): SavedSearchStatusOu
     };
   }
 
-  // Branch 3: in-window (approximate at day granularity; client refines intraday)
-  if (windowStartMs <= nowApprox && nowApprox <= windowEndMs) {
+  // Branch 3: in-window (today falls within the window's [start, end] dates)
+  if (startDate <= today_iso_date && today_iso_date <= endDate) {
     return {
       id: saved.id,
       activity: saved.activity,
