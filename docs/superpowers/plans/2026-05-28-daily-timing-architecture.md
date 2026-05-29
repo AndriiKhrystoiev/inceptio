@@ -10,6 +10,46 @@
 
 ---
 
+## Amendment — 2026-05-29 — design-pass contract integration
+
+The picker contract at `docs/superpowers/design-handoff/daily-note/PICKER-CONTRACT.md` is now the authoritative artifact for Tasks 10+. Three adjustments agreed at the design pass:
+
+1. **`mood` is derived, not independently selected.** The picker returns it on the same object as the chosen phrase, computed from `quality_bucket` — single source of truth so mood can never drift from the chosen phrase.
+2. **`activity_label` is NOT in the contract.** Activity-noun mapping (spec §6.3) is locked and derived client-side from the `activity` enum — keeps the client from drifting from the audited library.
+3. **Part-of-day cutoffs are backend-owned config**, living in `workers/api-proxy/src/translations/`. Must match the Translation Layer moment-detail `phrase_short` part-of-day rendering. This is both a UX-consistency requirement (same window can't read "afternoon" here and "morning" in moment-detail) AND an astrology-policy decision (where "afternoon" begins is tradition, not UI).
+
+Plus contract §6 adds **library-version cache invalidation**: when the astrologer rules on the spec's BLOCKING #1/#2 (Mercury rx + Venus rx phrasings), copy AND part-of-day cutoffs must roll over atomically via a single `library_version` stamp — not piecemeal invalidation. The architecture session builds this hook.
+
+### Plan deltas from the contract
+
+| Change | Where in plan | Status |
+|---|---|---|
+| Add `MoonPhase`, `SavedSearchState` (5-state enum), `DailyNoteOutput`, `SavedSearchStatusOutput`, `PartOfDayCutoffs` types + `LIBRARY_VERSION` constant | Task 1 — extended inline below | **applied** |
+| Add `STATUS_NONE_YET` status-line templates | Task 4 — extended inline below | **applied** |
+| **NEW Task — part-of-day cutoffs config** (backend-owned per contract §3) | Insert between Task 10 (horizon) and Task 11 (picker) | drafted when dispatched |
+| **NEW Task — moon-phase computation** (deterministic algorithm, backend per contract §2 — supersedes the CLAUDE.md note that moon phase is mobile-computed) | Insert before Task 11 (picker) | drafted when dispatched |
+| Picker output shape — return `DailyNoteOutput` per contract §2 (not the simpler `{entry_id, headline, supporting_line, used_fallback}` shape in current Task 11) | Task 11 — rewritten when dispatched | drafted when dispatched |
+| **NEW Task — saved-search state derivation** (5-state lifecycle including `none-yet`) | Insert before status-line ordering (current Task 13) | drafted when dispatched |
+| Status-line ordering — extend for 5-state enum (none-yet, new-window added; post-window renamed to passed) | Task 13 — updated when dispatched | drafted when dispatched |
+| Daily-note cache — `library_version` stamp + atomic invalidation | Task 14 — updated when dispatched | drafted when dispatched |
+| Worker `/daily-note` endpoint — full contract response shape (incl. `library_version`, `part_of_day_cutoffs`, `total_saved_count`) | Task 15 — updated when dispatched | drafted when dispatched |
+| **NEW Task — alert-ack endpoint** (`POST /daily-note/alert-ack`) for once-only `new-window` alerts | Insert before shared-types (current Task 16) | drafted when dispatched |
+| Shared-types — full contract schema with all contract §2 fields | Task 16 — updated when dispatched | drafted when dispatched |
+| Astrologer-ruling task — bump `LIBRARY_VERSION` constant in the lockstep PR so caches roll atomically | Task 17 — note added when dispatched | drafted when dispatched |
+
+Tasks marked "drafted when dispatched" expand with concrete code blocks at the moment their subagent is briefed — keeping the integration aligned with what actually got implemented in upstream tasks rather than pre-writing details that may shift. The amendment table above is the running checklist.
+
+### Checkpoint sequencing (per user)
+
+- **Pause before the picker hardens.** The picker is currently Task 11 in the as-written plan; once part-of-day cutoffs and moon-phase tasks insert (between Task 10 and Task 11), the picker shifts to Task 13. Either way: when we reach the picker, I bring the proposed output shape back for contract verification against the rendered states before the picker subagent runs.
+- **Task 17 (astrologer-ruled copy swap)** stays gated on the actual astrologer ruling, even when everything else is green. Do not auto-execute.
+
+### Open product question (deferred — flag at saved-search state task)
+
+`none-yet` state — does `"Travel window — none yet"` stand alone, or does it need a `searched_through` affordance (`"none yet through August"`)? The contract keeps `searched_through` in §2 either way. UX decision lives in the saved-search state derivation task; surface it then for the user to resolve.
+
+---
+
 ## File Structure
 
 **New files (Worker):**
@@ -134,6 +174,153 @@ export interface StatusLineTemplate {
   /** Template string. `{activity_noun}` interpolates from ACTIVITY_NOUNS. */
   template: string;
 }
+```
+
+- [ ] **Step 1b: Append the design-pass contract types**
+
+Append to `types.ts`, immediately after the types from Step 1:
+
+```ts
+// ─── Saved-search lifecycle (PICKER-CONTRACT.md §1) ───
+/**
+ * Five-state lifecycle for a saved search. The picker is the authority on
+ * transitions; the client may self-transition between pre-window ↔ in-window
+ * ↔ passed against `window_start`/`window_end` timestamps to avoid a forced
+ * refetch.
+ *
+ * IMPORTANT: `none-yet` is NEW (not in spec §6's status-line library). Trigger:
+ * the picker has run with zero qualifying windows in the saved search's range.
+ * Mutually exclusive with `pre-window`; can also recur post-window if the
+ * window passes and nothing else qualifies.
+ */
+export type SavedSearchState =
+  | 'none-yet'
+  | 'pre-window'
+  | 'new-window'
+  | 'in-window'
+  | 'passed';
+
+// ─── Moon phase (PICKER-CONTRACT.md §2) ───
+/**
+ * Backend-computed per the design-pass contract. Note: CLAUDE.md's prior
+ * statement that moon phase is mobile-computed is SUPERSEDED — the design
+ * pass moved it server-side so the hero moon glyph can be driven by it
+ * without each mobile build duplicating the ephemeris algorithm.
+ */
+export type MoonPhase =
+  | 'new'
+  | 'waxing-crescent'
+  | 'first-quarter'
+  | 'waxing-gibbous'
+  | 'full'
+  | 'waning-gibbous'
+  | 'last-quarter'
+  | 'waning-crescent';
+
+// ─── Part-of-day cutoffs (PICKER-CONTRACT.md §3 — backend-owned config) ───
+/**
+ * Backend-owned config. Must match the Translation Layer moment-detail
+ * `phrase_short` part-of-day rendering or the same window reads "afternoon"
+ * on the daily note and "morning" on moment-detail. Lives in
+ * `workers/api-proxy/src/translations/` alongside the synthesizer config.
+ *
+ * Hours are 0-23 in the event location's timezone. `morning` covers
+ * [0, morning_end_hour); `afternoon` [morning_end_hour, afternoon_end_hour);
+ * `evening` [afternoon_end_hour, evening_end_hour); `night` the remainder.
+ */
+export interface PartOfDayCutoffs {
+  morning_end_hour: number;
+  afternoon_end_hour: number;
+  evening_end_hour: number;
+}
+
+// ─── Picker output shape (PICKER-CONTRACT.md §2) ───
+/**
+ * What the picker returns for the daily note. Single object — mood is on the
+ * SAME object as the chosen phrase, derived from that phrase's quality_bucket
+ * so mood and copy can never drift.
+ */
+export interface DailyNoteOutput {
+  /** Derived from chosen entry's quality_bucket; not independently selected. */
+  mood: QualityBucket;
+  /** Backend-computed moon phase for the daily note's date. */
+  moon_phase: MoonPhase;
+  /** ISO YYYY-MM-DD in the event location's timezone. */
+  date: string;
+  /** Locked copy headline (<= 48 chars). */
+  headline: string;
+  /** Locked copy supporting line (<= 140 chars). */
+  supporting: string;
+  /**
+   * Reason_id when an exclusion drove the picker — surfaced for the optional
+   * glyph on closed days. Not required by the current visual design.
+   */
+  exclusion_reason?: string;
+  /** For introspection/caching; not consumed by client UI. */
+  entry_id: string;
+  /** True when the picker fell through to a vague-variant fallback. */
+  used_fallback: boolean;
+}
+
+/** Saved-search status — array, one per saved search (PICKER-CONTRACT.md §2). */
+export interface SavedSearchStatusOutput {
+  id: string;
+  activity: import('@inceptio/shared-types').Activity;
+  state: SavedSearchState;
+  /**
+   * Timezone-aware ISO timestamp in the EVENT location's zone (NOT the
+   * device's). Null when state === 'none-yet'.
+   */
+  window_start: string | null;
+  /** Same tz contract as window_start. Null when state === 'none-yet'. */
+  window_end: string | null;
+  /** Required for state === 'new-window'. */
+  is_stronger?: boolean;
+  new_score?: number;
+  prior_best_score?: number;
+  /**
+   * Required for state === 'new-window' so the alert fires exactly once and
+   * doesn't re-trigger on reopen. Client posts the ack to
+   * POST /daily-note/alert-ack.
+   */
+  alert_id?: string;
+  acknowledged?: boolean;
+  /** Sort key for the bounded 3-stack — lower = higher priority. */
+  priority: number;
+  /**
+   * Optional. For state === 'none-yet', enables a future "searched through
+   * August" affordance. Kept in the contract pending the deferred UX question.
+   */
+  searched_through?: string;
+}
+
+/** The full /daily-note response (PICKER-CONTRACT.md §2). */
+export interface DailyNoteResponseShape {
+  daily_note: DailyNoteOutput;
+  saved_searches: SavedSearchStatusOutput[];
+  /** Drives "+N more →" when greater than saved_searches.length. */
+  total_saved_count: number;
+  /** Cache invalidation stamp — see PICKER-CONTRACT.md §6 and LIBRARY_VERSION below. */
+  library_version: string;
+  /** Backend-owned config the client applies for part-of-day rendering. */
+  part_of_day_cutoffs: PartOfDayCutoffs;
+}
+
+// ─── Library version (PICKER-CONTRACT.md §6) ───
+/**
+ * Bump in the SAME PR as any change to:
+ *   - dictionary/daily-notes.ts
+ *   - dictionary/daily-note-fallbacks.ts
+ *   - dictionary/daily-note-variants.ts
+ *   - the part-of-day cutoffs config
+ *
+ * Drives atomic client-cache invalidation: clients store this stamp with
+ * cached daily-notes and bust on mismatch. Critical for the astrologer-ruling
+ * lockstep PR (Task 17) — copy and cutoffs must roll over together.
+ *
+ * Date-stamped + revision suffix so semantic ordering is human-readable.
+ */
+export const LIBRARY_VERSION = '2026-05-28-r1';
 ```
 
 - [ ] **Step 2: Add `KNOWN_DAILY_NOTE_IDS` constant**
@@ -667,6 +854,18 @@ export const STATUS_PRE_WINDOW: StatusLineTemplate[] = [
     template: '{activity_noun} window — {month_name}.' },             // 90+
   { id: 'pre-window-season', surface: 'status-line',
     template: '{activity_noun} window — {season}.' },                 // 90+, alt
+];
+
+// ─── NEW per PICKER-CONTRACT.md §1 — none-yet state ───
+// Active search, no viable window found yet. Not in spec §6's library;
+// added at the design pass. Two templates: the bare form and one carrying
+// the searched_through horizon (used if the deferred UX question lands on
+// "yes, show the horizon").
+export const STATUS_NONE_YET: StatusLineTemplate[] = [
+  { id: 'none-yet-bare', surface: 'status-line',
+    template: '{activity_noun} window — none yet.' },
+  { id: 'none-yet-with-horizon', surface: 'status-line',
+    template: '{activity_noun} window — none yet through {month_name}.' },
 ];
 
 // ─── §6.3.2 In-window (EMPHASIZED — see spec §8.3) ───
