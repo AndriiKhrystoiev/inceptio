@@ -33,13 +33,25 @@ import { handleSearch } from './search';
  */
 export async function handleDailyNote(req: Request, env: Env): Promise<Response> {
   const url = new URL(req.url);
-  const lat = Number(url.searchParams.get('lat'));
-  const lng = Number(url.searchParams.get('lng'));
+  const latRaw = url.searchParams.get('lat');
+  const lngRaw = url.searchParams.get('lng');
   const tz = url.searchParams.get('tz') ?? 'UTC';
 
+  // Explicit null-check FIRST. `Number(null)` returns 0 (not NaN), so a missing
+  // lat/lng would silently pass the isFinite check below and the route would
+  // proceed with lat=0 lng=0 — wrong location, valid coordinates.
+  if (latRaw === null || lngRaw === null) {
+    return Response.json(
+      { error: 'bad_request', message: 'lat and lng are required' },
+      { status: 400 },
+    );
+  }
+
+  const lat = Number(latRaw);
+  const lng = Number(lngRaw);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return Response.json(
-      { error: 'bad_request', message: 'lat and lng are required numerics' },
+      { error: 'bad_request', message: 'lat and lng must be numeric' },
       { status: 400 },
     );
   }
@@ -76,12 +88,17 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
         { status: 502 },
       );
     }
+    // handleSearch returns the translated v3 envelope: { success, data: {
+    // top_windows, excluded_ranges, ... }, metadata, ... }. The route reads
+    // top_windows/excluded_ranges from inside `data` — NOT at the top level.
     const searchPayload = (await searchRes.json()) as {
-      top_windows?: Array<{ score: number; factors: unknown[] }>;
-      excluded_ranges?: Array<{ reason_id: string; severity: 'hard_stop' | 'medium' }>;
+      data?: {
+        top_windows?: Array<{ score: number; factors: unknown[] }>;
+        excluded_ranges?: Array<{ reason_id: string; severity: 'hard_stop' | 'medium' }>;
+      };
     };
 
-    const topWindow = searchPayload.top_windows?.[0] ?? null;
+    const topWindow = searchPayload.data?.top_windows?.[0] ?? null;
     if (!topWindow) {
       return Response.json(
         { error: 'no_top_window', message: 'upstream returned no top window' },
@@ -92,7 +109,7 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- upstream types live in shared-types; runtime guarded by handleSearch's Zod parse
     const picked = synthesizeDailyNote({
       topWindow: topWindow as any,
-      excludedRangesActiveToday: (searchPayload.excluded_ranges ?? []) as any,
+      excludedRangesActiveToday: (searchPayload.data?.excluded_ranges ?? []) as any,
       today_iso_date: dateIso,
     });
 
