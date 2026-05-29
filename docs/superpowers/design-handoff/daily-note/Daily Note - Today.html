@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Inceptio — Daily Note · Today</title>
+<link rel="stylesheet" href="../colors_and_type.css"/>
+<style>
+  html, body { margin: 0; padding: 0; background: #f0eee9; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- thumbnail for bundling -->
+  <template id="__bundler_thumbnail">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+      <rect width="100" height="100" fill="#0F0A1F"/>
+      <circle cx="68" cy="34" r="11" fill="none" stroke="#F0D89A" stroke-width="2"/>
+      <path d="M64 30a9 9 0 1 0 0 12 7 7 0 0 1 0-12z" fill="#F0D89A"/>
+      <rect x="22" y="54" width="42" height="4" rx="2" fill="#F5EFE4"/>
+      <rect x="22" y="64" width="56" height="3" rx="1.5" fill="#B8B0CC"/>
+    </svg>
+  </template>
+
+  <script type="text/babel" src="../ui_kits/mobile_app/Primitives.jsx"></script>
+  <script type="text/babel" src="DailyNote.jsx"></script>
+  <script type="text/babel" src="design-canvas.jsx"></script>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // ── lightweight static phone frame (sized exactly to `h`) ──
+    function Phone({ h = 700, children }) {
+      return (
+        <div style={{
+          width: 390, height: h, position: 'relative',
+          background: '#0F0A1F', overflow: 'hidden',
+          fontFamily: 'Inter, sans-serif',
+        }}>
+          {/* status bar */}
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0, height: 50, zIndex: 30,
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '14px 26px 0',
+          }}>
+            <span style={{ fontFamily: '-apple-system, system-ui', fontWeight: 600, fontSize: 15, color: '#F5EFE4' }}>9:41</span>
+            <div style={{
+              position: 'absolute', top: 11, left: '50%', transform: 'translateX(-50%)',
+              width: 110, height: 30, borderRadius: 18, background: '#000',
+            }}/>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', color: '#F5EFE4' }}>
+              <svg width="17" height="11" viewBox="0 0 17 11"><rect x="0" y="7" width="3" height="4" rx="0.6" fill="#F5EFE4"/><rect x="4.4" y="4.5" width="3" height="6.5" rx="0.6" fill="#F5EFE4"/><rect x="8.8" y="2.2" width="3" height="8.8" rx="0.6" fill="#F5EFE4"/><rect x="13.2" y="0" width="3" height="11" rx="0.6" fill="#F5EFE4"/></svg>
+              <svg width="24" height="12" viewBox="0 0 24 12"><rect x="0.5" y="0.5" width="20" height="11" rx="3" stroke="#F5EFE4" strokeOpacity="0.4" fill="none"/><rect x="2" y="2" width="17" height="8" rx="1.6" fill="#F5EFE4"/><rect x="21.5" y="4" width="1.6" height="4" rx="0.8" fill="#F5EFE4" fillOpacity="0.5"/></svg>
+            </div>
+          </div>
+          {children}
+        </div>
+      );
+    }
+
+    // ── mini "Best windows ahead" (context only) ──
+    function BestWindows({ rows = 2 }) {
+      const data = [
+        { date: 'sun · may 24', sub: 'A gentle window opens this morning.', score: 68 },
+        { date: 'wed · may 27', sub: 'Mercury runs clear, communication settles.', score: 64 },
+      ].slice(0, rows);
+      return (
+        <div style={{ padding: '4px 24px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ fontFamily: 'Fraunces, Georgia, serif', fontWeight: 400, fontSize: 22, color: '#F5EFE4' }}>Best windows ahead</div>
+            <span style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#7A7195' }}>See all</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {data.map((d, i) => (
+              <div key={i} style={{
+                background: '#1F1838', border: '1px solid #3A3258', borderRadius: 14,
+                padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <div>
+                  <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 500, color: '#B8B0CC', textTransform: 'lowercase', letterSpacing: '0.04em' }}>{d.date}</div>
+                  <div style={{ fontFamily: 'Fraunces, Georgia, serif', fontWeight: 400, fontSize: 17, lineHeight: '22px', color: '#F5EFE4', marginTop: 3 }}>{d.sub}</div>
+                </div>
+                <ScoreNumber value={d.score} large={false}/>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // section block wrapper inside a phone (the status zone)
+    function Zone({ children, top = 14 }) {
+      return <div style={{ padding: `${top}px 24px 20px`, display: 'flex', flexDirection: 'column', gap: 12 }}>{children}</div>;
+    }
+
+    // ── representative copy (LOCKED slots — swap for real strings) ──
+    const NOTES = {
+      strong: { headline: 'A strong day to begin.',
+                supporting: 'Venus and Jupiter meet warmly — the kind of day that carries weight. Good for vows, launches and lasting words.' },
+      good:   { headline: 'A gentle day for beginnings.',
+                supporting: 'The Moon runs clear and Mercury settles. Quietly favorable for most things you’d start with a little care.' },
+      mixed:  { headline: 'A day that asks for care.',
+                supporting: 'There’s warmth in the afternoon, but Mars adds a small headwind. Worth weighing before you commit to anything lasting.' },
+      closed: { headline: 'A day to let things rest.',
+                supporting: 'The Moon is between signs — efforts begun now don’t take root the way they do on other days. Tomorrow looks different.' },
+    };
+
+    // ── ARTBOARDS ──────────────────────────────────────────────
+
+    // A · The section in situ on Today
+    function TodayInSitu() {
+      return (
+        <Phone h={812}>
+          <DailyHero mood="good">
+            <DailyNote mood="good" {...NOTES.good}/>
+          </DailyHero>
+          <Zone>
+            <NewWindowCard activity="wedding" text="A stronger wedding window — Thursday afternoon"/>
+            <StatusStack rows={[
+              { activity: 'business', text: 'Launch window — in 2 weeks' },
+              { activity: 'travel',   text: 'Travel window — in a month' },
+            ]}/>
+          </Zone>
+          <BestWindows rows={2}/>
+        </Phone>
+      );
+    }
+
+    // Mood close-up (hero only)
+    function MoodBoard({ mood }) {
+      return (
+        <Phone h={326}>
+          <DailyHero mood={mood}>
+            <DailyNote mood={mood} {...NOTES[mood]}/>
+          </DailyHero>
+        </Phone>
+      );
+    }
+
+    // Empty state (new user) — note + invite
+    function EmptyState() {
+      return (
+        <Phone h={560}>
+          <DailyHero mood="good">
+            <DailyNote mood="good" {...NOTES.good}/>
+          </DailyHero>
+          <Zone>
+            <EmptyInvite text="Choose a moment of your own"/>
+          </Zone>
+          <BestWindows rows={1}/>
+        </Phone>
+      );
+    }
+
+    // One saved search · pre-window
+    function OneSearch() {
+      return (
+        <Phone h={560}>
+          <DailyHero mood="good">
+            <DailyNote mood="good" {...NOTES.good}/>
+          </DailyHero>
+          <Zone>
+            <StatusStack rows={[
+              { activity: 'wedding', text: 'Wedding window — in 3 days' },
+            ]}/>
+          </Zone>
+          <BestWindows rows={1}/>
+        </Phone>
+      );
+    }
+
+    // Multi-stack — 3 visible + overflow
+    function MultiStack() {
+      return (
+        <Phone h={600}>
+          <DailyHero mood="good">
+            <DailyNote mood="good" {...NOTES.good}/>
+          </DailyHero>
+          <Zone>
+            <StatusStack moreCount={5} rows={[
+              { activity: 'wedding',  text: 'Wedding window — in 3 days' },
+              { activity: 'business', text: 'Launch window — in 11 days' },
+              { activity: 'travel',   text: 'Travel window — in a month' },
+            ]}/>
+          </Zone>
+          <BestWindows rows={1}/>
+        </Phone>
+      );
+    }
+
+    // Emphasized · in-window (warm-and-steady)
+    function InWindow() {
+      return (
+        <Phone h={600}>
+          <DailyHero mood="strong">
+            <DailyNote mood="strong" {...NOTES.strong}/>
+          </DailyHero>
+          <Zone>
+            <InWindowCard activity="wedding"
+              text="You’re inside your wedding window"
+              sub="Open until 4:08 this afternoon"/>
+            <StatusStack rows={[
+              { activity: 'travel', text: 'Travel window — in a month' },
+            ]}/>
+          </Zone>
+          <BestWindows rows={1}/>
+        </Phone>
+      );
+    }
+
+    // Emphasized · new-window alert (bright-and-brief)
+    function NewWindow() {
+      return (
+        <Phone h={600}>
+          <DailyHero mood="good">
+            <DailyNote mood="good" {...NOTES.good}/>
+          </DailyHero>
+          <Zone>
+            <NewWindowCard activity="wedding" text="A stronger wedding window — Thursday afternoon"/>
+            <StatusStack rows={[
+              { activity: 'business', text: 'Launch window — in 11 days' },
+            ]}/>
+          </Zone>
+          <BestWindows rows={1}/>
+        </Phone>
+      );
+    }
+
+    // ── Anatomy / hard-limit stress tests (dark cards, not phones) ──
+    function SpecCard({ title, w = 360, children }) {
+      return (
+        <div style={{ width: w, background: '#0F0A1F', padding: 20, boxSizing: 'border-box' }}>
+          <div style={{
+            fontFamily: 'Inter, sans-serif', fontSize: 10, fontWeight: 600, color: '#7A7195',
+            textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 14,
+          }}>{title}</div>
+          {children}
+        </div>
+      );
+    }
+    function Cap({ children }) {
+      return <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#5B4F8A', marginTop: 8 }}>{children}</div>;
+    }
+
+    function StressNote() {
+      return (
+        <SpecCard title="Daily note · hard-max lengths" w={380}>
+          <div style={{ background: 'radial-gradient(120% 90% at 50% 0%, #1A1433, #0F0A1F 70%)', borderRadius: 12, padding: 18, position: 'relative', overflow: 'hidden' }}>
+            <DailyNote mood="strong"
+              headline="A tender, weighty day to begin a thing"
+              supporting="Venus warms the afternoon while Jupiter holds steady and the Moon gains light — a generous, unhurried day for the things that ask to last."/>
+          </div>
+          <Cap>headline 38/48 · supporting 139/140</Cap>
+        </SpecCard>
+      );
+    }
+
+    function StressRows() {
+      return (
+        <SpecCard title="Status line · ≤42 + emphasized" w={380}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div>
+              <StatusStack moreCount={5} rows={[
+                { activity: 'business', text: 'Business-launch window — Friday afternoon' },
+                { activity: 'wedding',  text: 'Wedding window — in 3 days' },
+                { activity: 'travel',   text: 'Travel window — none yet' },
+              ]}/>
+              <Cap>quiet · grey baseline · 41/42 top row</Cap>
+            </div>
+            <div>
+              <InWindowCard activity="wedding" text="You’re inside your wedding window" sub="Open until 4:08 this afternoon"/>
+              <Cap>emphasized · warm-and-steady</Cap>
+            </div>
+            <div>
+              <NewWindowCard activity="wedding" text="A stronger wedding window — Thursday afternoon"/>
+              <Cap>emphasized · bright-and-brief</Cap>
+            </div>
+            <div>
+              <EmptyInvite text="Choose a moment of your own"/>
+              <Cap>empty-state invite · 27/48</Cap>
+            </div>
+          </div>
+        </SpecCard>
+      );
+    }
+
+    // ── CANVAS ─────────────────────────────────────────────────
+    function App() {
+      return (
+        <DesignCanvas>
+          <DCSection id="situ" title="Daily note on Today" subtitle="The section as it sits, above “Best windows ahead.”">
+            <DCArtboard id="today" label="Today · returning user" width={390} height={812}><TodayInSitu/></DCArtboard>
+          </DCSection>
+
+          <DCSection id="moods" title="Day-quality moods" subtitle="Four moods. Copy carries it; chrome stays restrained (moon halo + a single dot).">
+            <DCArtboard id="strong" label="Strong"  width={390} height={326}><MoodBoard mood="strong"/></DCArtboard>
+            <DCArtboard id="good"   label="Good"    width={390} height={326}><MoodBoard mood="good"/></DCArtboard>
+            <DCArtboard id="mixed"  label="Mixed"   width={390} height={326}><MoodBoard mood="mixed"/></DCArtboard>
+            <DCArtboard id="closed" label="Closed by exclusion" width={390} height={326}><MoodBoard mood="closed"/></DCArtboard>
+          </DCSection>
+
+          <DCSection id="saved" title="Saved-search states" subtitle="Conditional, below the note. Emphasized peaks break out of the grey stack.">
+            <DCArtboard id="empty"  label="Empty · new user"        width={390} height={560}><EmptyState/></DCArtboard>
+            <DCArtboard id="one"    label="1 search · pre-window"   width={390} height={560}><OneSearch/></DCArtboard>
+            <DCArtboard id="multi"  label="Multi-stack · 3 + more"  width={390} height={600}><MultiStack/></DCArtboard>
+            <DCArtboard id="inwin"  label="In-window · warm"        width={390} height={600}><InWindow/></DCArtboard>
+            <DCArtboard id="newwin" label="New-window alert · bright" width={390} height={600}><NewWindow/></DCArtboard>
+          </DCSection>
+
+          <DCSection id="anatomy" title="Anatomy & hard limits" subtitle="Layouts tested at the §7 maxima — headline 48 · supporting 140 · status 42 · invite 48.">
+            <DCArtboard id="note-max" label="Daily note · max length" width={380} height={350} style={{ background: '#0F0A1F' }}><StressNote/></DCArtboard>
+            <DCArtboard id="rows" label="Status treatments" width={380} height={824} style={{ background: '#0F0A1F' }}><StressRows/></DCArtboard>
+          </DCSection>
+        </DesignCanvas>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
