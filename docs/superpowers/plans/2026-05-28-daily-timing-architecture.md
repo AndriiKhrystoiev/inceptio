@@ -2132,12 +2132,12 @@ describe('synthesizeDailyNote — sibling-variant rotation for long conditions',
     const day1 = synthesizeDailyNote({
       topWindow: top,
       excludedRangesActiveToday: exclusions,
-      today: new Date('2026-08-30'),  // 1 day before Mercury direct → primary entry path
+      today_iso_date: '2026-08-30',  // 1 day before Mercury direct → primary entry path
     });
     const day1Repeat = synthesizeDailyNote({
       topWindow: top,
       excludedRangesActiveToday: exclusions,
-      today: new Date('2026-08-30'),
+      today_iso_date: '2026-08-30',
     });
     expect(day1.headline).toBe(day1Repeat.headline);
   });
@@ -2145,16 +2145,12 @@ describe('synthesizeDailyNote — sibling-variant rotation for long conditions',
   it('rotates across consecutive days during the same long condition', () => {
     const top = window_({ score: 40, grade: 'caution' });
     const exclusions = [excludedRange({ reason_id: 'venus_retrograde' })];
-    const heads = [
-      new Date('2026-10-04'),
-      new Date('2026-10-05'),
-      new Date('2026-10-06'),
-    ].map(
-      (today) =>
+    const heads = ['2026-10-04', '2026-10-05', '2026-10-06'].map(
+      (today_iso_date) =>
         synthesizeDailyNote({
           topWindow: top,
           excludedRangesActiveToday: exclusions,
-          today,
+          today_iso_date,
         }).headline,
     );
     // At least 2 of the 3 days should differ — proves rotation is happening.
@@ -2171,26 +2167,30 @@ describe('synthesizeDailyNote — sibling-variant rotation for long conditions',
 
 - [ ] **Step 3: Modify `picker.ts` — wire rotation into `finalize()`**
 
-In `daily-notes/picker.ts`, replace the `finalize` function and add rotation logic:
+In `daily-notes/picker.ts`, add a new import at the top and **replace the existing `finalize` function** (which currently sits at the bottom of the file from Task 11). All call sites in `pickClosedEntry` and `pickByDominantFactor` already pass `input.today_iso_date` from the Task 11 implementation — no call-site changes needed.
 
 ```ts
 import { DAILY_NOTE_VARIANT_POOLS } from '../dictionary/daily-note-variants';
 
-// ... (other imports and code remain)
+// ... (other imports and code from Task 11 remain unchanged)
 
 function finalize(
   entry: DailyNoteEntry,
   usedFallback: boolean,
-  today?: Date,
-): SynthesizeResult {
+  today_iso_date: string,
+  exclusion_reason?: string,
+): PickResult {
   // Skip rotation for fallback entries — they already represent the
   // horizon-fail branch and should be a single voice.
-  if (usedFallback || !today) {
+  if (usedFallback) {
     return {
       entry_id: entry.id,
+      mood: entry.quality_bucket,
+      date: today_iso_date,
       headline: entry.headline,
-      supporting_line: entry.supporting_line,
-      used_fallback: usedFallback,
+      supporting: entry.supporting_line,
+      exclusion_reason,
+      used_fallback: true,
     };
   }
 
@@ -2198,8 +2198,11 @@ function finalize(
   if (!pool) {
     return {
       entry_id: entry.id,
+      mood: entry.quality_bucket,
+      date: today_iso_date,
       headline: entry.headline,
-      supporting_line: entry.supporting_line,
+      supporting: entry.supporting_line,
+      exclusion_reason,
       used_fallback: false,
     };
   }
@@ -2209,23 +2212,30 @@ function finalize(
     { headline: entry.headline, supporting_line: entry.supporting_line },
     ...pool.variants,
   ];
-  const index = dateSeededHash(today, entry.id) % siblings.length;
+  const index = dateSeededHash(today_iso_date, entry.id) % siblings.length;
   const chosen = siblings[index]!;
   return {
     entry_id: entry.id,
+    mood: entry.quality_bucket,
+    date: today_iso_date,
     headline: chosen.headline,
-    supporting_line: chosen.supporting_line,
+    supporting: chosen.supporting_line,
+    exclusion_reason,
     used_fallback: false,
   };
 }
 
 /**
- * Deterministic non-cryptographic hash of (UTC date, entry id). Same inputs
- * always produce the same output — required for the daily-cache contract.
+ * Deterministic non-cryptographic hash of (date string, entry id). Same
+ * inputs always produce the same output — required for the daily-cache
+ * contract. Uses FNV-1a 32-bit; sufficient for variant-rotation diffusion.
+ *
+ * Takes `today_iso_date: string` (YYYY-MM-DD wall-clock in event tz) directly
+ * — no Date conversion needed for hashing. Matches the picker's tz-correctness
+ * contract (no UTC-vs-local ambiguity in the hash seed).
  */
-function dateSeededHash(today: Date, salt: string): number {
-  const dateKey = `${today.getUTCFullYear()}-${today.getUTCMonth()}-${today.getUTCDate()}`;
-  const seed = dateKey + ':' + salt;
+function dateSeededHash(today_iso_date: string, salt: string): number {
+  const seed = today_iso_date + ':' + salt;
   let h = 2166136261;
   for (let i = 0; i < seed.length; i++) {
     h ^= seed.charCodeAt(i);
@@ -2235,7 +2245,7 @@ function dateSeededHash(today: Date, salt: string): number {
 }
 ```
 
-Then update both call sites in `pickByDominantFactor` and `pickClosedEntry` to pass `input.today` through. Find every `finalize(entry, false)` call and change to `finalize(entry, false, input.today)`. Find `finalize(entry, true)` and leave alone (fallbacks skip rotation by design).
+**Note:** the call sites in `pickClosedEntry` and `pickByDominantFactor` from Task 11 ALREADY pass `input.today_iso_date` as the third argument to `finalize`. The signature `(entry, usedFallback, today_iso_date, exclusion_reason?) → PickResult` is unchanged — Task 12 only changes the function BODY to add rotation. Call sites stay as-is.
 
 - [ ] **Step 4: Run all daily-notes tests, verify they pass**
 
