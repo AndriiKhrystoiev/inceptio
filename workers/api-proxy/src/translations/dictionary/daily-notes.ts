@@ -110,7 +110,7 @@ export const DAILY_NOTES: Record<KnownDailyNoteId, DailyNoteEntry> = {
     quality_bucket: 'good',
     headline: 'A day for going further.',
     supporting_line:
-      "The Moon moves toward a kind meeting — good for reaching out, asking for things you've been meaning to ask, and conversations meant to land well.",
+      'The Moon moves toward a kind meeting — good for reaching out and conversations meant to land well.',
     horizon_class: 'static',
     dominant_factors_hint:
       'PROVISIONAL — moon_applying_to_benefic PASS as the highest-weight factor',

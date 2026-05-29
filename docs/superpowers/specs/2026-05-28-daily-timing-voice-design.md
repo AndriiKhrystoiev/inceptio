@@ -179,7 +179,7 @@ The 5 API grade bands (`poor / caution / fair / good / strong / exceptional`) ar
 
 **Entry 8 — `good-moon-toward-benefic`**
 - Headline: *"A day for going further."*
-- Supporting line: *"The Moon moves toward a kind meeting — good for reaching out, asking for things you've been meaning to ask, and conversations meant to land well."*
+- Supporting line: *"The Moon moves toward a kind meeting — good for reaching out and conversations meant to land well."*
 - horizon_class: `static`
 - dominant_factors_hint: PROVISIONAL — `moon_applying_to_benefic` PASS as the highest-weight factor
 - needs_vague_fallback: false
@@ -303,6 +303,7 @@ Plus two domain-expert revisions and one user-directed revision applied after th
 | #1 | "the sky makes room" → "the sky is clear" | "Makes room" carries cosmic-agency weight (auditor flag); "is clear" is unambiguously a condition |
 | #8 | Supporting line: removed travel-specific actions ("trips… and small departures"); generalized to relational/benefic-aspect actions ("reaching out, asking for things…") | Original conflated Moon-applying-to-benefic doctrine with Moon-as-traveler doctrine — separate principles in tradition |
 | #21 | New entry added for `moon_via_combusta` | Previously uncovered excluded-range case; entry 15's "between signs" phrasing is VoC-specific and doesn't fit via combusta |
+| #8 | Supporting line trimmed from 145 → 98 chars: dropped the most instrumental of three near-synonymous actions ("asking for things you've been meaning to ask"); kept "reaching out" and "conversations meant to land well" — the phrasings most consonant with the headline | Lint-library test (§11.3) flagged the 145-char overflow against the 140 hard max; the trim resolves it without altering the doctrine fix made in the prior #8 revision |
 
 These revisions are flagged so a reviewer can push back if the original phrasing was load-bearing for a reason. The astrologer-review pass (§11.4) should also check these specifically.
 
