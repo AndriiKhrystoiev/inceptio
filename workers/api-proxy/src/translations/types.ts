@@ -97,3 +97,242 @@ export interface DisplayableSummary {
 export type HeadlineOverrides = Partial<
   Record<Activity, Partial<Record<FactorId, Partial<Record<FactorStatus, string>>>>>
 >;
+
+// ─── Daily-note layer (spec: docs/superpowers/specs/2026-05-28-daily-timing-voice-design.md) ───
+
+/** Which UI surface the entry serves. Drives lint-rule scope (see §5.3). */
+export type Surface = 'daily-note' | 'status-line';
+
+/** Quality buckets for daily-note entries — see spec §3.2. */
+export type QualityBucket = 'strong' | 'good' | 'mixed' | 'closed';
+
+/** Horizon-class metadata — see spec §3.1, enforced by lint per §5. */
+export type HorizonClass = 'static' | 'vague' | 'concrete-date' | 'intraday';
+
+/** A single daily-note library entry — see spec §3.1. */
+export interface DailyNoteEntry {
+  id: string;
+  quality_bucket: QualityBucket;
+  headline: string;
+  supporting_line: string;
+  horizon_class: HorizonClass;
+  /**
+   * PROVISIONAL — see spec §3.1. This is a hint for the picker design, not a
+   * finished selection contract. The picker hardens these into precise rules
+   * (see daily-notes/picker.ts).
+   */
+  dominant_factors_hint: string;
+  surface: Surface;
+  /**
+   * True for any entry with horizon_class === 'concrete-date' (and the one
+   * intraday entry that may fail intraday computation). When true, the picker
+   * MUST have a vague fallback to fall through to when the horizon can't be
+   * verified — see daily-notes/picker.ts.
+   */
+  needs_vague_fallback: boolean;
+  /**
+   * If true, this entry's phrasing is awaiting an astrologer ruling per spec
+   * §11.4 (currently entries 16 + 17). The entry ships with its current
+   * draft phrasing; Task 17 applies the final ruling.
+   */
+  pending_astrologer_ruling?: true;
+}
+
+/**
+ * Some long-running excluded-range entries (Mercury rx ~3 weeks, Venus rx
+ * ~40 days, Mars rx ~80 days) need sibling variants so users don't see the
+ * identical headline 21 days running. A primary `DailyNoteEntry` references
+ * its sibling pool by id; the picker rotates between them deterministically
+ * (date-seeded hash) — see daily-notes/picker.ts.
+ */
+export interface DailyNoteVariantPool {
+  primary_entry_id: string;
+  variants: Array<{
+    headline: string;
+    supporting_line: string;
+  }>;
+}
+
+/** Status-line template — see spec §6.3. */
+export interface StatusLineTemplate {
+  id: string;
+  surface: 'status-line';
+  /** Template string. `{activity_noun}` interpolates from ACTIVITY_NOUNS. */
+  template: string;
+}
+
+// ─── Saved-search lifecycle (PICKER-CONTRACT.md §1) ───
+/**
+ * Five-state lifecycle for a saved search. The picker is the authority on
+ * transitions; the client may self-transition between pre-window ↔ in-window
+ * ↔ passed against `window_start`/`window_end` timestamps to avoid a forced
+ * refetch.
+ *
+ * IMPORTANT: `none-yet` is NEW (not in spec §6's status-line library). Trigger:
+ * the picker has run with zero qualifying windows in the saved search's range.
+ * Mutually exclusive with `pre-window`; can also recur post-window if the
+ * window passes and nothing else qualifies.
+ */
+export type SavedSearchState =
+  | 'none-yet'
+  | 'pre-window'
+  | 'new-window'
+  | 'in-window'
+  | 'passed';
+
+// ─── Moon phase (PICKER-CONTRACT.md §2) ───
+/**
+ * Backend-computed per the design-pass contract. Note: CLAUDE.md's prior
+ * statement that moon phase is mobile-computed is SUPERSEDED — the design
+ * pass moved it server-side so the hero moon glyph can be driven by it
+ * without each mobile build duplicating the ephemeris algorithm.
+ */
+export type MoonPhase =
+  | 'new'
+  | 'waxing-crescent'
+  | 'first-quarter'
+  | 'waxing-gibbous'
+  | 'full'
+  | 'waning-gibbous'
+  | 'last-quarter'
+  | 'waning-crescent';
+
+// ─── Part-of-day cutoffs (PICKER-CONTRACT.md §3 — backend-owned config) ───
+/**
+ * Backend-owned config. Must match the Translation Layer moment-detail
+ * `phrase_short` part-of-day rendering or the same window reads "afternoon"
+ * on the daily note and "morning" on moment-detail. Lives in
+ * `workers/api-proxy/src/translations/` alongside the synthesizer config.
+ *
+ * Hours are 0-23 in the event location's timezone. `morning` covers
+ * [0, morning_end_hour); `afternoon` [morning_end_hour, afternoon_end_hour);
+ * `evening` [afternoon_end_hour, evening_end_hour); `night` the remainder.
+ */
+export interface PartOfDayCutoffs {
+  morning_end_hour: number;
+  afternoon_end_hour: number;
+  evening_end_hour: number;
+}
+
+// ─── Picker output shape (PICKER-CONTRACT.md §2) ───
+/**
+ * What the picker returns for the daily note. Single object — mood is on the
+ * SAME object as the chosen phrase, derived from that phrase's quality_bucket
+ * so mood and copy can never drift.
+ */
+export interface DailyNoteOutput {
+  /** Derived from chosen entry's quality_bucket; not independently selected. */
+  mood: QualityBucket;
+  /** Backend-computed moon phase for the daily note's date. */
+  moon_phase: MoonPhase;
+  /** ISO YYYY-MM-DD in the event location's timezone. */
+  date: string;
+  /** Locked copy headline (<= 48 chars). */
+  headline: string;
+  /** Locked copy supporting line (<= 140 chars). */
+  supporting: string;
+  /**
+   * Reason_id when an exclusion drove the picker — surfaced for the optional
+   * glyph on closed days. Not required by the current visual design.
+   */
+  exclusion_reason?: string;
+  /** For introspection/caching; not consumed by client UI. */
+  entry_id: string;
+  /** True when the picker fell through to a vague-variant fallback. */
+  used_fallback: boolean;
+}
+
+/** Saved-search status — array, one per saved search (PICKER-CONTRACT.md §2). */
+export interface SavedSearchStatusOutput {
+  id: string;
+  activity: import('@inceptio/shared-types').Activity;
+  state: SavedSearchState;
+  /**
+   * Timezone-aware ISO timestamp in the EVENT location's zone (NOT the
+   * device's). Null when state === 'none-yet'.
+   */
+  window_start: string | null;
+  /** Same tz contract as window_start. Null when state === 'none-yet'. */
+  window_end: string | null;
+  /** Required for state === 'new-window'. */
+  is_stronger?: boolean;
+  new_score?: number;
+  prior_best_score?: number;
+  /**
+   * Required for state === 'new-window' so the alert fires exactly once and
+   * doesn't re-trigger on reopen. Client posts the ack to
+   * POST /daily-note/alert-ack.
+   */
+  alert_id?: string;
+  acknowledged?: boolean;
+  /** Sort key for the bounded 3-stack — lower = higher priority. */
+  priority: number;
+  /**
+   * Optional. For state === 'none-yet', enables a future "searched through
+   * August" affordance. Kept in the contract pending the deferred UX question.
+   */
+  searched_through?: string;
+}
+
+/** The full /daily-note response (PICKER-CONTRACT.md §2). */
+export interface DailyNoteResponseShape {
+  daily_note: DailyNoteOutput;
+  saved_searches: SavedSearchStatusOutput[];
+  /** Drives "+N more →" when greater than saved_searches.length. */
+  total_saved_count: number;
+  /** Cache invalidation stamp — see PICKER-CONTRACT.md §6 and LIBRARY_VERSION below. */
+  library_version: string;
+  /** Backend-owned config the client applies for part-of-day rendering. */
+  part_of_day_cutoffs: PartOfDayCutoffs;
+}
+
+// ─── Library version (PICKER-CONTRACT.md §6) ───
+/**
+ * Bump in the SAME PR as any change to:
+ *   - dictionary/daily-notes.ts
+ *   - dictionary/daily-note-fallbacks.ts
+ *   - dictionary/daily-note-variants.ts
+ *   - the part-of-day cutoffs config
+ *
+ * Drives atomic client-cache invalidation: clients store this stamp with
+ * cached daily-notes and bust on mismatch. Critical for the astrologer-ruling
+ * lockstep PR (Task 17) — copy and cutoffs must roll over together.
+ *
+ * Date-stamped + revision suffix so semantic ordering is human-readable.
+ */
+export const LIBRARY_VERSION = '2026-05-28-r1';
+
+/**
+ * The 21 entry ids defined in spec §3.3. The dictionary in
+ * `dictionary/daily-notes.ts` MUST cover all of these; the lint
+ * (lint-library.test.ts) asserts this.
+ */
+export const KNOWN_DAILY_NOTE_IDS = [
+  // Strong
+  'strong-sky-is-clear',
+  'strong-venus-jupiter-pair',
+  'strong-ruler-in-motion',
+  // Good
+  'good-venus-warm',
+  'good-mercury-clear',
+  'good-moon-steady',
+  'good-jupiter-room-to-grow',
+  'good-moon-toward-benefic',
+  'good-moon-asc-accord',
+  // Mixed
+  'mixed-mercury-clear-jupiter-absent',
+  'mixed-venus-gentle-saturn-near',
+  'mixed-moon-void-until-noon',
+  'mixed-moon-steady-sky-thin',
+  'mixed-venus-bright-mercury-dim',
+  // Closed
+  'closed-moon-voc',
+  'closed-mercury-retrograde',
+  'closed-venus-retrograde',
+  'closed-eclipse-window',
+  'closed-malefic-on-angle',
+  'closed-long-quiet-stretch',
+  'closed-moon-via-combusta',
+] as const;
+
+export type KnownDailyNoteId = (typeof KNOWN_DAILY_NOTE_IDS)[number];
