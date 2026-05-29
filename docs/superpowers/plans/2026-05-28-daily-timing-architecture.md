@@ -3037,46 +3037,106 @@ git commit -m "feat(daily-notes): moon-phase computation (contract §2, backend-
 
 # Phase 6 — Worker integration
 
-## Task 17: Daily-note KV cache (renumbered from Task 14)
+## Task 17: Daily-note KV cache (renumbered from Task 14; extended for LIBRARY_VERSION invalidation per contract §6)
 
 **Files:**
 - Create: `workers/api-proxy/src/daily-note-cache.ts`
+- Test: `workers/api-proxy/src/__tests__/daily-note-cache.test.ts`
 
-The daily-note cache is keyed by `(lat, lng, date_iso)` and TTLs to end-of-day in the user's timezone. Reuses the existing KV namespace binding `CACHE`.
+The daily-note cache is keyed by `(LIBRARY_VERSION, lat, lng, date_iso)` and TTLs to end-of-day in the user's timezone. Reuses the existing KV namespace binding `CACHE`.
 
-- [ ] **Step 1: Create the cache wrapper**
+**Contract update (PICKER-CONTRACT.md §6):** `LIBRARY_VERSION` is part of the key so that a library bump (e.g. when the astrologer ruling lands and the lockstep PR ships) **atomically invalidates** all cached daily notes — old keys simply stop being looked up and expire naturally via their TTL. No explicit eviction needed.
+
+The cached value is the `DailyNoteOutput` (the daily-note portion of the contract response), not the full `DailyNoteResponseShape`. Envelope fields (`library_version`, `part_of_day_cutoffs`, `saved_searches`, `total_saved_count`) are composed at endpoint read time — they're cheap and don't benefit from caching.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `__tests__/daily-note-cache.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest';
+import { keyOf, ttlSecondsForDay } from '../daily-note-cache';
+import { LIBRARY_VERSION } from '../translations/types';
+
+describe('keyOf', () => {
+  it('includes LIBRARY_VERSION so library bumps invalidate cached entries atomically', () => {
+    const key = keyOf({ lat: 50.4501, lng: 30.5234, dateIso: '2026-05-29' });
+    expect(key).toContain(LIBRARY_VERSION);
+    expect(key.startsWith(`daily-note:${LIBRARY_VERSION}:`)).toBe(true);
+  });
+
+  it('rounds lat/lng to 2 decimal places (~1.1 km granularity) so nearby locations share a cache entry', () => {
+    const k1 = keyOf({ lat: 50.4501234, lng: 30.5234567, dateIso: '2026-05-29' });
+    const k2 = keyOf({ lat: 50.4499999, lng: 30.5234001, dateIso: '2026-05-29' });
+    expect(k1).toBe(k2);
+  });
+
+  it('different dates produce different keys', () => {
+    const k1 = keyOf({ lat: 50.45, lng: 30.52, dateIso: '2026-05-29' });
+    const k2 = keyOf({ lat: 50.45, lng: 30.52, dateIso: '2026-05-30' });
+    expect(k1).not.toBe(k2);
+  });
+});
+
+describe('ttlSecondsForDay', () => {
+  it('returns seconds until end of day for the given dateIso', () => {
+    // dateIso end-of-day is 23:59:59 UTC; from noon UTC same day = ~12h
+    const noonUnix = new Date('2026-05-29T12:00:00Z').getTime() / 1000;
+    const ttl = ttlSecondsForDay('2026-05-29', noonUnix);
+    expect(ttl).toBeGreaterThan(11 * 3600);
+    expect(ttl).toBeLessThan(13 * 3600);
+  });
+
+  it('floors at 60 seconds (never returns 0 or negative)', () => {
+    // Far past dateIso: end-of-day is well in the past
+    const ttl = ttlSecondsForDay('2024-01-01', new Date('2026-05-29T12:00:00Z').getTime() / 1000);
+    expect(ttl).toBe(60);
+  });
+});
+```
+
+- [ ] **Step 2: Run test, verify it fails**
+
+`npx vitest run src/__tests__/daily-note-cache.test.ts` from `workers/api-proxy/`. EXPECTED: FAIL — module-not-found.
+
+- [ ] **Step 3: Create the cache wrapper**
 
 Create `daily-note-cache.ts`:
 
 ```ts
 import type { Env } from './env';
+import type { DailyNoteOutput } from './translations/types';
+import { LIBRARY_VERSION } from './translations/types';
 
 export interface DailyNoteCacheKey {
   lat: number;
   lng: number;
-  /** UTC date string YYYY-MM-DD treated as "today" for the user. */
+  /** Wall-clock date YYYY-MM-DD in the event location's timezone. */
   dateIso: string;
 }
 
-export interface DailyNoteCacheValue {
-  entry_id: string;
-  headline: string;
-  supporting_line: string;
-  used_fallback: boolean;
-  cached_at_unix: number;
-}
-
-function keyOf({ lat, lng, dateIso }: DailyNoteCacheKey): string {
-  const latRounded = lat.toFixed(2); // ~1.1 km granularity — enough for daily-note purposes
+/**
+ * Compose the KV key. LIBRARY_VERSION is part of the key per PICKER-
+ * CONTRACT.md §6 so a library bump (astrologer-ruling lockstep PR) atomically
+ * invalidates all cached daily notes — old keys are simply abandoned and
+ * naturally expire via their TTL. No explicit eviction loop needed.
+ *
+ * Lat/lng round to 2 decimal places (~1.1 km granularity) so nearby
+ * locations share a cache entry. Adequate for daily-note purposes; the sky
+ * doesn't change meaningfully at city-block scale.
+ */
+export function keyOf({ lat, lng, dateIso }: DailyNoteCacheKey): string {
+  const latRounded = lat.toFixed(2);
   const lngRounded = lng.toFixed(2);
-  return `daily-note:${latRounded}:${lngRounded}:${dateIso}`;
+  return `daily-note:${LIBRARY_VERSION}:${latRounded}:${lngRounded}:${dateIso}`;
 }
 
 /**
  * TTL = seconds until end of the named UTC day. The daily note is daily —
- * caching past midnight produces a stale read.
+ * caching past midnight produces a stale read. Floor at 60s so a clock skew
+ * or past-day request still has a small cache window rather than 0.
  */
-function ttlSecondsForDay(dateIso: string, nowUnix: number): number {
+export function ttlSecondsForDay(dateIso: string, nowUnix: number): number {
   const endOfDay = new Date(`${dateIso}T23:59:59Z`).getTime() / 1000;
   return Math.max(60, Math.floor(endOfDay - nowUnix));
 }
@@ -3084,15 +3144,15 @@ function ttlSecondsForDay(dateIso: string, nowUnix: number): number {
 export async function readCache(
   env: Env,
   key: DailyNoteCacheKey,
-): Promise<DailyNoteCacheValue | null> {
+): Promise<DailyNoteOutput | null> {
   const raw = await env.CACHE.get(keyOf(key), 'json');
-  return raw as DailyNoteCacheValue | null;
+  return raw as DailyNoteOutput | null;
 }
 
 export async function writeCache(
   env: Env,
   key: DailyNoteCacheKey,
-  value: DailyNoteCacheValue,
+  value: DailyNoteOutput,
   nowUnix: number,
 ): Promise<void> {
   await env.CACHE.put(keyOf(key), JSON.stringify(value), {
@@ -3101,16 +3161,20 @@ export async function writeCache(
 }
 ```
 
-- [ ] **Step 2: Run type-check**
+- [ ] **Step 4: Run test, verify it passes**
 
-Run: `cd workers/api-proxy && pnpm tsc --noEmit`
-Expected: PASS.
+`npx vitest run src/__tests__/daily-note-cache.test.ts`. Expected: PASS — 5/5.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 5: Run tsc**
+
+`npx tsc --noEmit`. Expected: clean.
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add workers/api-proxy/src/daily-note-cache.ts
-git commit -m "feat(cache): daily-note KV cache wrapper with end-of-day TTL"
+git add workers/api-proxy/src/daily-note-cache.ts \
+        workers/api-proxy/src/__tests__/daily-note-cache.test.ts
+git commit -m "feat(cache): daily-note KV cache — LIBRARY_VERSION-keyed for atomic invalidation"
 ```
 
 ---
