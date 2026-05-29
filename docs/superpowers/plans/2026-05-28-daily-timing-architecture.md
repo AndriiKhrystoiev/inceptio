@@ -3179,11 +3179,17 @@ git commit -m "feat(cache): daily-note KV cache — LIBRARY_VERSION-keyed for at
 
 ---
 
-## Task 15: Worker route `/daily-note`
+## Task 18: Worker route `/daily-note` (renumbered from Task 15; full contract response per 2026-05-29)
 
 **Files:**
 - Create: `workers/api-proxy/src/routes/daily-note.ts`
 - Modify: `workers/api-proxy/src/index.ts`
+
+**Contract changes (2026-05-29):**
+- Returns the FULL `DailyNoteResponseShape` from `types.ts` — `daily_note` + `saved_searches` + `total_saved_count` + `library_version` + `part_of_day_cutoffs`.
+- `daily_note` composes the picker's `PickResult` + `moon_phase` (Task 16) into `DailyNoteOutput`.
+- `saved_searches` is `[]` and `total_saved_count` is `0` for MVP — saved-search-status fan-out is a follow-on task. The state-derivation function from Task 13 and the ordering function from Task 14 are ready to wire in when the mobile-side data path lands; the endpoint just stubs the field for now.
+- Cache stores `DailyNoteOutput` (the daily-note portion only); envelope fields are composed on each request since they're cheap and not request-specific.
 
 - [ ] **Step 1: Create the route handler**
 
@@ -3192,26 +3198,36 @@ Create `routes/daily-note.ts`:
 ```ts
 import type { Env } from '../env';
 import { readCache, writeCache } from '../daily-note-cache';
+import { PART_OF_DAY_CUTOFFS } from '../translations/dictionary/part-of-day';
+import { computeMoonPhase } from '../translations/daily-notes/moon-phase';
 import { synthesizeDailyNote } from '../translations/daily-notes/picker';
+import { LIBRARY_VERSION } from '../translations/types';
+import type {
+  DailyNoteOutput,
+  DailyNoteResponseShape,
+} from '../translations/types';
 import { handleSearch } from './search';
 
 /**
  * GET /daily-note?lat=<n>&lng=<n>&tz=<iana>
  *
- * Computes today's daily-note headline + supporting line for the given
- * location. Internally fans out to /electional/search if cache miss, then
- * runs the picker, then caches the result through end-of-day.
+ * Returns the contract response per PICKER-CONTRACT.md §2:
+ *   { daily_note, saved_searches: [], total_saved_count: 0,
+ *     library_version, part_of_day_cutoffs }
+ *
+ * Cache key includes LIBRARY_VERSION so a library bump (astrologer-ruling
+ * lockstep PR) atomically invalidates all entries — see contract §6 and
+ * daily-note-cache.ts.
  *
  * The activity used for the underlying search is `business_launch` — chosen
  * because (a) it produces the most balanced factor distribution for a
  * general-purpose daily reading, (b) it never depends on natal data, and
- * (c) it's an MVP activity so the API key already authorizes it. The user's
- * actual saved-search activities are surfaced via the status-line layer,
- * not the daily note itself.
+ * (c) it's an MVP activity so the API key already authorizes it.
  *
- * Rate limit: same KV-backed limiter as /electional/search. The Worker
- * already charges 5 credits per upstream search; the cache keeps this
- * bounded to ~1 search per location per day.
+ * Saved-search status fan-out is deferred to a follow-on task — for MVP the
+ * endpoint returns `saved_searches: []` and the mobile client derives its
+ * own saved-search statuses using local data (or via a future endpoint that
+ * accepts saved searches in a POST body).
  */
 export async function handleDailyNote(req: Request, env: Env): Promise<Response> {
   const url = new URL(req.url);
@@ -3230,61 +3246,74 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
   const dateIso = formatDateInTz(now, tz);
   const cacheKey = { lat, lng, dateIso };
 
-  // Read cache
-  const cached = await readCache(env, cacheKey);
-  if (cached) {
-    return Response.json({ ...cached, cache_hit: true });
+  // Read cache. On hit we have the daily_note portion; envelope is added below.
+  let dailyNote: DailyNoteOutput | null = await readCache(env, cacheKey);
+  let cacheHit = dailyNote !== null;
+
+  if (!dailyNote) {
+    // Cache miss — fetch a same-day single-window search to get the top
+    // window and excluded ranges. Synthesize an internal request and call
+    // the existing /electional/search handler in-process.
+    const searchBody = {
+      activity: 'business_launch',
+      latitude: lat,
+      longitude: lng,
+      date_from: dateIso,
+      date_to: dateIso,
+      timezone: tz,
+    };
+    const internalReq = new Request('https://internal/electional/search', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(searchBody),
+    });
+    const searchRes = await handleSearch(internalReq, env);
+    if (!searchRes.ok) {
+      return Response.json(
+        { error: 'upstream_failure', message: 'electional/search failed' },
+        { status: 502 },
+      );
+    }
+    const searchPayload = (await searchRes.json()) as {
+      top_windows?: Array<{ score: number; factors: unknown[] }>;
+      excluded_ranges?: Array<{ reason_id: string; severity: 'hard_stop' | 'medium' }>;
+    };
+
+    const topWindow = searchPayload.top_windows?.[0] ?? null;
+    if (!topWindow) {
+      return Response.json(
+        { error: 'no_top_window', message: 'upstream returned no top window' },
+        { status: 502 },
+      );
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- upstream types live in shared-types; runtime guarded by handleSearch's Zod parse
+    const picked = synthesizeDailyNote({
+      topWindow: topWindow as any,
+      excludedRangesActiveToday: (searchPayload.excluded_ranges ?? []) as any,
+      today_iso_date: dateIso,
+    });
+
+    // Compose PickResult + moon_phase into DailyNoteOutput
+    dailyNote = {
+      ...picked,
+      moon_phase: computeMoonPhase(dateIso),
+    };
+
+    const nowUnix = Math.floor(now.getTime() / 1000);
+    await writeCache(env, cacheKey, dailyNote, nowUnix);
   }
 
-  // Cache miss — fetch a same-day single-window search to get the top window
-  // and excluded ranges. We synthesize an internal request and call the
-  // existing /electional/search handler in-process.
-  const searchBody = {
-    activity: 'business_launch',
-    latitude: lat,
-    longitude: lng,
-    date_from: dateIso,
-    date_to: dateIso,
-    timezone: tz,
+  const response: DailyNoteResponseShape & { cache_hit: boolean } = {
+    daily_note: dailyNote,
+    saved_searches: [],            // MVP: mobile derives client-side; future task adds fan-out
+    total_saved_count: 0,          // matches saved_searches length for MVP
+    library_version: LIBRARY_VERSION,
+    part_of_day_cutoffs: PART_OF_DAY_CUTOFFS,
+    cache_hit: cacheHit,
   };
-  const internalReq = new Request('https://internal/electional/search', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(searchBody),
-  });
-  const searchRes = await handleSearch(internalReq, env);
-  if (!searchRes.ok) {
-    return Response.json(
-      { error: 'upstream_failure', message: 'electional/search failed' },
-      { status: 502 },
-    );
-  }
-  const searchPayload = (await searchRes.json()) as {
-    top_windows?: Array<{ score: number; factors: unknown[] }>;
-    excluded_ranges?: Array<{ reason_id: string; severity: 'low' | 'medium' | 'high' }>;
-    summary?: { no_viable_windows?: boolean };
-  };
 
-  const topWindow = searchPayload.top_windows?.[0] ?? null;
-  if (!topWindow) {
-    return Response.json(
-      { error: 'no_top_window', message: 'upstream returned no top window' },
-      { status: 502 },
-    );
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- upstream type narrowing happens in picker via shared-types
-  const result = synthesizeDailyNote({
-    topWindow: topWindow as any,
-    excludedRangesActiveToday: (searchPayload.excluded_ranges ?? []) as any,
-    today: new Date(`${dateIso}T00:00:00Z`),
-  });
-
-  const nowUnix = Math.floor(now.getTime() / 1000);
-  const cacheValue = { ...result, cached_at_unix: nowUnix };
-  await writeCache(env, cacheKey, cacheValue, nowUnix);
-
-  return Response.json({ ...result, cache_hit: false });
+  return Response.json(response);
 }
 
 function formatDateInTz(d: Date, tz: string): string {
@@ -3335,45 +3364,232 @@ export default {
 
 - [ ] **Step 3: Run type-check + existing test suite**
 
-Run: `cd workers/api-proxy && pnpm tsc --noEmit && pnpm vitest run`
-Expected: PASS — type-clean and existing tests still pass.
+Run `npx tsc --noEmit && npx vitest run` from `workers/api-proxy/`.
+Expected: PASS — type-clean and all prior tests still pass. No new tests in this task (handler integration is exercised by manual smoke + future end-to-end tests; the unit-test surface for the handler is mostly Worker-mockable through `env` which isn't worth the harness for MVP).
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add workers/api-proxy/src/routes/daily-note.ts workers/api-proxy/src/index.ts
-git commit -m "feat(worker): /daily-note endpoint with KV cache + cache-miss fan-out to /search"
+git commit -m "feat(worker): /daily-note endpoint returns full DailyNoteResponseShape with library_version + cutoffs"
 ```
 
 ---
 
-## Task 16: Shared-types schema for mobile
+## Task 19: POST /daily-note/alert-ack endpoint (new task per contract §2 once-only alerts)
+
+**Files:**
+- Create: `workers/api-proxy/src/routes/alert-ack.ts`
+- Modify: `workers/api-proxy/src/index.ts` (add the route)
+
+Per PICKER-CONTRACT.md §2, the `new-window` alert must fire exactly once and not re-trigger on reopen. The client posts the ack to a Worker endpoint, which stores it in KV so subsequent `deriveSavedSearchStatus` calls (when the saved-search fan-out lands) treat that alert_id as acknowledged.
+
+For MVP scope, this endpoint just stores the ack ids in KV under a device-keyed namespace. The fan-out integration that actually CONSUMES this list is deferred to a follow-on task — but the endpoint exists so the client can fire-and-forget the ack the moment the user dismisses the alert.
+
+- [ ] **Step 1: Write the failing test**
+
+Create `workers/api-proxy/src/__tests__/alert-ack.test.ts`:
+
+```ts
+import { describe, expect, it, vi } from 'vitest';
+import { ackKeyOf } from '../routes/alert-ack';
+
+describe('ackKeyOf', () => {
+  it('namespaces by device_id so users don’t leak acks across devices', () => {
+    expect(ackKeyOf('dev-1', 'alert:s1:2026-07-15T14:00:00+03:00')).toContain('dev-1');
+    expect(ackKeyOf('dev-1', 'alert:s1:2026-07-15T14:00:00+03:00')).toMatch(/^alert-ack:dev-1:/);
+  });
+
+  it('different alert_ids on the same device produce different keys', () => {
+    const k1 = ackKeyOf('dev-1', 'alert:s1:t1');
+    const k2 = ackKeyOf('dev-1', 'alert:s2:t1');
+    expect(k1).not.toBe(k2);
+  });
+});
+```
+
+- [ ] **Step 2: Implement `routes/alert-ack.ts`**
+
+```ts
+import type { Env } from '../env';
+
+const ACK_TTL_SECONDS = 60 * 60 * 24 * 90; // 90 days — long enough to outlive any concurrent in-progress window
+
+/**
+ * Compose the KV key for an alert ack — namespaced by device_id so acks
+ * don't leak across users sharing a device pool. The key is the persistence
+ * primitive; the value is just `'1'` (presence is the signal).
+ */
+export function ackKeyOf(deviceId: string, alertId: string): string {
+  return `alert-ack:${deviceId}:${alertId}`;
+}
+
+/**
+ * POST /daily-note/alert-ack
+ *
+ * Body: { device_id: string, alert_id: string }
+ *
+ * Stores the (device_id, alert_id) tuple in KV so subsequent
+ * `deriveSavedSearchStatus` calls treat the alert as acknowledged and
+ * collapse the saved-search status back to `pre-window`. Fire-and-forget
+ * from the client; idempotent (writing the same key twice is a no-op).
+ *
+ * MVP scope: the fan-out integration that READS this list during the
+ * /daily-note response is deferred to a follow-on task — the endpoint exists
+ * so the ack flow is wired and clients can post acks the moment the alert
+ * is dismissed in the UI, without waiting for the fan-out to land.
+ */
+export async function handleAlertAck(req: Request, env: Env): Promise<Response> {
+  let body: { device_id?: unknown; alert_id?: unknown };
+  try {
+    body = (await req.json()) as typeof body;
+  } catch {
+    return Response.json({ error: 'bad_request', message: 'invalid JSON body' }, { status: 400 });
+  }
+
+  const deviceId = typeof body.device_id === 'string' ? body.device_id.trim() : '';
+  const alertId = typeof body.alert_id === 'string' ? body.alert_id.trim() : '';
+
+  if (!deviceId || !alertId) {
+    return Response.json(
+      { error: 'bad_request', message: 'device_id and alert_id are required strings' },
+      { status: 400 },
+    );
+  }
+
+  await env.CACHE.put(ackKeyOf(deviceId, alertId), '1', { expirationTtl: ACK_TTL_SECONDS });
+
+  return Response.json({ ok: true });
+}
+```
+
+- [ ] **Step 3: Wire the route into `index.ts`**
+
+Add (alongside the daily-note route added in Task 18):
+
+```ts
+import { handleAlertAck } from './routes/alert-ack';
+
+// ... inside fetch():
+if (url.pathname === '/daily-note/alert-ack' && req.method === 'POST') {
+  return handleAlertAck(req, env);
+}
+```
+
+- [ ] **Step 4: Run tests + tsc**
+
+`npx vitest run src/__tests__/alert-ack.test.ts` — expect 2/2 PASS.
+`npx tsc --noEmit` — expect clean.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add workers/api-proxy/src/routes/alert-ack.ts \
+        workers/api-proxy/src/__tests__/alert-ack.test.ts \
+        workers/api-proxy/src/index.ts
+git commit -m "feat(worker): POST /daily-note/alert-ack for once-only new-window alerts (contract §2)"
+```
+
+---
+
+## Task 20: Shared-types schema for mobile (renumbered from Task 16; full contract schema)
 
 **Files:**
 - Create: `packages/shared-types/src/api/daily-note.ts`
 - Modify: `packages/shared-types/src/api/index.ts`
 
-- [ ] **Step 1: Create the Zod schema**
+**Contract changes (2026-05-29):** the schema now mirrors the full `DailyNoteResponseShape` from `workers/api-proxy/src/translations/types.ts` — `daily_note` (with `mood`, `moon_phase`, `date`, `headline`, `supporting`, `exclusion_reason?`, `entry_id`, `used_fallback`), `saved_searches` array, `total_saved_count`, `library_version`, `part_of_day_cutoffs`. This is what mobile validates on receipt per CLAUDE.md "Zod schemas for every API response".
+
+- [ ] **Step 1: Create the Zod schemas**
 
 Create `packages/shared-types/src/api/daily-note.ts`:
 
 ```ts
 import { z } from 'zod';
+import { ActivitySchema } from './request';  // ActivitySchema lives in request.ts (verified via grep — there is no activity.ts file)
+
+/** Quality bucket per PICKER-CONTRACT.md §2. */
+export const QualityBucketSchema = z.enum(['strong', 'good', 'mixed', 'closed']);
+export type QualityBucket = z.infer<typeof QualityBucketSchema>;
+
+/** Moon phase per PICKER-CONTRACT.md §2. */
+export const MoonPhaseSchema = z.enum([
+  'new',
+  'waxing-crescent',
+  'first-quarter',
+  'waxing-gibbous',
+  'full',
+  'waning-gibbous',
+  'last-quarter',
+  'waning-crescent',
+]);
+export type MoonPhase = z.infer<typeof MoonPhaseSchema>;
+
+/** Saved-search lifecycle state per PICKER-CONTRACT.md §1. */
+export const SavedSearchStateSchema = z.enum([
+  'none-yet',
+  'pre-window',
+  'new-window',
+  'in-window',
+  'passed',
+]);
+export type SavedSearchState = z.infer<typeof SavedSearchStateSchema>;
+
+/** Backend-owned part-of-day cutoffs per PICKER-CONTRACT.md §3. */
+export const PartOfDayCutoffsSchema = z.object({
+  morning_end_hour: z.number().int().min(0).max(24),
+  afternoon_end_hour: z.number().int().min(0).max(24),
+  evening_end_hour: z.number().int().min(0).max(24),
+});
+export type PartOfDayCutoffs = z.infer<typeof PartOfDayCutoffsSchema>;
+
+/** The daily-note portion of the response. */
+export const DailyNoteOutputSchema = z.object({
+  mood: QualityBucketSchema,
+  moon_phase: MoonPhaseSchema,
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'ISO YYYY-MM-DD'),
+  headline: z.string().max(48),
+  supporting: z.string().max(140),
+  exclusion_reason: z.string().optional(),
+  entry_id: z.string(),
+  used_fallback: z.boolean(),
+});
+export type DailyNoteOutput = z.infer<typeof DailyNoteOutputSchema>;
+
+/** One saved-search status entry per PICKER-CONTRACT.md §2. */
+export const SavedSearchStatusSchema = z.object({
+  id: z.string(),
+  activity: ActivitySchema,
+  state: SavedSearchStateSchema,
+  // null for state === 'none-yet'; tz-aware ISO with offset otherwise.
+  window_start: z.string().nullable(),
+  window_end: z.string().nullable(),
+  is_stronger: z.boolean().optional(),
+  new_score: z.number().optional(),
+  prior_best_score: z.number().optional(),
+  alert_id: z.string().optional(),
+  acknowledged: z.boolean().optional(),
+  priority: z.number(),
+  searched_through: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+export type SavedSearchStatus = z.infer<typeof SavedSearchStatusSchema>;
 
 /**
- * The /daily-note response shape — see Worker `handleDailyNote` in
- * `workers/api-proxy/src/routes/daily-note.ts`. Mobile validates with this
- * schema on receipt (per CLAUDE.md "Zod schemas for every API response").
+ * The full /daily-note response shape — mirrors `DailyNoteResponseShape` in
+ * `workers/api-proxy/src/translations/types.ts`. Mobile validates with this
+ * on receipt and treats any parse failure as a fatal cache-miss + retry.
+ *
+ * The `cache_hit` flag is appended by the Worker for telemetry; it isn't
+ * part of the contract per se but the schema accepts it.
  */
 export const DailyNoteResponseSchema = z.object({
-  entry_id: z.string(),
-  headline: z.string().max(48),
-  supporting_line: z.string().max(140),
-  used_fallback: z.boolean(),
-  cache_hit: z.boolean(),
-  cached_at_unix: z.number().optional(),
+  daily_note: DailyNoteOutputSchema,
+  saved_searches: z.array(SavedSearchStatusSchema),
+  total_saved_count: z.number().int().min(0),
+  library_version: z.string(),
+  part_of_day_cutoffs: PartOfDayCutoffsSchema,
+  cache_hit: z.boolean().optional(),
 });
-
 export type DailyNoteResponse = z.infer<typeof DailyNoteResponseSchema>;
 ```
 
@@ -3385,16 +3601,20 @@ Append to `packages/shared-types/src/api/index.ts`:
 export * from './daily-note';
 ```
 
-- [ ] **Step 3: Run type-check across both packages**
+- [ ] **Step 3: Verify the imported `ActivitySchema` exists**
 
-Run: `cd packages/shared-types && pnpm tsc --noEmit && cd ../../workers/api-proxy && pnpm tsc --noEmit`
-Expected: PASS.
+Check `packages/shared-types/src/api/activity.ts` for an exported `ActivitySchema`. If the name differs (e.g. `ActivityEnum` or it's defined inline elsewhere), use the correct import — don't define a duplicate. If no such schema exists, this is a pre-existing gap; STOP and report rather than guessing.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Run type-check across both packages**
+
+Run `npx tsc --noEmit` in both `packages/shared-types/` and `workers/api-proxy/`.
+Expected: PASS in both. (No tests in this task — schema correctness is type-checked + zod's runtime parse provides the validation.)
+
+- [ ] **Step 5: Commit**
 
 ```bash
 git add packages/shared-types/src/api/daily-note.ts packages/shared-types/src/api/index.ts
-git commit -m "feat(shared-types): DailyNoteResponse schema for mobile consumption"
+git commit -m "feat(shared-types): full DailyNoteResponse schema per design-pass contract"
 ```
 
 ---
