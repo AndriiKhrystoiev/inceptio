@@ -1,6 +1,7 @@
 import type { Env } from './env';
 import { handleHealth } from './routes/health';
 import { handleSearch } from './routes/search';
+import { handleDailyNote } from './routes/daily-note';
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -12,6 +13,10 @@ export default {
 
     if (url.pathname === '/electional/search' && req.method === 'POST') {
       return handleSearch(req, env);
+    }
+
+    if (url.pathname === '/daily-note' && req.method === 'GET') {
+      return handleDailyNote(req, env);
     }
 
     return Response.json(

@@ -1,0 +1,130 @@
+import type { Env } from '../env';
+import { readCache, writeCache } from '../daily-note-cache';
+import { PART_OF_DAY_CUTOFFS } from '../translations/dictionary/part-of-day';
+import { computeMoonPhase } from '../translations/daily-notes/moon-phase';
+import { synthesizeDailyNote } from '../translations/daily-notes/picker';
+import { LIBRARY_VERSION } from '../translations/types';
+import type {
+  DailyNoteOutput,
+  DailyNoteResponseShape,
+} from '../translations/types';
+import { handleSearch } from './search';
+
+/**
+ * GET /daily-note?lat=<n>&lng=<n>&tz=<iana>
+ *
+ * Returns the contract response per PICKER-CONTRACT.md §2:
+ *   { daily_note, saved_searches: [], total_saved_count: 0,
+ *     library_version, part_of_day_cutoffs }
+ *
+ * Cache key includes LIBRARY_VERSION so a library bump (astrologer-ruling
+ * lockstep PR) atomically invalidates all entries — see contract §6 and
+ * daily-note-cache.ts.
+ *
+ * The activity used for the underlying search is `business_launch` — chosen
+ * because (a) it produces the most balanced factor distribution for a
+ * general-purpose daily reading, (b) it never depends on natal data, and
+ * (c) it's an MVP activity so the API key already authorizes it.
+ *
+ * Saved-search status fan-out is deferred to a follow-on task — for MVP the
+ * endpoint returns `saved_searches: []` and the mobile client derives its
+ * own saved-search statuses using local data (or via a future endpoint that
+ * accepts saved searches in a POST body).
+ */
+export async function handleDailyNote(req: Request, env: Env): Promise<Response> {
+  const url = new URL(req.url);
+  const lat = Number(url.searchParams.get('lat'));
+  const lng = Number(url.searchParams.get('lng'));
+  const tz = url.searchParams.get('tz') ?? 'UTC';
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return Response.json(
+      { error: 'bad_request', message: 'lat and lng are required numerics' },
+      { status: 400 },
+    );
+  }
+
+  const now = new Date();
+  const dateIso = formatDateInTz(now, tz);
+  const cacheKey = { lat, lng, dateIso };
+
+  // Read cache. On hit we have the daily_note portion; envelope is added below.
+  let dailyNote: DailyNoteOutput | null = await readCache(env, cacheKey);
+  let cacheHit = dailyNote !== null;
+
+  if (!dailyNote) {
+    // Cache miss — fetch a same-day single-window search to get the top
+    // window and excluded ranges. Synthesize an internal request and call
+    // the existing /electional/search handler in-process.
+    const searchBody = {
+      activity: 'business_launch',
+      latitude: lat,
+      longitude: lng,
+      date_from: dateIso,
+      date_to: dateIso,
+      timezone: tz,
+    };
+    const internalReq = new Request('https://internal/electional/search', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(searchBody),
+    });
+    const searchRes = await handleSearch(internalReq, env);
+    if (!searchRes.ok) {
+      return Response.json(
+        { error: 'upstream_failure', message: 'electional/search failed' },
+        { status: 502 },
+      );
+    }
+    const searchPayload = (await searchRes.json()) as {
+      top_windows?: Array<{ score: number; factors: unknown[] }>;
+      excluded_ranges?: Array<{ reason_id: string; severity: 'hard_stop' | 'medium' }>;
+    };
+
+    const topWindow = searchPayload.top_windows?.[0] ?? null;
+    if (!topWindow) {
+      return Response.json(
+        { error: 'no_top_window', message: 'upstream returned no top window' },
+        { status: 502 },
+      );
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- upstream types live in shared-types; runtime guarded by handleSearch's Zod parse
+    const picked = synthesizeDailyNote({
+      topWindow: topWindow as any,
+      excludedRangesActiveToday: (searchPayload.excluded_ranges ?? []) as any,
+      today_iso_date: dateIso,
+    });
+
+    // Compose PickResult + moon_phase into DailyNoteOutput
+    dailyNote = {
+      ...picked,
+      moon_phase: computeMoonPhase(dateIso),
+    };
+
+    const nowUnix = Math.floor(now.getTime() / 1000);
+    await writeCache(env, cacheKey, dailyNote, nowUnix);
+  }
+
+  const response: DailyNoteResponseShape & { cache_hit: boolean } = {
+    daily_note: dailyNote,
+    saved_searches: [],            // MVP: mobile derives client-side; future task adds fan-out
+    total_saved_count: 0,          // matches saved_searches length for MVP
+    library_version: LIBRARY_VERSION,
+    part_of_day_cutoffs: PART_OF_DAY_CUTOFFS,
+    cache_hit: cacheHit,
+  };
+
+  return Response.json(response);
+}
+
+function formatDateInTz(d: Date, tz: string): string {
+  // Intl.DateTimeFormat with `en-CA` produces YYYY-MM-DD natively.
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return fmt.format(d);
+}
