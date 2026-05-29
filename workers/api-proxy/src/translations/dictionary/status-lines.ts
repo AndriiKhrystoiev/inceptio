@@ -46,16 +46,40 @@ export const STATUS_PRE_WINDOW: StatusLineTemplate[] = [
     template: '{activity_noun} window — {season}.' },                 // 90+, alt
 ];
 
-// ─── NEW per PICKER-CONTRACT.md §1 — none-yet state ───
+// ─── PICKER-CONTRACT.md §1 + 2026-05-29 horizon-honesty amendment ───
 // Active search, no viable window found yet. Not in spec §6's library;
-// added at the design pass. Two templates: the bare form and one carrying
-// the searched_through horizon (used if the deferred UX question lands on
-// "yes, show the horizon").
+// added at the design pass.
+//
+// HORIZON-PRECISION RULE (binding for client renderers):
+//   Let `day = day-of-month(searched_through)`,
+//       `lastDay = last-day-of-month(searched_through)`.
+//
+//     day >= lastDay - 2  →  use `none-yet-through-month`  ("…through August")
+//     else                 →  use `none-yet-through-day`    ("…through 15 August")
+//
+// Why both: "through August" misstates the horizon when `searched_through`
+// is early or mid-month. If date_to = Aug 7, "through August" implies the
+// system will surface windows after August 7 — but it won't, because the
+// search range ended on day 7. Same horizon-honesty principle as the
+// daily-note 3-day rule (spec §5) applied to the status-line surface.
+//
+// `none-yet-bare` is the explicit fallback for cases where searched_through
+// is unavailable (saved search with no date_to) or the client opts out —
+// but the contract DEFAULT for `none-yet` is one of the two precision
+// templates below. A client that always uses `none-yet-bare` (or always
+// `none-yet-through-month`) violates the precision rule.
+//
+// Char-limit note: `none-yet-through-day` worst case is
+// "Contract window — none yet through 31 September." = 48 chars, which
+// triggered the spec §7 status-line hard-max bump from 42 → 48 on
+// 2026-05-29.
 export const STATUS_NONE_YET: StatusLineTemplate[] = [
   { id: 'none-yet-bare', surface: 'status-line',
     template: '{activity_noun} window — none yet.' },
-  { id: 'none-yet-with-horizon', surface: 'status-line',
+  { id: 'none-yet-through-month', surface: 'status-line',
     template: '{activity_noun} window — none yet through {month_name}.' },
+  { id: 'none-yet-through-day', surface: 'status-line',
+    template: '{activity_noun} window — none yet through {month_day} {month_name}.' },
 ];
 
 // ─── §6.3.2 In-window (EMPHASIZED — see spec §8.3) ───

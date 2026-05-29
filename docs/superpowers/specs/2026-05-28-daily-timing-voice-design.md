@@ -625,7 +625,7 @@ For Claude Design's layout work:
 |---|---|---|---|
 | Daily-note headline (Fraunces display) | ≤ 35 chars | 48 chars | Two-line wrap acceptable on small screens |
 | Daily-note supporting line (Inter body) | ≤ 100 chars | 140 chars | Three-line wrap acceptable on small screens |
-| Status line (Inter small) | ≤ 32 chars | 42 chars | One-line, no wrap |
+| Status line (Inter small) | ≤ 38 chars | 48 chars | One-line, no wrap. **Bumped from the original 42-char hard max on 2026-05-29** to accommodate the `none-yet` horizon-precision templates (worst case: `Contract window — none yet through 31 September.` = 48 chars). Required for horizon honesty across surfaces — see PICKER-CONTRACT.md §1 amendment and `dictionary/status-lines.ts` STATUS_NONE_YET block. |
 | Empty-state invite (Inter body) | ≤ 40 chars | 48 chars | One-line, no wrap |
 
 Library entries exceeding the hard max are rejected by the lint. All 21 entries in §3.3 fit within these limits.

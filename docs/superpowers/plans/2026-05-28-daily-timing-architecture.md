@@ -2309,9 +2309,357 @@ git commit -m "feat(daily-notes): long-condition sibling rotation for Mercury/Ve
 
 ---
 
-# Phase 5 — Status-line ordering
+# Phase 5 — Saved-search status
 
-## Task 13: Multi-search status-line ordering + 3-cap
+## Task 13: Saved-search state derivation (new task per 2026-05-29 contract amendment)
+
+**Files:**
+- Create: `workers/api-proxy/src/translations/daily-notes/saved-search-state.ts`
+- Test: `workers/api-proxy/src/translations/__tests__/saved-search-state.test.ts`
+
+The Worker endpoint needs to produce a `SavedSearchStatusOutput` per saved search per the contract §2. This task implements the 5-state lifecycle derivation (`none-yet`, `pre-window`, `new-window`, `in-window`, `passed`) given the saved search's current top window and previous best-score history.
+
+**Contract-driven decisions for this task (signed off 2026-05-29):**
+- `searched_through` IS populated always in the response (cheap data; client picks how to use it).
+- `none-yet` renders with **horizon precision** — see `dictionary/status-lines.ts` STATUS_NONE_YET block for the binding rule. Summary: client picks `none-yet-through-month` ("…through August") when `searched_through`'s day-of-month is within the last 3 days of its month; otherwise `none-yet-through-day` ("…through 15 August"). Reasoning: the bare "none yet" is anxiety-inducing ("did the app forget?") and the bare "through {month}" misstates the horizon for early/mid-month `date_to` values (same horizon-honesty principle as the spec §5 3-day rule). *(Locked in the lightweight checkpoint with the user; status-line hard max bumped 42 → 48 in spec §7 to accommodate the through-day worst case.)*
+- `none-yet` sorts AFTER `pre-window` and BEFORE `passed` in the priority order — it's neither imminent nor closed; user's actively searching but has nothing yet. Slots between active futures and stale pasts.
+- The state-derivation function in this task does NOT render the template string — it only populates the structured fields (`state`, `searched_through`, etc.) on `SavedSearchStatusOutput`. Template selection + interpolation is a client-side concern per contract §3, executed using the rule documented in `dictionary/status-lines.ts`.
+
+Pattern mirrors `synthesizer.ts` (pure function, deterministic given inputs).
+
+- [ ] **Step 1: Write the failing test**
+
+Create `__tests__/saved-search-state.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest';
+import { deriveSavedSearchStatus } from '../daily-notes/saved-search-state';
+import { window_ } from './fixtures';
+
+const SAVED_BASE = {
+  id: 'search-1',
+  activity: 'wedding' as const,
+  date_from: '2026-06-01',
+  date_to: '2026-08-31',
+};
+
+describe('deriveSavedSearchStatus', () => {
+  it('none-yet: no qualifying window, populates searched_through from date_to', () => {
+    const result = deriveSavedSearchStatus({
+      saved: SAVED_BASE,
+      topWindow: null,
+      previousTopScore: null,
+      acknowledgedAlertIds: [],
+      today_iso_date: '2026-06-05',
+    });
+    expect(result.state).toBe('none-yet');
+    expect(result.window_start).toBeNull();
+    expect(result.window_end).toBeNull();
+    expect(result.searched_through).toBe('2026-08-31');
+  });
+
+  it('pre-window: future window, no prior history → not an alert', () => {
+    const result = deriveSavedSearchStatus({
+      saved: SAVED_BASE,
+      topWindow: window_({
+        start: '2026-07-15T14:00:00+03:00',
+        end: '2026-07-15T16:00:00+03:00',
+        score: 68,
+      }),
+      previousTopScore: null,
+      acknowledgedAlertIds: [],
+      today_iso_date: '2026-06-05',
+    });
+    expect(result.state).toBe('pre-window');
+    expect(result.window_start).toBe('2026-07-15T14:00:00+03:00');
+    expect(result.window_end).toBe('2026-07-15T16:00:00+03:00');
+    expect(result.is_stronger).toBeUndefined();
+    expect(result.alert_id).toBeUndefined();
+  });
+
+  it('new-window: stronger than previousTopScore AND not acknowledged', () => {
+    const result = deriveSavedSearchStatus({
+      saved: SAVED_BASE,
+      topWindow: window_({
+        start: '2026-07-15T14:00:00+03:00',
+        end: '2026-07-15T16:00:00+03:00',
+        score: 72,
+      }),
+      previousTopScore: 60,
+      acknowledgedAlertIds: [],
+      today_iso_date: '2026-06-05',
+    });
+    expect(result.state).toBe('new-window');
+    expect(result.is_stronger).toBe(true);
+    expect(result.new_score).toBe(72);
+    expect(result.prior_best_score).toBe(60);
+    expect(result.alert_id).toBeDefined();
+    expect(result.acknowledged).toBe(false);
+  });
+
+  it('new-window collapses to pre-window when its alert_id is in acknowledgedAlertIds', () => {
+    const top = window_({
+      start: '2026-07-15T14:00:00+03:00',
+      end: '2026-07-15T16:00:00+03:00',
+      score: 72,
+    });
+    // First derive to learn the alert_id we would expect
+    const firstPass = deriveSavedSearchStatus({
+      saved: SAVED_BASE,
+      topWindow: top,
+      previousTopScore: 60,
+      acknowledgedAlertIds: [],
+      today_iso_date: '2026-06-05',
+    });
+    expect(firstPass.state).toBe('new-window');
+    const ackedAlertId = firstPass.alert_id!;
+
+    const acked = deriveSavedSearchStatus({
+      saved: SAVED_BASE,
+      topWindow: top,
+      previousTopScore: 60,
+      acknowledgedAlertIds: [ackedAlertId],
+      today_iso_date: '2026-06-05',
+    });
+    expect(acked.state).toBe('pre-window');
+    expect(acked.alert_id).toBeUndefined();
+  });
+
+  it('in-window: today is between window_start and window_end', () => {
+    const result = deriveSavedSearchStatus({
+      saved: SAVED_BASE,
+      topWindow: window_({
+        start: '2026-06-05T10:00:00+03:00',
+        end: '2026-06-05T14:00:00+03:00',
+        score: 70,
+      }),
+      previousTopScore: null,
+      acknowledgedAlertIds: [],
+      today_iso_date: '2026-06-05',
+    });
+    expect(result.state).toBe('in-window');
+  });
+
+  it('passed: window_end is in the past', () => {
+    const result = deriveSavedSearchStatus({
+      saved: SAVED_BASE,
+      topWindow: window_({
+        start: '2026-06-01T10:00:00+03:00',
+        end: '2026-06-01T14:00:00+03:00',
+        score: 65,
+      }),
+      previousTopScore: null,
+      acknowledgedAlertIds: [],
+      today_iso_date: '2026-06-05',
+    });
+    expect(result.state).toBe('passed');
+  });
+
+  it('priority: in-window < new-window < pre-window < none-yet < passed', () => {
+    // Lower number = higher priority. Spot-check the bands.
+    const inWin = deriveSavedSearchStatus({
+      saved: SAVED_BASE,
+      topWindow: window_({ start: '2026-06-05T10:00:00+03:00', end: '2026-06-05T14:00:00+03:00', score: 70 }),
+      previousTopScore: null,
+      acknowledgedAlertIds: [],
+      today_iso_date: '2026-06-05',
+    });
+    const newWin = deriveSavedSearchStatus({
+      saved: SAVED_BASE,
+      topWindow: window_({ start: '2026-07-15T14:00:00+03:00', end: '2026-07-15T16:00:00+03:00', score: 72 }),
+      previousTopScore: 60,
+      acknowledgedAlertIds: [],
+      today_iso_date: '2026-06-05',
+    });
+    const preWin = deriveSavedSearchStatus({
+      saved: SAVED_BASE,
+      topWindow: window_({ start: '2026-07-15T14:00:00+03:00', end: '2026-07-15T16:00:00+03:00', score: 60 }),
+      previousTopScore: null,
+      acknowledgedAlertIds: [],
+      today_iso_date: '2026-06-05',
+    });
+    const noneYet = deriveSavedSearchStatus({
+      saved: SAVED_BASE,
+      topWindow: null,
+      previousTopScore: null,
+      acknowledgedAlertIds: [],
+      today_iso_date: '2026-06-05',
+    });
+    const passed = deriveSavedSearchStatus({
+      saved: SAVED_BASE,
+      topWindow: window_({ start: '2026-06-01T10:00:00+03:00', end: '2026-06-01T14:00:00+03:00', score: 65 }),
+      previousTopScore: null,
+      acknowledgedAlertIds: [],
+      today_iso_date: '2026-06-05',
+    });
+    expect(inWin.priority).toBeLessThan(newWin.priority);
+    expect(newWin.priority).toBeLessThan(preWin.priority);
+    expect(preWin.priority).toBeLessThan(noneYet.priority);
+    expect(noneYet.priority).toBeLessThan(passed.priority);
+  });
+});
+```
+
+- [ ] **Step 2: Run test, verify it fails**
+
+Run: `npx vitest run src/translations/__tests__/saved-search-state.test.ts` from `workers/api-proxy/`.
+Expected: FAIL — module not found.
+
+- [ ] **Step 3: Implement `saved-search-state.ts`**
+
+Create `daily-notes/saved-search-state.ts`:
+
+```ts
+import type { Activity, Window } from '@inceptio/shared-types';
+import type { SavedSearchState, SavedSearchStatusOutput } from '../types';
+
+/** Minimal shape of a saved search the picker needs to know about. */
+export interface SavedSearchSeed {
+  id: string;
+  activity: Activity;
+  /** ISO date YYYY-MM-DD in event tz. */
+  date_from: string;
+  /** ISO date YYYY-MM-DD in event tz. */
+  date_to: string;
+}
+
+export interface DeriveInput {
+  saved: SavedSearchSeed;
+  /** Current top window from the latest API result, or null if none qualified. */
+  topWindow: Window | null;
+  /** Previously surfaced top window's score — for `is_stronger` detection. */
+  previousTopScore: number | null;
+  /** Alert ids the client has acked. Acked alerts collapse back to pre-window. */
+  acknowledgedAlertIds: string[];
+  /** Wall-clock date in event tz; same contract as the picker (see picker.ts). */
+  today_iso_date: string;
+}
+
+/**
+ * Derive the saved-search lifecycle state per PICKER-CONTRACT.md §1.
+ *
+ * Evaluation order (mutually exclusive):
+ *   1. No top window in range → `none-yet`
+ *   2. window_end < now → `passed`
+ *   3. window_start <= now <= window_end → `in-window`
+ *   4. previousTopScore !== null AND topWindow.score > previousTopScore AND alert not acked → `new-window`
+ *   5. Else → `pre-window`
+ *
+ * `priority` is a sort key the ordering layer uses to fill the bounded 3-stack.
+ * Lower numbers = higher visual priority (see ordering rule below).
+ */
+export function deriveSavedSearchStatus(input: DeriveInput): SavedSearchStatusOutput {
+  const { saved, topWindow, previousTopScore, acknowledgedAlertIds, today_iso_date } = input;
+
+  // We compare against "now" as UTC midnight of today_iso_date — sufficient
+  // day-granularity for state transitions. For in-window detection we use
+  // the iso_date's midnight as a coarse "today" check; finer-grained
+  // checks (intraday in-window minute boundaries) are the client's job per
+  // contract §3 "in/out-of-window self-check".
+  const nowApprox = new Date(`${today_iso_date}T00:00:00Z`).getTime();
+
+  if (!topWindow) {
+    return {
+      id: saved.id,
+      activity: saved.activity,
+      state: 'none-yet',
+      window_start: null,
+      window_end: null,
+      searched_through: saved.date_to,
+      priority: bandPriority('none-yet'),
+    };
+  }
+
+  const windowStartMs = new Date(topWindow.start).getTime();
+  const windowEndMs = new Date(topWindow.end).getTime();
+
+  // Branch 2: passed
+  if (windowEndMs < nowApprox) {
+    return {
+      id: saved.id,
+      activity: saved.activity,
+      state: 'passed',
+      window_start: topWindow.start,
+      window_end: topWindow.end,
+      priority: bandPriority('passed'),
+    };
+  }
+
+  // Branch 3: in-window (approximate at day granularity; client refines intraday)
+  if (windowStartMs <= nowApprox && nowApprox <= windowEndMs) {
+    return {
+      id: saved.id,
+      activity: saved.activity,
+      state: 'in-window',
+      window_start: topWindow.start,
+      window_end: topWindow.end,
+      priority: bandPriority('in-window'),
+    };
+  }
+
+  // Branches 4-5: future window — either new-window (stronger + not acked) or pre-window.
+  if (previousTopScore !== null && topWindow.score > previousTopScore) {
+    const alertId = `alert:${saved.id}:${topWindow.start}`;
+    if (!acknowledgedAlertIds.includes(alertId)) {
+      return {
+        id: saved.id,
+        activity: saved.activity,
+        state: 'new-window',
+        window_start: topWindow.start,
+        window_end: topWindow.end,
+        is_stronger: true,
+        new_score: topWindow.score,
+        prior_best_score: previousTopScore,
+        alert_id: alertId,
+        acknowledged: false,
+        priority: bandPriority('new-window'),
+      };
+    }
+  }
+
+  return {
+    id: saved.id,
+    activity: saved.activity,
+    state: 'pre-window',
+    window_start: topWindow.start,
+    window_end: topWindow.end,
+    priority: bandPriority('pre-window'),
+  };
+}
+
+/**
+ * Priority bands per spec §6.4 + the 2026-05-29 amendment slotting `none-yet`
+ * between pre-window and passed. Lower = higher priority.
+ */
+function bandPriority(state: SavedSearchState): number {
+  switch (state) {
+    case 'in-window':  return 0;
+    case 'new-window': return 1_000_000;
+    case 'pre-window': return 2_000_000;
+    case 'none-yet':   return 3_000_000;
+    case 'passed':     return 4_000_000;
+  }
+}
+```
+
+- [ ] **Step 4: Run test, verify it passes**
+
+Run: `npx vitest run src/translations/__tests__/saved-search-state.test.ts` from `workers/api-proxy/`.
+Expected: PASS — 7/7 scenarios green.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add workers/api-proxy/src/translations/daily-notes/saved-search-state.ts \
+        workers/api-proxy/src/translations/__tests__/saved-search-state.test.ts
+git commit -m "feat(daily-notes): saved-search 5-state derivation per design-pass contract §1"
+```
+
+---
+
+# Phase 5b — Status-line ordering (was Phase 5)
+
+## Task 14: Multi-search status-line ordering + 3-cap (renumbered from Task 13)
 
 **Files:**
 - Create: `workers/api-proxy/src/translations/daily-notes/status-line-ordering.ts`
