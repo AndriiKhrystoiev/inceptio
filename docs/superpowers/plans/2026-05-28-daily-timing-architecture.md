@@ -28,7 +28,7 @@ Plus contract §6 adds **library-version cache invalidation**: when the astrolog
 | Add `STATUS_NONE_YET` status-line templates | Task 4 — extended inline below | **applied** |
 | **NEW Task — part-of-day cutoffs config** (backend-owned per contract §3) | Insert between Task 10 (horizon) and Task 11 (picker) | drafted when dispatched |
 | **NEW Task — moon-phase computation** (deterministic algorithm, backend per contract §2 — supersedes the CLAUDE.md note that moon phase is mobile-computed) | Insert before Task 11 (picker) | drafted when dispatched |
-| Picker output shape — return `DailyNoteOutput` per contract §2 (not the simpler `{entry_id, headline, supporting_line, used_fallback}` shape in current Task 11) | Task 11 — rewritten when dispatched | drafted when dispatched |
+| Picker returns a tighter `PickResult` (entry_id, mood, date, headline, supporting, exclusion_reason?, used_fallback) — split from `DailyNoteOutput` so the picker stays focused on selection and doesn't own moon-phase ephemeris. Endpoint composes the full response. Input `today_iso_date: string` instead of `today: Date` to make contract §4 tz-correctness explicit at the call site. | Task 11 — **applied** (rewritten in place 2026-05-29 after the picker checkpoint) | **applied** |
 | **NEW Task — saved-search state derivation** (5-state lifecycle including `none-yet`) | Insert before status-line ordering (current Task 13) | drafted when dispatched |
 | Status-line ordering — extend for 5-state enum (none-yet, new-window added; post-window renamed to passed) | Task 13 — updated when dispatched | drafted when dispatched |
 | Daily-note cache — `library_version` stamp + atomic invalidation | Task 14 — updated when dispatched | drafted when dispatched |
@@ -1668,13 +1668,21 @@ git commit -m "feat(daily-notes): horizon verification with planetary-stations c
 
 ---
 
-## Task 11: Picker — main synthesizer
+## Task 11: Picker — main synthesizer (PickResult shape per 2026-05-29 checkpoint)
 
 **Files:**
 - Create: `workers/api-proxy/src/translations/daily-notes/picker.ts`
 - Test: `workers/api-proxy/src/translations/__tests__/daily-notes.test.ts`
 
-The picker takes a top-window snapshot from an `electional/search` response plus today's date and location, and returns the chosen entry's rendered headline + supporting line. Pattern follows the existing `headlines/synthesizer.ts`.
+The picker takes a top-window snapshot from an `electional/search` response, today's wall-clock date in the event timezone, and the active excluded ranges. It returns a `PickResult` — the entry-selection layer of the daily note. The Worker endpoint (Task 18) composes the full contract response by adding `moon_phase` (Task 16) and the envelope fields (`library_version`, `part_of_day_cutoffs`, etc.).
+
+**Contract sign-off (2026-05-29 checkpoint):**
+- **PickResult is a SEPARATE shape from `DailyNoteOutput`** in `types.ts`. The picker does selection (single responsibility); moon-phase is ephemeris (different concern). The endpoint stitches them.
+- **`today_iso_date: string`** (YYYY-MM-DD in event timezone) NOT `today: Date`. Makes the contract §4 timezone-correctness explicit at the call site. Worker endpoint must format `now` in event tz BEFORE calling the picker; the picker treats it as a wall-clock date.
+- **`supporting_line` → `supporting`** (rename matches contract §2 field name).
+- **`mood: chosenEntry.quality_bucket`** — single source of truth; mood cannot drift from the chosen phrase.
+
+Pattern follows the existing `headlines/synthesizer.ts`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1684,8 +1692,6 @@ Create `__tests__/daily-notes.test.ts`:
 import { describe, expect, it } from 'vitest';
 import { synthesizeDailyNote } from '../daily-notes/picker';
 import { excludedRange, factor, window_ } from './fixtures';
-
-const TODAY = new Date('2026-05-28');
 
 describe('synthesizeDailyNote — quality bucket → entry selection', () => {
   it('Strong bucket: picks strong-sky-is-clear when 6+ factors PASS, no exclusions', () => {
@@ -1704,10 +1710,15 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
     const result = synthesizeDailyNote({
       topWindow: top,
       excludedRangesActiveToday: [],
-      today: TODAY,
+      today_iso_date: '2026-05-28',
     });
     expect(result.entry_id).toBe('strong-sky-is-clear');
+    expect(result.mood).toBe('strong');
+    expect(result.date).toBe('2026-05-28');
     expect(result.headline).toBe('A wide-open day — the sky is clear.');
+    expect(result.supporting).toContain('big asks');
+    expect(result.exclusion_reason).toBeUndefined();
+    expect(result.used_fallback).toBe(false);
   });
 
   it('Good bucket: picks good-venus-warm when Venus is the highest-weight PASS factor', () => {
@@ -1722,9 +1733,10 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
     const result = synthesizeDailyNote({
       topWindow: top,
       excludedRangesActiveToday: [],
-      today: TODAY,
+      today_iso_date: '2026-05-28',
     });
     expect(result.entry_id).toBe('good-venus-warm');
+    expect(result.mood).toBe('good');
   });
 
   it('Closed bucket: picks closed-moon-voc when an active moon_voc exclusion covers today', () => {
@@ -1732,9 +1744,11 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
     const result = synthesizeDailyNote({
       topWindow: top,
       excludedRangesActiveToday: [excludedRange({ reason_id: 'moon_voc' })],
-      today: TODAY,
+      today_iso_date: '2026-05-28',
     });
     expect(result.entry_id).toBe('closed-moon-voc');
+    expect(result.mood).toBe('closed');
+    expect(result.exclusion_reason).toBe('moon_voc');
   });
 
   it('Closed bucket: Mercury retrograde → primary entry when station <= 3 days away', () => {
@@ -1743,10 +1757,12 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
     const result = synthesizeDailyNote({
       topWindow: top,
       excludedRangesActiveToday: [excludedRange({ reason_id: 'mercury_retrograde' })],
-      today: new Date('2026-08-29'),
+      today_iso_date: '2026-08-29',
     });
     expect(result.entry_id).toBe('closed-mercury-retrograde');
     expect(result.headline).toBe('Mercury is sleeping.');
+    expect(result.exclusion_reason).toBe('mercury_retrograde');
+    expect(result.used_fallback).toBe(false);
   });
 
   it('Closed bucket: Mercury retrograde → vague fallback when station > 3 days away', () => {
@@ -1755,10 +1771,11 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
     const result = synthesizeDailyNote({
       topWindow: top,
       excludedRangesActiveToday: [excludedRange({ reason_id: 'mercury_retrograde' })],
-      today: new Date('2026-08-10'),
+      today_iso_date: '2026-08-10',
     });
     expect(result.entry_id).toBe('closed-mercury-retrograde-vague');
-    expect(result.supporting_line).toContain('for now');
+    expect(result.supporting).toContain('for now');
+    expect(result.used_fallback).toBe(true);
   });
 
   it('exclusion precedence: closed-bucket wins even when raw score is in good band', () => {
@@ -1767,17 +1784,19 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
     const result = synthesizeDailyNote({
       topWindow: top,
       excludedRangesActiveToday: [excludedRange({ reason_id: 'venus_retrograde' })],
-      today: TODAY,
+      today_iso_date: '2026-05-28',
     });
     expect(result.entry_id).toBe('closed-venus-retrograde');
+    expect(result.mood).toBe('closed');
+    expect(result.exclusion_reason).toBe('venus_retrograde');
   });
 });
 ```
 
 - [ ] **Step 2: Run test, verify it fails**
 
-Run: `cd workers/api-proxy && pnpm vitest run src/translations/__tests__/daily-notes.test.ts`
-Expected: FAIL — "Cannot find module '../daily-notes/picker'".
+Run: `cd workers/api-proxy && npx vitest run src/translations/__tests__/daily-notes.test.ts`
+Expected: FAIL — "Failed to load url ../daily-notes/picker" (or equivalent module-not-found).
 
 - [ ] **Step 3: Implement `picker.ts`**
 
@@ -1787,22 +1806,50 @@ Create `daily-notes/picker.ts`:
 import type { ExcludedRange, Window } from '@inceptio/shared-types';
 import { DAILY_NOTES } from '../dictionary/daily-notes';
 import { DAILY_NOTE_FALLBACKS } from '../dictionary/daily-note-fallbacks';
-import type { DailyNoteEntry, KnownDailyNoteId } from '../types';
+import type { DailyNoteEntry, KnownDailyNoteId, QualityBucket } from '../types';
 import { isHorizonWithin3Days, nextStationOf } from './horizon';
 import { assignBucket } from './quality-bucket';
 
+/**
+ * Picker input — see PICKER-CONTRACT.md §4 for the timezone-correctness rationale.
+ *
+ * IMPORTANT: `today_iso_date` is a WALL-CLOCK date string (YYYY-MM-DD) in the
+ * EVENT location's timezone, NOT a UTC Date object. The Worker endpoint MUST
+ * format `now` in the event tz (e.g. `Intl.DateTimeFormat('en-CA', { timeZone })`)
+ * before calling this function. Passing a naive UTC date breaks day-name and
+ * part-of-day derivations for users searching a moment in another city.
+ */
 export interface SynthesizeInput {
   topWindow: Window;
   /** ExcludedRanges from the API whose [from, to] interval covers today. */
   excludedRangesActiveToday: ExcludedRange[];
-  /** UTC date treated as "today" for horizon verification. */
-  today: Date;
+  /** ISO YYYY-MM-DD wall-clock date in the event location's timezone. */
+  today_iso_date: string;
 }
 
-export interface SynthesizeResult {
+/**
+ * What the picker returns — entry selection layer of the daily note.
+ *
+ * SEPARATE from `DailyNoteOutput` (the /daily-note response shape). This shape
+ * is internal to the Worker; the endpoint composes the full `DailyNoteOutput`
+ * by adding `moon_phase` (Task 16) and any envelope fields (Task 18).
+ *
+ * `mood` is derived from the chosen entry's `quality_bucket` — single source
+ * of truth so mood and copy cannot drift.
+ */
+export interface PickResult {
+  /** For cache key + introspection. Not consumed by the client UI. */
   entry_id: string;
+  /** Derived from chosen entry's `quality_bucket`. */
+  mood: QualityBucket;
+  /** Forwarded from input — ISO YYYY-MM-DD in event tz. */
+  date: string;
+  /** Locked copy. */
   headline: string;
-  supporting_line: string;
+  /** Locked copy. (Note: spec/dictionary field is `supporting_line`; the picker exposes it as `supporting` per contract §2.) */
+  supporting: string;
+  /** Present when an exclusion drove the pick (bucket === 'closed'). */
+  exclusion_reason?: string;
   /** True when the picker fell through to a vague-variant fallback. */
   used_fallback: boolean;
 }
@@ -1830,7 +1877,7 @@ const REASON_TO_ENTRY: Record<string, KnownDailyNoteId> = {
  *   3. Good bucket (60..74) → good entry by dominant factor.
  *   4. Mixed bucket (< 60) → mixed entry by dominant factor.
  */
-export function synthesizeDailyNote(input: SynthesizeInput): SynthesizeResult {
+export function synthesizeDailyNote(input: SynthesizeInput): PickResult {
   const hasNamedExclusion = input.excludedRangesActiveToday.length > 0;
   const bucket = assignBucket(input.topWindow.score, hasNamedExclusion);
 
@@ -1843,7 +1890,7 @@ export function synthesizeDailyNote(input: SynthesizeInput): SynthesizeResult {
   return pickByDominantFactor(input, bucket);
 }
 
-function pickClosedEntry(input: SynthesizeInput): SynthesizeResult {
+function pickClosedEntry(input: SynthesizeInput): PickResult {
   // Prefer the most-specific named exclusion (highest severity, falling back
   // to first in list). Severity is `low | medium | high` per shared-types.
   const SEVERITY_RANK = { low: 0, medium: 1, high: 2 } as const;
@@ -1857,25 +1904,26 @@ function pickClosedEntry(input: SynthesizeInput): SynthesizeResult {
   // Concrete-class entries need horizon verification — fall through to the
   // vague fallback when the named horizon doesn't verify.
   if (entry.horizon_class === 'concrete-date' && entry.needs_vague_fallback) {
-    if (!verifyConcreteHorizon(entry.id, input.today)) {
-      return useFallback(entry.id);
+    const todayDate = new Date(`${input.today_iso_date}T00:00:00Z`);
+    if (!verifyConcreteHorizon(entry.id, todayDate)) {
+      return useFallback(entry.id, input.today_iso_date, reason);
     }
   }
 
-  return finalize(entry, false);
+  return finalize(entry, false, input.today_iso_date, reason);
 }
 
 function pickByDominantFactor(
   input: SynthesizeInput,
   bucket: 'strong' | 'good' | 'mixed',
-): SynthesizeResult {
+): PickResult {
   const passFactors = input.topWindow.factors.filter((f) => f.status === 'pass');
 
   // Strong bucket: pick the "many factors PASS" entry when 6+ PASS; otherwise
   // fall to the most distinctive PASS pair (Venus + Jupiter or asc-ruler trio).
   if (bucket === 'strong') {
     if (passFactors.length >= 6) {
-      return finalize(DAILY_NOTES['strong-sky-is-clear'], false);
+      return finalize(DAILY_NOTES['strong-sky-is-clear'], false, input.today_iso_date);
     }
     const hasVenus = passFactors.some(
       (f) => f.factor_id === 'venus_dignified_direct_well_aspected' && f.weight_class === 'high',
@@ -1884,9 +1932,9 @@ function pickByDominantFactor(
       (f) => f.factor_id === 'jupiter_angular_or_aspecting' && f.weight_class === 'high',
     );
     if (hasVenus && hasJupiter) {
-      return finalize(DAILY_NOTES['strong-venus-jupiter-pair'], false);
+      return finalize(DAILY_NOTES['strong-venus-jupiter-pair'], false, input.today_iso_date);
     }
-    return finalize(DAILY_NOTES['strong-ruler-in-motion'], false);
+    return finalize(DAILY_NOTES['strong-ruler-in-motion'], false, input.today_iso_date);
   }
 
   // Good/Mixed: pick by highest-weight PASS factor's id.
@@ -1896,16 +1944,16 @@ function pickByDominantFactor(
   // Good bucket
   if (bucket === 'good') {
     if (leadId === 'venus_dignified_direct_well_aspected')
-      return finalize(DAILY_NOTES['good-venus-warm'], false);
+      return finalize(DAILY_NOTES['good-venus-warm'], false, input.today_iso_date);
     if (leadId === 'mercury_dignified_direct_not_combust')
-      return finalize(DAILY_NOTES['good-mercury-clear'], false);
+      return finalize(DAILY_NOTES['good-mercury-clear'], false, input.today_iso_date);
     if (leadId === 'jupiter_angular_or_aspecting')
-      return finalize(DAILY_NOTES['good-jupiter-room-to-grow'], false);
+      return finalize(DAILY_NOTES['good-jupiter-room-to-grow'], false, input.today_iso_date);
     if (leadId === 'moon_applying_to_benefic')
-      return finalize(DAILY_NOTES['good-moon-toward-benefic'], false);
+      return finalize(DAILY_NOTES['good-moon-toward-benefic'], false, input.today_iso_date);
     if (leadId === 'moon_and_asc_ruler_in_good_aspect')
-      return finalize(DAILY_NOTES['good-moon-asc-accord'], false);
-    return finalize(DAILY_NOTES['good-moon-steady'], false);
+      return finalize(DAILY_NOTES['good-moon-asc-accord'], false, input.today_iso_date);
+    return finalize(DAILY_NOTES['good-moon-steady'], false, input.today_iso_date);
   }
 
   // Mixed bucket (default fallthrough)
@@ -1924,12 +1972,12 @@ function pickByDominantFactor(
     (f) => f.factor_id === 'mercury_dignified_direct_not_combust',
   );
   if (mercuryPass && !passFactors.some((f) => f.factor_id === 'jupiter_angular_or_aspecting')) {
-    return finalize(DAILY_NOTES['mixed-mercury-clear-jupiter-absent'], false);
+    return finalize(DAILY_NOTES['mixed-mercury-clear-jupiter-absent'], false, input.today_iso_date);
   }
   if (venusPass && !mercuryPass) {
-    return finalize(DAILY_NOTES['mixed-venus-bright-mercury-dim'], false);
+    return finalize(DAILY_NOTES['mixed-venus-bright-mercury-dim'], false, input.today_iso_date);
   }
-  return finalize(DAILY_NOTES['mixed-moon-steady-sky-thin'], false);
+  return finalize(DAILY_NOTES['mixed-moon-steady-sky-thin'], false, input.today_iso_date);
 }
 
 /** Order factors by weight_class desc, then contribution desc. Mirrors synthesizer.ts. */
@@ -1964,21 +2012,29 @@ function verifyConcreteHorizon(entryId: string, today: Date): boolean {
   return true;
 }
 
-function useFallback(entryId: string): SynthesizeResult {
+function useFallback(entryId: string, today_iso_date: string, exclusion_reason?: string): PickResult {
   const fallback = DAILY_NOTE_FALLBACKS[entryId as KnownDailyNoteId];
   if (!fallback) {
     // Defensive: declared needs_vague_fallback but none defined. Fall to the
     // bucket's safest entry instead of crashing.
-    return finalize(DAILY_NOTES['closed-long-quiet-stretch'], true);
+    return finalize(DAILY_NOTES['closed-long-quiet-stretch'], true, today_iso_date, exclusion_reason);
   }
-  return finalize(fallback, true);
+  return finalize(fallback, true, today_iso_date, exclusion_reason);
 }
 
-function finalize(entry: DailyNoteEntry, usedFallback: boolean): SynthesizeResult {
+function finalize(
+  entry: DailyNoteEntry,
+  usedFallback: boolean,
+  today_iso_date: string,
+  exclusion_reason?: string,
+): PickResult {
   return {
     entry_id: entry.id,
+    mood: entry.quality_bucket,             // derived — single source of truth
+    date: today_iso_date,
     headline: entry.headline,
-    supporting_line: entry.supporting_line,
+    supporting: entry.supporting_line,      // contract field name `supporting`; dictionary field is `supporting_line`
+    exclusion_reason,
     used_fallback: usedFallback,
   };
 }
@@ -1986,7 +2042,7 @@ function finalize(entry: DailyNoteEntry, usedFallback: boolean): SynthesizeResul
 
 - [ ] **Step 4: Run test, verify it passes**
 
-Run: `cd workers/api-proxy && pnpm vitest run src/translations/__tests__/daily-notes.test.ts`
+Run: `cd workers/api-proxy && npx vitest run src/translations/__tests__/daily-notes.test.ts`
 Expected: PASS — all 6 scenarios green.
 
 - [ ] **Step 5: Commit**
@@ -1994,7 +2050,7 @@ Expected: PASS — all 6 scenarios green.
 ```bash
 git add workers/api-proxy/src/translations/daily-notes/picker.ts \
         workers/api-proxy/src/translations/__tests__/daily-notes.test.ts
-git commit -m "feat(daily-notes): picker — score-bucket selection with exclusion precedence + fallbacks"
+git commit -m "feat(daily-notes): picker — entry selection returning PickResult per design-pass contract"
 ```
 
 ---
