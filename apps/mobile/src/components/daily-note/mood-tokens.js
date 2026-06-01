@@ -22,16 +22,31 @@
 // Halo rendering note: DailyHero (moon glyph) and DailyNoteBody (mood dot)
 // extract this rgba into shadowColor (alpha forced to 1 via haloColorSolid)
 // and apply the alpha as shadowOpacity (via parseHaloAlpha). Honoring the
-// alpha means each mood renders at its design-spec'd intensity — strong
-// at 0.55, good at 0.45, mixed at 0.30, closed at 0.18 — rather than all
-// uniformly at full strength.
+// alpha means each mood renders at its design-spec'd intensity.
+//
+// Calibration note (2026-06-01): the halo alpha values are tuned for
+// native iOS shadow rendering, NOT CSS rgba. Native shadow distributes
+// blur over a wider area and requires higher opacity values to achieve
+// perceptual parity with CSS-style rendering. The original Layer 2 spec
+// values (0.55 / 0.45 / 0.30 / 0.18) were calibrated against the CSS
+// DailyNote.jsx mockup; cycling through all four moods in StatePicker on
+// a real iOS device after the parseHaloAlpha renderer fix landed showed
+// good and mixed visually indistinguishable, and strong barely reading.
+// Recalibrated to 0.95 / 0.75 / 0.55 / 0.35 — same celebrate/warm/
+// restrained/barely-there gradient, just shifted up to the band where
+// native iOS shadow can actually express it. Each adjacent pair should
+// look noticeably distinct now, not nearly identical.
+//
+// If Android elevation needs separate calibration (it falls back to grey
+// material drop-shadow and ignores the colored alpha entirely), that's a
+// follow-up — Android halos are a known platform compromise per Layer 2.
 import { colors } from '../../theme';
 
 export const MOOD_TOKENS = {
-  strong: { dot: colors.gold,        halo: 'rgba(240,216,154,0.55)', dim: false },
-  good:   { dot: colors.primaryGlow, halo: 'rgba(169,141,255,0.45)', dim: false },
-  mixed:  { dot: colors.goldMuted,   halo: 'rgba(212,184,114,0.30)', dim: false },
-  closed: { dot: colors.textSubtle,  halo: 'rgba(184,176,204,0.18)', dim: true },
+  strong: { dot: colors.gold,        halo: 'rgba(240,216,154,0.95)', dim: false },
+  good:   { dot: colors.primaryGlow, halo: 'rgba(169,141,255,0.75)', dim: false },
+  mixed:  { dot: colors.goldMuted,   halo: 'rgba(212,184,114,0.55)', dim: false },
+  closed: { dot: colors.textSubtle,  halo: 'rgba(184,176,204,0.35)', dim: true },
 };
 
 /**
