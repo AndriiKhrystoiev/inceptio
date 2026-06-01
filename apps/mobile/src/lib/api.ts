@@ -283,3 +283,37 @@ export async function getDailyNote(
     cacheHit: parseResult.data.cache_hit ?? false,
   };
 }
+
+/**
+ * POST /daily-note/alert-ack
+ *
+ * Fire-and-forget acknowledgement of a new-window alert. KV.put is
+ * idempotent — calling this twice with the same alert_id is a no-op.
+ *
+ * Currently unwired in MVP: NewWindowCard (scaffold/) doesn't render,
+ * so no caller invokes this. Function exists as API surface contract
+ * so a future SavedSearch wire-in plugs in mechanically. Smoke test in
+ * src/lib/__tests__/post-alert-ack.test.ts guards against silent drift
+ * (renamed fields, swapped headers) before the caller arrives.
+ *
+ * Future timing decision (pinned in design memo §6):
+ *   When NewWindowCard wires in, ack on USER INTERACTION (tap card to
+ *   navigate or tap to dismiss). NOT on render. NOT on viewport
+ *   visibility. Render-ack treats scroll-past as a dismissal — wrong.
+ */
+export async function postAlertAck(alertId: string): Promise<void> {
+  const deviceId = await getDeviceId();
+  const url = `${API_CONFIG.baseUrl}/daily-note/alert-ack`;
+  const res = await fetchWithTimeout(
+    url,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, alert_id: alertId }),
+    },
+    API_CONFIG.timeout,
+  );
+  if (!res.ok) {
+    throw new ServerError(res.status, `Alert ack failed: HTTP ${res.status}`);
+  }
+}
