@@ -36,6 +36,20 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
   const latRaw = url.searchParams.get('lat');
   const lngRaw = url.searchParams.get('lng');
   const tz = url.searchParams.get('tz') ?? 'UTC';
+  const deviceId = req.headers.get('X-Device-Id');
+
+  // Device id is required: /daily-note internally fans out to /electional/
+  // search which enforces its own X-Device-Id contract for rate-limit
+  // attribution. Without the header here, the fan-out call would return 400
+  // missing_device_id and we'd silently 502 — the same failure mode the
+  // field-name bug had. Match the /electional/search contract explicitly
+  // so this route fails loudly at the boundary, not deep in the pipeline.
+  if (!deviceId) {
+    return Response.json(
+      { error: 'missing_device_id', message: 'X-Device-Id header required' },
+      { status: 400 },
+    );
+  }
 
   // Explicit null-check FIRST. `Number(null)` returns 0 (not NaN), so a missing
   // lat/lng would silently pass the isFinite check below and the route would
@@ -68,17 +82,39 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
     // Cache miss — fetch a same-day single-window search to get the top
     // window and excluded ranges. Synthesize an internal request and call
     // the existing /electional/search handler in-process.
+    // Field names MUST match ElectionalSearchRequestSchema in
+    // @inceptio/shared-types (lat/lng/start/end/city/timezone/activity). The
+    // original draft used latitude/longitude/date_from/date_to which the
+    // canonical schema rejects via Zod → handleSearch returned non-OK →
+    // this route silently 502'd on every call. Latent since 224ec5a (Task 18
+    // of the Worker build); surfaced when the mobile integration first hit
+    // the live endpoint. Regression guard in
+    // src/__tests__/daily-note-route-e2e.test.ts exercises the real
+    // handleSearch path so this class of body-shape bug fails loudly going
+    // forward (the existing daily-note-route.test.ts mocks handleSearch and
+    // therefore can't catch field-name drift).
+    //
+    // `city` is required by the schema but the daily-note's location-
+    // agnostic fan-out has no meaningful city label. Placeholder is fine:
+    // city is a display label, never used for chart math.
     const searchBody = {
       activity: 'business_launch',
-      latitude: lat,
-      longitude: lng,
-      date_from: dateIso,
-      date_to: dateIso,
+      lat,
+      lng,
+      start: dateIso,
+      end: dateIso,
       timezone: tz,
+      city: 'unknown',
     };
     const internalReq = new Request('https://internal/electional/search', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        // Pass the device id through so handleSearch's rate-limit fires
+        // against the same counter as a direct /electional/search call.
+        // The X-Device-Id presence is guarded at the top of this handler.
+        'X-Device-Id': deviceId,
+      },
       body: JSON.stringify(searchBody),
     });
     const searchRes = await handleSearch(internalReq, env);

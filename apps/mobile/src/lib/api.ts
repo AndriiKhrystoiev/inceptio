@@ -243,11 +243,15 @@ export interface GetDailyNoteInput {
 export async function getDailyNote(
   input: GetDailyNoteInput,
 ): Promise<DailyNoteResult> {
+  const deviceId = await getDeviceId();
   const url = `${API_CONFIG.baseUrl}/daily-note?lat=${input.lat}&lng=${input.lng}&tz=${encodeURIComponent(input.tz)}`;
 
   const res = await fetchWithTimeout(
     url,
-    { method: 'GET' },
+    {
+      method: 'GET',
+      headers: { 'X-Device-Id': deviceId },
+    },
     API_CONFIG.timeout,
   );
 

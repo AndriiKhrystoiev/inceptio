@@ -65,8 +65,10 @@ function searchResponse(body: unknown, status = 200): Response {
   });
 }
 
-function makeRequest(qs: string): Request {
-  return new Request(`https://w.test/daily-note?${qs}`);
+function makeRequest(qs: string, deviceId: string | null = 'test-device'): Request {
+  const headers: Record<string, string> = {};
+  if (deviceId !== null) headers['X-Device-Id'] = deviceId;
+  return new Request(`https://w.test/daily-note?${qs}`, { headers });
 }
 
 // ─── Tests ───
