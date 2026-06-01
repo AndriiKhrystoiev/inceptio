@@ -135,17 +135,31 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
     };
 
     const topWindow = searchPayload.data?.top_windows?.[0] ?? null;
-    if (!topWindow) {
+    const excludedRanges = searchPayload.data?.excluded_ranges ?? [];
+
+    // No-viable-windows is a NORMAL daily-note case, not an error. On Moon
+    // void days, retrograde stretches, eclipse windows etc., the upstream
+    // returns `top_windows: []` + `excluded_ranges: [reason]` — the picker's
+    // branch 1 ("closed by exclusion") is designed for exactly this and
+    // synthesizes the right closed-bucket entry from the reason_id. The
+    // picker's pickClosedEntry path doesn't read topWindow.score, so a
+    // placeholder { score: 0, factors: [] } is sufficient input when no
+    // real top window exists but exclusions do.
+    //
+    // 502 stays for the genuine no-data case (no top window AND no
+    // exclusions) — upstream has nothing usable to say about the day.
+    if (!topWindow && excludedRanges.length === 0) {
       return Response.json(
-        { error: 'no_top_window', message: 'upstream returned no top window' },
+        { error: 'no_top_window', message: 'upstream returned no top window and no exclusions' },
         { status: 502 },
       );
     }
+    const effectiveTopWindow = topWindow ?? { score: 0, factors: [] };
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- upstream types live in shared-types; runtime guarded by handleSearch's Zod parse
     const picked = synthesizeDailyNote({
-      topWindow: topWindow as any,
-      excludedRangesActiveToday: (searchPayload.data?.excluded_ranges ?? []) as any,
+      topWindow: effectiveTopWindow as any,
+      excludedRangesActiveToday: excludedRanges as any,
       today_iso_date: dateIso,
     });
 

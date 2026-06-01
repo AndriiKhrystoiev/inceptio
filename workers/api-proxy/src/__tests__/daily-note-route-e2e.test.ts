@@ -30,7 +30,7 @@ vi.mock('../upstream', () => ({
 
 import { handleDailyNote } from '../routes/daily-note';
 import { callUpstream } from '../upstream';
-import { envelope } from '../translations/__tests__/fixtures';
+import { envelope, excludedRange } from '../translations/__tests__/fixtures';
 import type { Env } from '../env';
 
 function makeKV() {
@@ -132,6 +132,68 @@ describe('handleDailyNote — e2e against real handleSearch (regression guard)',
     expect(calledReq).not.toHaveProperty('longitude');
     expect(calledReq).not.toHaveProperty('date_from');
     expect(calledReq).not.toHaveProperty('date_to');
+  });
+
+  it('no-viable-windows day (e.g. Moon void) returns 200 with closed-bucket entry, NOT 502', async () => {
+    // Real upstream response when today is a Moon void-of-course day:
+    // top_windows: [], excluded_ranges: [moon_voc], no_viable_windows: true.
+    // The 2026-06-01 Kyiv response that surfaced the original bug had this
+    // exact shape — see Image 3 in the user's diagnostic. The picker's
+    // branch 1 ("closed by exclusion") fires on the reason_id; the route
+    // must synthesize a placeholder topWindow so the picker can run.
+    //
+    // The translations/fixtures `noViableResponse` is named misleadingly —
+    // it actually ships one caution-graded window. We construct the real
+    // moon-void shape inline.
+    vi.mocked(callUpstream).mockResolvedValue(
+      envelope({
+        top_windows: [],
+        excluded_ranges: [excludedRange({ reason_id: 'moon_voc' })],
+      }),
+    );
+
+    const { env } = makeEnv();
+    const req = new Request('https://w/daily-note?lat=50.45&lng=30.52&tz=Europe%2FKyiv', {
+      headers: { 'X-Device-Id': 'test-device' },
+    });
+    const res = await handleDailyNote(req, env);
+
+    // The assertion that catches the no-top-window-but-exclusions bug.
+    // A 502 here means the route bailed instead of letting the picker take
+    // the closed-bucket path.
+    expect(res.status).toBe(200);
+
+    const body = (await res.json()) as { daily_note: { mood: string; entry_id: string; exclusion_reason?: string } };
+    expect(body.daily_note.mood).toBe('closed');
+    expect(body.daily_note.exclusion_reason).toBe('moon_voc');
+    expect(body.daily_note.entry_id).toBe('closed-moon-voc');
+  });
+
+  it('genuine no-data case (no top window AND no exclusions) still returns 502', async () => {
+    // Edge: upstream returns a response with no top_windows and no
+    // excluded_ranges. Nothing for the picker to work with — 502 is
+    // correct.
+    vi.mocked(callUpstream).mockResolvedValue(
+      envelope({ top_windows: [], excluded_ranges: [], summary: {
+        total_candidates_evaluated: 0,
+        viable_windows_count: 0,
+        excluded_ranges_count: 0,
+        best_score: 0,
+        best_grade: 'poor',
+        no_viable_windows: true,
+        quality_advisory: null,
+      } as any })
+    );
+
+    const { env } = makeEnv();
+    const req = new Request('https://w/daily-note?lat=50.45&lng=30.52&tz=Europe%2FKyiv', {
+      headers: { 'X-Device-Id': 'test-device' },
+    });
+    const res = await handleDailyNote(req, env);
+
+    expect(res.status).toBe(502);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('no_top_window');
   });
 
   it('cache miss persists DailyNoteOutput so a second call hits cache without re-invoking upstream', async () => {

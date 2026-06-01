@@ -109,10 +109,14 @@ describe('handleDailyNote — error envelopes', () => {
     expect(body.error).toBe('upstream_failure');
   });
 
-  it('returns 502 when upstream returns no top window', async () => {
+  it('returns 502 when upstream returns no top window AND no excluded_ranges (genuine no-data)', async () => {
+    // Without explicit `excluded_ranges: []` the envelope() default includes
+    // a mercury_retrograde range, which now (post-coordinated-fix) drives
+    // the closed-bucket path → 200 with closed-mercury-retrograde entry.
+    // To test the genuine no-data 502, both arrays must be empty.
     const { env } = makeEnv();
     vi.mocked(handleSearch).mockResolvedValue(
-      searchResponse(envelope({ top_windows: [] })),
+      searchResponse(envelope({ top_windows: [], excluded_ranges: [] })),
     );
     const res = await handleDailyNote(makeRequest('lat=50.45&lng=30.52&tz=UTC'), env);
     expect(res.status).toBe(502);
