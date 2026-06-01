@@ -1,0 +1,80 @@
+appId: host.exp.Exponent
+name: "Inceptio Smoke — Travel Quick"
+---
+# Shorter smoke test (~30s) that exercises the manual-city-typing path
+# instead of GPS. Useful when iOS Simulator's location services aren't
+# configured or when you want to demo a specific city.
+
+# clearState: false — see note in 01-wedding-full.yaml. Clearing Expo Go's
+# state forgets the loaded project and bounces us to the login screen.
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd:
+    timeout: 8000
+
+# Fallback if Expo Go landed on its project list.
+- runFlow:
+    when:
+      visible: "Recently opened"
+    commands:
+      - tapOn: "Inceptio"
+      - waitForAnimationToEnd:
+          timeout: 8000
+
+- tapOn: "Find your moment"
+- waitForAnimationToEnd
+
+# The "Find a moment for…" CTA can sit below the fold on pause-day Today
+# states — scroll until visible before tapping.
+- scroll
+- scroll
+- tapOn: "Find a moment for…"
+- waitForAnimationToEnd
+
+# Activity card text is exposed as joined accessibilityText with leading
+# emoji. Shorthand regex anchors at start — `.*` skips the emoji prefix.
+- tapOn: ".*Travel or move"
+- waitForAnimationToEnd
+
+# Default date range.
+- tapOn: "Continue"
+- waitForAnimationToEnd
+
+# Type the city manually — bypasses the GPS permission dialog entirely.
+# The search input's placeholder is "Search city"; tapping by placeholder
+# focuses the TextInput.
+- tapOn: "Search city"
+- inputText: "Kyiv"
+
+# useLocationSearch debounces 500ms then queries Nominatim. Wait for the
+# first result row — the city name appears as the primary row text.
+- extendedWaitUntil:
+    visible: "Kyiv"
+    timeout: 8000
+
+# The PrimaryButton "Find moments" is initially disabled (selectedPick is
+# null). Tapping a result row enables it. Match the row by Kyiv — index:1
+# skips the search input (which also contains "Kyiv") and lands on the row.
+- tapOn:
+    text: "Kyiv"
+    index: 1
+- waitForAnimationToEnd
+
+- tapOn: "Find moments"
+
+- extendedWaitUntil:
+    visible: "viable"
+    timeout: 60000
+- waitForAnimationToEnd
+
+# Brief pause on Calendar grid so the heatmap is visible in the recording.
+- waitForAnimationToEnd:
+    timeout: 1500
+
+# Tap whichever scored cell happens to appear. The grid renders the score
+# as a number; matching any 2-digit score covers viable + celebrate cells.
+- tapOn:
+    text: "[0-9]{2}"
+- waitForAnimationToEnd:
+    timeout: 2000

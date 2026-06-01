@@ -1,0 +1,12 @@
+flows:
+  - flows/
+
+# Default timeouts. Individual commands can override.
+# waitForAnimation default is short — most transitions resolve in <500ms.
+# waitUntilVisible default is generous because the Cloudflare Worker can
+# take 10-40s on a cold KV miss while astrology-api.io computes a fresh
+# response. The per-flow loading waits override this with even higher
+# ceilings (up to 60s) for the search-loading step.
+timeout:
+  waitForAnimation: 3000
+  waitUntilVisible: 10000

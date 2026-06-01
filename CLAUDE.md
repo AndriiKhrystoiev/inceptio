@@ -6,7 +6,7 @@ This file gives Claude Code the project context for Inceptio. Read this complete
 
 ## What Inceptio is
 
-A mobile app that helps regular people choose astrologically favorable moments for important events — weddings, contract signings, business launches, and travel. It does this using **electional astrology**, a traditional discipline that picks moments rather than reads them.
+A mobile app that helps people find the right moment to begin what matters — a wedding, a contract, a business launch, a journey. The product leads with user intent ("when is the best time to start?") and uses **electional astrology** as the method under the hood — present in the explanation, never the headline. The voice is a thoughtful friend who happens to know traditional astrology, never a fortune-teller or a data analyst.
 
 The product is built on top of [astrology-api.io](https://astrology-api.io) v3, specifically the `/electional/search` endpoint, which returns scored time windows for a chosen activity within a chosen date range and location.
 

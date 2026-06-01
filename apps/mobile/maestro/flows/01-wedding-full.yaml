@@ -1,0 +1,143 @@
+appId: host.exp.Exponent
+name: "Inceptio Demo — Wedding Flow"
+---
+# 1. Launch Expo Go. clearState: false is critical — clearing Expo Go's
+# state forgets the last-loaded project (Inceptio), and we'd land on the
+# Expo Go login screen instead of our app. We accept that AsyncStorage
+# (saved moments, last activity, last location) survives between runs;
+# the onboarding screen still appears because App.js boots into it
+# unconditionally regardless of persisted state.
+- launchApp:
+    clearState: false
+
+# JS bundle load. Expo Go takes ~2-6s to mount the React tree after the
+# native shell appears; 8s is the safe ceiling on a cold simulator boot.
+- waitForAnimationToEnd:
+    timeout: 8000
+
+# 2. Fallback: if Expo Go shows its project list instead of our app
+# (happens if dev server connection dropped, or after a fresh install),
+# tap the Inceptio entry to re-open it. The `when:` guard is the
+# "Recently opened" header that only appears on the project-list screen.
+- runFlow:
+    when:
+      visible: "Recently opened"
+    commands:
+      - tapOn: "Inceptio"
+      - waitForAnimationToEnd:
+          timeout: 8000
+
+# 3. Skip onboarding. App.js boots into 'onboarding' on every launch.
+- tapOn: "Find your moment"
+- waitForAnimationToEnd
+
+# 3. Today screen → start a new search. The "Find a moment for…" CTA sits
+# below the hero on every Today state, but on pause-day / caution states
+# the StatePicker + card content push it under the fold. scrollUntilVisible
+# pages down until the selector hits, then tapOn fires. The label uses a
+# typographic ellipsis (U+2026); match the substring to avoid encoding
+# issues with Maestro's text matcher.
+# PrimaryButton exposes its label as `accessibilityText`, with an empty
+# `text` field — the explicit `text:` selector misses it. The shorthand
+# `tapOn: "…"` form searches accessibility labels too, so we use that
+# after scrolling the screen down twice to clear the hero + state card.
+- scroll
+- scroll
+- tapOn: "Find a moment for…"
+- waitForAnimationToEnd
+
+# 4. Activity Picker — pick Wedding.
+# React Native exposes Pressable text via `accessibilityText` only — the
+# Maestro `text:` field is empty. Maestro's shorthand `tapOn:` accepts an
+# exact-equality match against accessibilityText (regex over `text` for
+# everything else). The card's accessibilityText is the comma-joined
+# emoji + title + subtitle.
+- tapOn: "💍, Wedding or engagement, Lasting commitments and unions"
+- waitForAnimationToEnd
+
+# 5. Date range — accept the default 30-day suggestion.
+- tapOn: "Continue"
+- waitForAnimationToEnd
+
+# 6. Location — use device GPS (real expo-location flow).
+- tapOn: "Use current location"
+
+# 7. iOS permission dialog. First run on a clean simulator shows it;
+# subsequent runs reuse the granted permission, so this is guarded.
+- runFlow:
+    when:
+      visible: "Allow While Using App"
+    commands:
+      - tapOn: "Allow While Using App"
+
+# 8. GPS fix + Nominatim reverse geocode. The button label flips to
+# "Finding your location…" during the round-trip — wait for the city row
+# to appear (the resolved city populates the input AND becomes the
+# selected row). The PrimaryButton text below is the cleanest sentinel.
+- extendedWaitUntil:
+    visible: "Find moments"
+    timeout: 15000
+
+# 9. Run the search.
+- tapOn: "Find moments"
+
+# 10. Loading → Calendar. Cold cache + cold worker can hit ~40s.
+# We wait for the post-search header sentence which mentions "viable" — it
+# appears whether the result has top windows ("22 viable windows in your
+# range") or doesn't ("No viable windows in this range. The closest…").
+- extendedWaitUntil:
+    visible: "viable"
+    timeout: 60000
+- waitForAnimationToEnd
+
+# 11. Hold on the calendar grid so the stakeholder can scan it.
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# 12. Switch to the List view via the toggle pill. The tab bar also has
+# a "Calendar" button; the toggle pill sits higher in the layout and we're
+# already on the Calendar screen, so the first "List" match resolves to
+# the pill.
+- tapOn: "List"
+- waitForAnimationToEnd:
+    timeout: 1500
+
+# 13. Scroll the list so multiple cards become visible.
+- scroll
+- waitForAnimationToEnd:
+    timeout: 1500
+
+# 14. Tap the first ranked card. The card text is exposed as a single
+# joined accessibilityText (grade, score, date, time, count line, tagline)
+# which varies every run — there's no stable string to match. We instead
+# tap a fixed point under the "Strongest moments first" header where the
+# top card consistently sits. Coordinate is relative so it scales across
+# iPhone sizes; vertical position chosen to land below the header pills
+# but above the second card.
+- tapOn:
+    point: "50%,30%"
+
+- waitForAnimationToEnd
+
+# 15. MomentDetail — narrative paragraphs need a beat to be readable.
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# 16. Scroll down to reveal the Save / Add-to-calendar / Share buttons
+# that sit below the narrative paragraphs, then save to the local moments
+# store. The Save button is a SecondaryButton with a single inline Text
+# child, so its accessibilityText is exactly "Save".
+- scroll
+- scroll
+- tapOn: "Save"
+- waitForAnimationToEnd
+
+# 17. Bottom tab bar → Moments tab to confirm the save round-tripped.
+# The tab bar Pressable joins its icon + label into a single
+# accessibilityText (e.g. "Clock, Moments"), which fails exact-match.
+# Point tap is more stable: tabs divide the bottom row into 4 equal cells,
+# and Moments sits at the 3rd center → x=62.5%, y near the bottom safe-area.
+- tapOn:
+    point: "63%,95%"
+- waitForAnimationToEnd:
+    timeout: 2500

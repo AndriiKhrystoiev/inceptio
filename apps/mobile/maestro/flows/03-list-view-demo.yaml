@@ -1,0 +1,85 @@
+appId: host.exp.Exponent
+name: "Inceptio Demo — List View"
+---
+# Focused on the per-day clustered list view (cluster-windows.ts). The
+# recording will show: card layout, score pill colors, time-range vs
+# best-at-HH:MM display, "N moments today" footer.
+
+# clearState: false — see note in 01-wedding-full.yaml. Clearing Expo Go's
+# state forgets the loaded project and bounces us to the login screen.
+- launchApp:
+    clearState: false
+
+- waitForAnimationToEnd:
+    timeout: 8000
+
+# Fallback if Expo Go landed on its project list.
+- runFlow:
+    when:
+      visible: "Recently opened"
+    commands:
+      - tapOn: "Inceptio"
+      - waitForAnimationToEnd:
+          timeout: 8000
+
+- tapOn: "Find your moment"
+- waitForAnimationToEnd
+
+# The "Find a moment for…" CTA can sit below the fold on pause-day Today
+# states — scroll until visible before tapping.
+- scroll
+- scroll
+- tapOn: "Find a moment for…"
+- waitForAnimationToEnd
+
+# Wedding tends to produce clustered Venus/Moon windows — the ideal
+# data shape for showing off the per-day grouping.
+# Activity card text exposed as joined accessibilityText — `.*` skips emoji.
+- tapOn: ".*Wedding or engagement"
+- waitForAnimationToEnd
+
+- tapOn: "Continue"
+- waitForAnimationToEnd
+
+# Manual city — Kyiv. Same selector pattern as flow 02.
+- tapOn: "Search city"
+- inputText: "Kyiv"
+- extendedWaitUntil:
+    visible: "Kyiv"
+    timeout: 8000
+- tapOn:
+    text: "Kyiv"
+    index: 1
+- waitForAnimationToEnd
+
+- tapOn: "Find moments"
+- extendedWaitUntil:
+    visible: "viable"
+    timeout: 60000
+- waitForAnimationToEnd
+
+# Switch to List immediately — this flow is about the list, not the grid.
+- tapOn: "List"
+- waitForAnimationToEnd:
+    timeout: 1500
+
+# Slow scroll pass. Three scrolls with reading pauses simulates a real
+# viewer skimming the results.
+- scroll
+- waitForAnimationToEnd:
+    timeout: 1500
+- scroll
+- waitForAnimationToEnd:
+    timeout: 1500
+- scroll
+- waitForAnimationToEnd:
+    timeout: 1500
+
+# Tap whichever card sits at the top of the visible area. After the scrolls
+# we're not necessarily at the top, so use any grade pill match.
+# Same constraint as 01-wedding-full.yaml — card content varies per run,
+# no stable text selector. Point tap targets the top card area.
+- tapOn:
+    point: "50%,30%"
+- waitForAnimationToEnd:
+    timeout: 2500
