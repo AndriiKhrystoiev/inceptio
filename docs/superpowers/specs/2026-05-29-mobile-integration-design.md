@@ -48,8 +48,8 @@ The new daily-note is the production version of the same surface. Two heroes can
 ### Files to create
 
 - `src/lib/api.ts` — extend with `getDailyNote()` and `postAlertAck()` alongside existing `searchElectional()`
-- `src/hooks/useDailyNote.ts` — new hook mirroring `useElectionalSearch.ts` pattern
-- `src/lib/format-date.ts` — shared eyebrow formatter (extracted from existing `todayLabel()`)
+- `src/hooks/useDailyNote.ts` — new hook mirroring the *shape* of `useElectionalSearch.ts` (queryKey + queryFn + enabled). **Diverges on cache policy:** overrides the global `query-client.ts` defaults (`staleTime: 6 days`, `gcTime: 7 days`) with `staleTime: Infinity` + `gcTime: 24h` for the daily-note's day-bounded utility. `useElectionalSearch` does NOT override the defaults — different cache regime, by design.
+- `src/lib/format-date.ts` — `formatDailyEyebrow(dateIso: string)` extracted from existing `todayLabel()`. **Narrow scope:** only the daily-note eyebrow case. Five other surfaces (`DatePickerScreen`, `YourMomentsScreen`, `MomentDetailScreen`, `CalendarScreen`, current `TodayScreen`) format dates ad-hoc with their own `Intl.DateTimeFormat` calls — broader DRY consolidation is deferred to a separate cleanup, out of scope for this plan.
 
 ### Request shape
 
@@ -132,7 +132,15 @@ Reuse existing `lib/api.ts` discriminated hierarchy: `ApiError`, `NetworkError`,
 
 ### Component file structure
 
-New subfolder: `src/components/daily-note/`. Sidesteps the existing `StatusLine.js` (score+grade pill) name collision and mirrors the Worker-side `daily-notes/` directory shape.
+New subfolder: `src/components/daily-note/`.
+
+**Repo-convention note.** `src/components/` is currently 17 flat files; this plan introduces a subfolder. The divergence is deliberate, three stacked reasons:
+
+1. **Mental-model parity with the Worker.** Worker has `workers/api-proxy/src/translations/daily-notes/`. Mobile mirroring with `src/components/daily-note/` means "the daily-note feature lives in a daily-note directory" on both sides — navigation is faster.
+2. **File count.** This feature adds 7-8 active component files + scaffold/. Flat-with-prefix would push `src/components/` to ~25 files with 8 of them semantically clustered. Readability regression, not improvement.
+3. **The `scaffold/` subfolder is already a justified divergence.** The implicit rule isn't "no subfolders" — it's "subfolders need a rationale." Feature-grouping for what's currently the largest component family in the codebase is at least as valid a rationale as "deliberate parking lot."
+
+The decision is structural (feature is growing into a cluster), not stylistic. Sidesteps the existing `StatusLine.js` (score+grade pill) name collision as a bonus.
 
 ```
 src/components/daily-note/
@@ -209,7 +217,9 @@ export function formatDailyEyebrow(dateIso: string): string {
 }
 ```
 
-Shared between daily-note eyebrow and the existing eyebrow consumer (if any other surface needs it later).
+**Source of `dateIso`:** the daily-note response's `daily_note.date` field (Worker-emitted ISO YYYY-MM-DD in event tz per PICKER-CONTRACT §2). `DailyNoteBody` reads it from props.
+
+**Scope:** narrow extraction only. Five other surfaces already format dates ad-hoc with `Intl.DateTimeFormat`; broader DRY consolidation is deferred (see §3 file list note).
 
 ### Known platform note (flagged, not solved in MVP)
 
@@ -248,15 +258,34 @@ src/components/daily-note/scaffold/
 ### activity-display.js — single source of truth for Activity → display
 
 ```js
-// Activity API key → display mapping
-// MUST stay in sync with @inceptio/shared-types Activity enum.
-import { colors } from '../../../theme';
+// Activity nouns sourced from voice spec §6.3 STATUS_PRE_WINDOW template.
+// MUST match the Worker dictionary verbatim — drift breaks the contract.
+// Worker side: workers/api-proxy/src/translations/dictionary/status-lines.ts ACTIVITY_NOUNS.
+//
+// Drift-prevention: the enum is enumerated against the locked voice library,
+// not hand-rolled per-call. A scaffold-time mistake like `business_launch →
+// 'business'` (which would drop the voice-locked noun "Launch") is structurally
+// impossible because the value is sourced from this table, not invented at
+// call sites.
+export const ACTIVITY_NOUNS = {
+  wedding:         'Wedding',
+  contracts:       'Contract',
+  business_launch: 'Launch',
+  travel:          'Travel',
+};
 
+export function getActivityNoun(activity) {
+  return ACTIVITY_NOUNS[activity] ?? 'Window';
+}
+
+// Visual tokens for ActivityPlate. Tint/ring rgba literals at scaffold-time
+// MUST promote to theme.js semantic tokens before wire-in per the README's
+// "Before wire-in" section.
 export const ACTIVITY_DISPLAY = {
-  wedding:         { emoji: '💍', tint: 'rgba(249,181,200,0.16)', ring: 'rgba(249,181,200,0.30)', shortName: 'wedding' },
-  contracts:       { emoji: '📋', tint: 'rgba(244,193,154,0.16)', ring: 'rgba(244,193,154,0.30)', shortName: 'contract' },
-  business_launch: { emoji: '🚀', tint: 'rgba(229,199,125,0.16)', ring: 'rgba(229,199,125,0.30)', shortName: 'business' },
-  travel:          { emoji: '✈️', tint: 'rgba(103,232,199,0.16)', ring: 'rgba(103,232,199,0.30)', shortName: 'travel' },
+  wedding:         { emoji: '💍', tint: 'rgba(249,181,200,0.16)', ring: 'rgba(249,181,200,0.30)' },
+  contracts:       { emoji: '📋', tint: 'rgba(244,193,154,0.16)', ring: 'rgba(244,193,154,0.30)' },
+  business_launch: { emoji: '🚀', tint: 'rgba(229,199,125,0.16)', ring: 'rgba(229,199,125,0.30)' },
+  travel:          { emoji: '✈️', tint: 'rgba(103,232,199,0.16)', ring: 'rgba(103,232,199,0.30)' },
 };
 ```
 
@@ -311,18 +340,36 @@ alert mechanics), the wire-in is:
 
 ## Before wire-in — locked requirements
 
-1. **Production wire-in MUST swap emoji for lucide-react-native icons.**
-   The emoji values in activity-display.js (💍/📋/🚀/✈️) are scaffold
-   placeholders. Inceptio's visual language is thin SVG glyphs and
-   Fraunces typography — no generic emoji elsewhere. Claude Design's
-   hand-off renders use designed icons (Heart, FileText, Rocket, Plane
-   from lucide-react-native or equivalent crafted glyphs). Do not ship
-   emoji to production.
+1. **Production wire-in MUST swap emoji for lucide-react-native icons**
+   (Heart, FileText, Rocket, Plane or equivalent crafted glyphs). The
+   emoji values in activity-display.js (💍/📋/🚀/✈️) are scaffold
+   placeholders.
+
+   **Known tech debt — existing emoji surfaces in production:**
+   - `src/screens/ActivityPickerScreen.js` ships 💍/📋/🚀/✈️ in the
+     activity selector
+   - `src/components/ActivityChip.js` is a reusable production emoji
+     component
+
+   These predate the documented icon-language goal (thin SVG / lucide).
+   At SavedSearch wire-in time, ALL three surfaces (scaffold +
+   ActivityPickerScreen + ActivityChip) migrate together to lucide —
+   partial migration would create inconsistency. If wire-in lands
+   before this cleanup, file a separate cleanup PR FIRST to align
+   production with the scaffold's icon language; then wire in. Do not
+   ship a half-migrated state.
 
 2. **The four tint/ring rgba literals MUST promote to theme.js as
    semantic tokens before wire-in.** Hard-coded rgba in component code
    does not ship. Promote to colors.activityWeddingTint /
    activityWeddingRing / etc.
+
+3. **Activity nouns MUST source from `ACTIVITY_NOUNS` in
+   activity-display.js**, not from hand-rolled `shortName` fields at
+   render call sites. The table enumerates against voice spec §6.3 and
+   is the structural drift-prevention. A render that hand-codes
+   "business" instead of "Launch" is the exact failure mode this table
+   was designed to make impossible.
 ```
 
 ### State → component mapping (for future wire-in)
@@ -440,7 +487,7 @@ Moot for MVP (no `NewWindowCard` renders). Pinned for the future implementer so 
 
 | Item | Notes |
 |---|---|
-| `src/hooks/useTodayMoment.ts` | Sole caller was TodayScreen; delete the file |
+| `src/hooks/useTodayMoment.ts` | Sole caller was TodayScreen; delete the file. **Also update the two stale doc-comment mentions** at `src/lib/location-storage.ts:4` and `src/lib/nav-params.ts:9` so prose references don't reference a deleted module. |
 | `deriveState()` in TodayScreen | No longer needed (mood comes from API) |
 | `todayLabel()` in TodayScreen | Lifted to `src/lib/format-date.ts` as `formatDailyEyebrow()` |
 | `CardA`, `CardB`, `CardC`, `CardShell`, `CTAInline` (in TodayScreen) | ~100 LOC of prototype hero |
@@ -483,6 +530,8 @@ Same component, mood options:
 />
 ```
 
+**`A · / B · / C · / D ·` letter prefixes are deliberate dev-tool affordances, not user-facing copy.** The voice spec's §2 boundary tests and §6 voice rules govern user-facing copy on the daily-note surface — they do NOT govern QA tooling. Don't "fix" the letter prefixes in a future voice-cleanup pass; they're load-bearing in the Maestro `04-daily-note-tour.yaml` sentinel and in design-QA mood demonstration.
+
 ### "Best windows ahead" drop — reasoning consolidated
 
 Three stacked reasons:
@@ -495,7 +544,9 @@ Calendar is the right home for intraday browsing — separation by intent: ritua
 
 ### Known behavior change (flagged, not solved in MVP)
 
-**Existing users who scroll Today to find today's intraday slots will need to learn Calendar.** Real behavior change. For MVP, accept the trade-off — Calendar tab is in the bottom tab bar, discoverable. **Don't ship a migration hint or "see more in Calendar" link in MVP.** That's polish for later if user feedback shows discoverability is a real problem. Flag it so a future post-launch review reads it as a known trade-off, not a regression.
+**Existing users who scroll Today to find today's intraday slots will need to learn Calendar.** Real behavior change. The simple "Calendar tab is one tap away" framing understates it though: Calendar shows the user's *currently-selected activity's* heatmap, not an undirected intraday list across activities — it's not a 1:1 substitute. A user who today scrolls Today to find "wedding windows for today" gets that directly; with the drop, they need to (a) ensure their last-selected activity is the one they want, (b) navigate to Calendar, (c) zoom into today's cell, (d) tap through. Real cognitive-load shift, more than a tap.
+
+For MVP, accept the trade-off. **Don't ship a migration hint or "see more in Calendar" link in MVP.** That's polish for later if user feedback shows discoverability is a real problem. Flag it so a future post-launch review reads it as a known *bigger-than-it-looks* trade-off, not a regression.
 
 ### `savedMomentsCount` sync sanity
 
@@ -559,17 +610,24 @@ Target: ~40 LOC (down from ~320).
 
 **Both stay.** They serve distinct roles:
 
-- **EmptyInvite** (chip card, voice-warm "Choose a moment of your own →"): below the daily-note hero, **only when `getSavedMoments().length === 0`**. The on-ramp moment.
+- **EmptyInvite** (chip card, voice-warm): rendered as text `"Choose a moment of your own"` + a separate `<ChevronRight>` icon component (not as a literal `→` glyph in the string). The voice spec §6.2 literal `"Choose a moment of your own →"` is shorthand for "text-with-affordance"; the chevron icon carries the affordance signal per the design-pass render (`DailyNote.jsx:105` pattern). Standard RN separation of concerns.
+
+  Rendered below the daily-note hero, **only when `getSavedMoments().length === 0`**. The on-ramp moment.
+
 - **PrimaryButton "Find a moment for…"** (full-width purple action): bottom of screen, **always present**. Persistent screen action.
 
 Hiding PrimaryButton on empty state would leave a new user without a fallback CTA if they look at the invite and decide to "look around first" — they return, can't find how to start, feels stuck. Both stay. Same destination (`go('picker')`).
 
+**Gating-rationale caveat (read before changing this in a future PR).** The voice spec §6.2 + §8.1 gate EmptyInvite on `saved_searches.length === 0`. This spec gates on `getSavedMoments().length === 0` because mobile doesn't have a `SavedSearch` concept yet (see Finding A). The two gates happen to produce identical user-facing behavior in MVP — `saved_searches` is always `[]` (Worker stubs it), so EmptyInvite shows whenever there are no SavedMoments. **Don't silently flip the gate to `saved_searches` when SavedSearch lands later** — the SavedSearch wire-in needs to consciously decide whether EmptyInvite's trigger evolves with it (gate on `saved_searches.length`) or stays a "no SavedMoments" affordance (gate stays on `getSavedMoments()`). Surface this decision in the SavedSearch brainstorm. // TODO(SavedSearch): EmptyInvite gating evolution.
+
 ### Loading state
 
-Extend the existing `<Pulse />` + "Looking at the sky for you..." pattern INTO the DailyHero zone. Specifically:
+Extend the existing `<Pulse />` + `"Looking at the sky for you…"` pattern INTO the DailyHero zone. Specifically:
 
 - `LoadingHero` component renders `HeroGradient` + `Starfield` (no moon, no headline content) + centered `<Pulse />` + text.
 - The load→loaded transition is just the moon appearing + headline materializing on top of the same backdrop. No screen swap.
+
+**Ellipsis form — canonicalize on U+2026.** The codebase currently has three call-sites with inconsistent forms: existing `TodayScreen.js` uses `"..."` (three ASCII dots), `LoadingScreen.js:19` uses `"…"` (U+2026), `CLAUDE.md:70` uses `"..."`. **Use `"Looking at the sky for you…"` (U+2026) for the new code.** Matches `LoadingScreen.js` (more idiomatic), single character vs three. Updating the other call-sites is out of scope for this plan (separate codebase-hygiene pass).
 
 **Why not pixel-perfect skeleton bones:** ~3-5 hours of work, zero functional value, mostly cosmetic. Pulse + Starfield reuse is good-enough for MVP. Revisit if user feedback shows loading feels janky.
 
@@ -673,7 +731,7 @@ For the implementation plan and post-launch review — these are *flagged trade-
 2. **iOS vs Android halo treatment** — colored halo on iOS, grey elevation on Android. Layer 2. Acceptable; decorative. Future polish: SVG halo or `react-native-shadow-2`.
 3. **Activity emoji in scaffold** — scaffold-only placeholder. MUST swap to lucide icons (Heart / FileText / Rocket / Plane) before wire-in. Locked in scaffold README. Layer 3.
 4. **rgba literals in activity-display.js** — scaffold-only. MUST promote to theme.js semantic tokens (`colors.activityWeddingTint` etc.) before wire-in. Locked in scaffold README. Layer 3.
-5. **"Best windows ahead" removal is a behavior change** — existing users who scrolled Today to find intraday slots will need to learn Calendar. Don't ship a migration hint in MVP. Future polish only if user feedback shows discoverability is a real problem. Layer 5.
+5. **"Best windows ahead" removal is a *bigger-than-it-looks* behavior change** — existing users who scrolled Today to find intraday slots will need to learn Calendar. Calendar shows the user's currently-selected activity's heatmap, NOT an undirected intraday list — so it's not a 1:1 substitute. Multi-step migration: ensure correct activity selected → navigate to Calendar → today's cell → tap through. Don't ship a migration hint in MVP. Future polish only if user feedback shows discoverability is a real problem. Layer 5.
 6. **No persisted daily-note cache** — cold launch shows ~1s skeleton (Worker KV serves the cache hit). Acceptable. Layer 1.
 7. **No skeleton-bone loading state** — Pulse + Starfield reuse is good-enough for MVP. Future polish if loading feels janky. Layer 6.
 
@@ -740,6 +798,9 @@ When the plan author picks this up:
 4. **Empirical Maestro recalibration is a real step** — run flows after implementation, adjust scroll counts based on actual screen heights. Don't pre-guess.
 5. **Smoke test for `postAlertAck` is required, not optional** — see Layer 4 rationale.
 6. **Don't try to populate scaffold/ components from SavedMoment data** during implementation, even as a "quick win." See Finding A; the README warns about this.
+7. **Plan-time verification nits** (from doc-validator pre-flight):
+   - When `04-daily-note-tour.yaml` lands, run it once locally and confirm the U+00B7 middle-dot in `"A · strong"` matches Maestro's text matcher. If it doesn't (existing flows already warn about U+2026 encoding edge cases), swap the sentinel to a plain-ASCII alternative (e.g. `"Find a moment for…"` would also work as a load-bearing token).
+   - When `post-alert-ack.test.ts` lands, confirm `src/config/api.ts` doesn't do eager native-module work at import time. If it does, mock it so the test loads cleanly in the node vitest environment.
 
 ### Out of scope for this plan
 
