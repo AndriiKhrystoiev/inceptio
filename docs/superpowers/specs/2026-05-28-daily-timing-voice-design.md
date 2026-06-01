@@ -1132,6 +1132,30 @@ This is a structural item, not a copy item — the ruling shapes architecture, n
 
 ---
 
+**Variant pool sizing — calibration rule (clarified 2026-06-01)**
+
+The working rule across this spec has been: *any §3.3 entry firing more than 4 times in a 30-day window is a retention risk and needs a sibling-variant pool.* That rule was calibrated against **specific-pattern entries** — entries whose `dominant_factors_hint` describes a particular sky configuration (e.g. "Mercury combust + Venus dignified"). Those entries SHOULD be rare because the conditions they describe are rare; if one fires >4×/month in real data, something has misfired upstream or the spec's frequency assumption was wrong.
+
+**Else-fallthrough entries are structurally different.** In `pickByDominantFactor` (see `workers/api-proxy/src/translations/daily-notes/picker.ts`), each quality bucket has 2-3 specific-pattern branches followed by an else-clause that picks a default entry (`strong-ruler-in-motion` for the strong bucket, `mixed-moon-steady-sky-thin` for the mixed bucket). Those default entries catch the *base case* of "bucket is X but no specific-pattern branch matched." They will inherently fire more often than specific-pattern entries because they catch more conditions.
+
+**Sizing rule for else-fallthrough entries:** pool size proportional to empirical catch rate, not the abstract 4× threshold.
+
+| Else-fallthrough firing rate (per 30 days) | Recommended pool size | Rationale |
+|---|---|---|
+| ≤ 4 | No pool needed | Within absolute threshold |
+| 5 – 8 | 4 siblings (primary + 3 variants) | Max-per-variant ≈ 1-2, comfortably under 4× |
+| 9 – 16 | 6 siblings (primary + 5 variants) | Max-per-variant ≈ 2-3, under 4× |
+| 17 – 24 | 8 siblings (primary + 7 variants) | Max-per-variant ≈ 2-3, under 4× |
+| ≥ 25 | First fix BLOCKING #3 (picker breadth) — pool diffusion can't carry this volume; the entry is doing structural work the spec didn't intend |
+
+The empirical-batch evidence for `mixed-moon-steady-sky-thin` (17 firings / 30 June 2026 Kyiv days) sized its pool to 6 siblings — math: 17/6 ≈ 2.8, max ~3-4 per variant, under threshold. `strong-ruler-in-motion` (6 firings) sized to 4 siblings — math: 6/4 = 1.5, max ~3 per variant, under threshold.
+
+**This is calibration, not loosening discipline.** Specific-pattern entries still need to stay rare (because their CONDITIONS are rare). Fallthrough entries need pool size proportional to their actual catch rate. Both serve the same goal: no user sees the same phrasing more than ~3 times in a month.
+
+**Until BLOCKING #3 lands:** else-fallthrough entries carry more weight than the spec gedanken design assumed. Pool them accordingly. Once picker breadth is refined, fallthrough firing rates should drop and pools may be revisited.
+
+---
+
 **Important items (likely keep but verify — these do NOT gate launch):**
 
 - **Are all 21 entries' factor-bucket mappings astrologically sound?** Does `entry 4 (good-venus-warm)` actually fire on the right Venus configurations? Does `entry 16 (closed-mercury-retrograde)` correctly trigger on retrograde AND not on combust (which is a different `reason_id` per `excluded-reasons.ts`)?
@@ -1193,10 +1217,10 @@ Partial-day exclusions with viable windows now route through the §3.3 mixed-buc
 **Measurement.** Post-§12.1-fix empirical batch (June 2026 Kyiv, n=30) and December spot-check (n=10):
 
 - **16 of 21 library entries never fired** in the June window. 5 of 6 `good-bucket` entries dead. 4 of 5 `mixed-bucket` entries dead.
-- **The else-fallthrough entries dominated.** `mixed-moon-steady-sky-thin` fired 17/30 (June) and 7/10 (December). `strong-ruler-in-motion` fired 6/30 (June). Both exceeded §11.4 IMPORTANT #9's retention threshold (>4× in 30 days). The retention-risk pattern §12.1 fixed in `closed-bucket` reappeared in `mixed` and `strong` — same problem in different buckets.
+- **The else-fallthrough entries dominated.** `mixed-moon-steady-sky-thin` fired 17/30 (June) and 7/10 (December). `strong-ruler-in-motion` fired 6/30 (June). Both exceeded the spec's working >4×-in-30-days retention threshold (see §11.4 "Variant pool sizing — calibration rule", which was clarified at the same time as this finding to distinguish specific-pattern entries from else-fallthrough entries — the threshold applies absolutely to the former but else-fallthrough entries need pools sized to their empirical catch rate). The retention-risk pattern §12.1 fixed in `closed-bucket` reappeared in `mixed` and `strong` — same problem in different buckets.
 - **Real-data factor distributions don't match spec assumptions.** Top windows in Kyiv real data lead with factors like `moon_waxing` and `house_ruler_dignified`, not the venus/mercury/jupiter combinations §3.3 entries were keyed on.
 
-**Immediate diffusion (this PR).** Variant pools added for `mixed-moon-steady-sky-thin` and `strong-ruler-in-motion` (same pattern as §12.1's pools — date-seeded rotation across 3 sibling phrasings each, voice-spec-faithful, no astrologer pre-review since the claims are uncontroversial).
+**Immediate diffusion (this PR + follow-up PR).** Variant pools added for `mixed-moon-steady-sky-thin` (sized to 6 siblings — primary + 5 variants — for its 17/30 catch rate per the §11.4 sizing rule) and `strong-ruler-in-motion` (sized to 4 siblings — primary + 3 variants — for its 6/30 catch rate). Same date-seeded rotation pattern as §12.1's pools, voice-spec-faithful, no astrologer pre-review since the claims are uncontroversial. The 6-sibling sizing for `mixed-moon-steady-sky-thin` came from a deterministic hash simulation of the 17 June-batch dates against a 4-sibling pool: max-per-variant 6/30 still crossed the >4× threshold, so the pool was expanded.
 
 **Deferred to astrologer brief (BLOCKING #3 in §11.4).** The deeper picker-selection refinement — making good/mixed-bucket entries reachable so users see variety — requires astrologer ruling on what factor patterns SHOULD map to which entries. The spec was a thought experiment; real factor distributions differ. Possible outcomes include rewriting entries (their factor-requirement hints) and/or extending `pickByDominantFactor`'s branch coverage. Either way: new voice review territory.
 

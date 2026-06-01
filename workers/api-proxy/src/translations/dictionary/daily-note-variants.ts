@@ -136,6 +136,26 @@ export const DAILY_NOTE_VARIANT_POOLS: Partial<
         supporting_line:
           'The sky carries you for tending and follow-up; hold the bigger asks for stronger days.',
       },
+      // Variants 4 & 5 added 2026-06-01 after diffusion simulation showed
+      // the 4-sibling pool's max-per-variant (6/30) still crossed the >4×
+      // retention threshold for this entry's high firing volume (17/30).
+      // Per §11.4 "Variant pool sizing — calibration rule", else-fallthrough
+      // entries need pools sized to their empirical catch rate, not to the
+      // abstract 4× threshold used for specific-pattern entries. Both fill
+      // a distinct semantic angle while preserving the uncontroversial
+      // "positive enough for tending, not strong enough for launches" claim:
+      //   v4 — continuation/maintenance ("what's already in motion")
+      //   v5 — light productive lift ("finishing edges")
+      {
+        headline: "A day for what's already in motion.",
+        supporting_line:
+          'The sky favors follow-through, not fresh starts — good for keeping projects on track; the bigger asks deserve clearer days.',
+      },
+      {
+        headline: 'A day for finishing edges.',
+        supporting_line:
+          "The sky is right for closing out what's almost done — good for the small finishing work; bigger starts can wait for stronger days.",
+      },
     ],
   },
 
