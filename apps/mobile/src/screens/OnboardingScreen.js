@@ -35,7 +35,7 @@ export default function OnboardingScreen({ go }) {
             Every beginning has its moment.
           </Text>
           <Text className="font-ui text-base leading-6 text-muted text-center mt-4 max-w-[320px]">
-            Inceptio helps you find the right time to start what matters — a wedding, a launch, a journey, a fresh page.
+            Inceptio reads the sky the way astrologers have for centuries — and helps you find the right time to start what matters: a wedding, a launch, a journey, a fresh page.
           </Text>
         </View>
 
