@@ -196,6 +196,77 @@ describe('handleDailyNote — full response shape parses against DailyNoteRespon
     expect(body.part_of_day_cutoffs.afternoon_end_hour).toBeGreaterThan(body.part_of_day_cutoffs.morning_end_hour);
     expect(body.part_of_day_cutoffs.evening_end_hour).toBeGreaterThan(body.part_of_day_cutoffs.afternoon_end_hour);
   });
+
+  // moon_phase contract pin (regression guard against future drift).
+  //
+  // The picker's PickResult intentionally does NOT include moon_phase — the
+  // route composes it via `{ ...picked, moon_phase: computeMoonPhase(...) }`
+  // (routes/daily-note.ts line 167-170). If a future refactor swaps the
+  // spread order to `{ moon_phase: ..., ...picked }`, or extends PickResult
+  // to include moon_phase: undefined, the field would silently disappear
+  // from the wire — and the mobile Moon glyph would fall back to its default
+  // 'waxing-crescent' prop (or render no fg at all for an unknown value)
+  // producing the "plain grey disc" user-reported bug.
+  //
+  // This test pins moon_phase: (a) presence, (b) enum-validity against the
+  // mobile MoonPhaseSchema, and (c) survival through Zod parse — so any
+  // drift in any of those three surfaces fails loudly here.
+  it('daily_note.moon_phase: present, enum-valid, and survives DailyNoteResponseSchema parse', async () => {
+    const { env } = makeEnv();
+    vi.mocked(handleSearch).mockResolvedValue(searchResponse(envelope()));
+    const res = await handleDailyNote(makeRequest('lat=50.45&lng=30.52&tz=UTC'), env);
+    const body = (await res.json()) as { daily_note: { moon_phase?: unknown } };
+
+    // (a) presence on the wire — guards against spread-order regressions in the route
+    expect(body.daily_note.moon_phase).toBeDefined();
+    expect(typeof body.daily_note.moon_phase).toBe('string');
+
+    // (b) enum validity — must be one of the 8 phases the mobile Moon component renders
+    expect([
+      'new',
+      'waxing-crescent',
+      'first-quarter',
+      'waxing-gibbous',
+      'full',
+      'waning-gibbous',
+      'last-quarter',
+      'waning-crescent',
+    ]).toContain(body.daily_note.moon_phase);
+
+    // (c) survives Zod parse — strict mode or schema drift would strip/reject the field
+    const parsed = DailyNoteResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.daily_note.moon_phase).toBe(body.daily_note.moon_phase);
+  });
+
+  // Closed-bucket path (moon_voc-style no-viable-windows day) MUST also
+  // include moon_phase. The closed-bucket pickClosedEntry path is what fires
+  // for the user's reported state (closed-moon-voc entry); a separate
+  // assertion here so a future regression that only breaks the closed branch
+  // is caught — not just the strong/good/mixed branches.
+  it('daily_note.moon_phase: present on closed-bucket (moon_voc) path too', async () => {
+    const { env } = makeEnv();
+    vi.mocked(handleSearch).mockResolvedValue(
+      searchResponse(
+        envelope({
+          top_windows: [],
+          excluded_ranges: [excludedRange({ reason_id: 'moon_voc' })],
+        }),
+      ),
+    );
+    const res = await handleDailyNote(makeRequest('lat=50.45&lng=30.52&tz=UTC'), env);
+    const body = (await res.json()) as {
+      daily_note: { mood: string; entry_id: string; moon_phase?: unknown };
+    };
+
+    expect(body.daily_note.mood).toBe('closed');
+    expect(body.daily_note.entry_id).toBe('closed-moon-voc');
+    // Closed-bucket entries derive mood + halo from the entry, but moon_phase
+    // is independent (driven by date, not bucket). Both must coexist.
+    expect(body.daily_note.moon_phase).toBeDefined();
+    const parsed = DailyNoteResponseSchema.safeParse(body);
+    expect(parsed.success).toBe(true);
+  });
 });
 
 describe('handleDailyNote — daily-note quality buckets surfaced as mood', () => {
