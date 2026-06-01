@@ -71,7 +71,37 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
   }
 
   const now = new Date();
-  const dateIso = formatDateInTz(now, tz);
+
+  // Dev/demo date override. Lets developers and demo recorders see
+  // strong/good/mixed/closed days on the Today screen without waiting
+  // for them to occur naturally — particularly useful for stakeholder
+  // demo recordings of the mood cycle and for smoke-testing edge cases
+  // like full-moon-on-closed-day collisions.
+  //
+  // Gated on env.ENV !== 'production' so the override is silently ignored
+  // in production (production always uses computed-today, regardless of
+  // what ?date= query param a client tries to send). The silent-ignore
+  // semantics match the principle that production users get the actual
+  // sky for actual today; any debug query param a curious user passes
+  // doesn't accidentally show them yesterday's reading or a contrived
+  // demo state.
+  //
+  // The cache key already embeds dateIso, so override dates naturally
+  // get separate cache entries without any cache-layer change.
+  const dateOverride = url.searchParams.get('date');
+  let dateIso: string;
+  if (dateOverride && env.ENV !== 'production') {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateOverride)) {
+      return Response.json(
+        { error: 'bad_request', message: 'date must be YYYY-MM-DD' },
+        { status: 400 },
+      );
+    }
+    dateIso = dateOverride;
+  } else {
+    dateIso = formatDateInTz(now, tz);
+  }
+
   const cacheKey = { lat, lng, dateIso };
 
   // Read cache. On hit we have the daily_note portion; envelope is added below.

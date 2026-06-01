@@ -217,4 +217,57 @@ describe('handleDailyNote — e2e against real handleSearch (regression guard)',
     // Only the first call invoked the upstream — the cache served the second.
     expect(vi.mocked(callUpstream)).toHaveBeenCalledTimes(1);
   });
+
+  // ─── Dev/demo date override ───
+  // Lets developers and demo recorders see strong/good/mixed/closed days
+  // without waiting for them to occur. Gated on env.ENV !== 'production'.
+
+  it('dev env + ?date= override: response.daily_note.date matches the override', async () => {
+    vi.mocked(callUpstream).mockResolvedValue(envelope());
+
+    const { env } = makeEnv(); // ENV: 'development'
+    const req = new Request(
+      'https://w/daily-note?lat=50.45&lng=30.52&tz=Europe%2FKyiv&date=2026-08-15',
+      { headers: { 'X-Device-Id': 'test-device' } },
+    );
+    const res = await handleDailyNote(req, env);
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { daily_note: { date: string } };
+    expect(body.daily_note.date).toBe('2026-08-15');
+  });
+
+  it('production env + ?date= override: override is SILENTLY ignored, response uses computed today', async () => {
+    vi.mocked(callUpstream).mockResolvedValue(envelope());
+
+    const { env } = makeEnv();
+    env.ENV = 'production'; // production never honors the override
+    const req = new Request(
+      'https://w/daily-note?lat=50.45&lng=30.52&tz=Europe%2FKyiv&date=1999-01-01',
+      { headers: { 'X-Device-Id': 'test-device' } },
+    );
+    const res = await handleDailyNote(req, env);
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { daily_note: { date: string } };
+    // 1999-01-01 is clearly not today; whatever the response date is, it
+    // must NOT be the override value — production computed-today wins.
+    expect(body.daily_note.date).not.toBe('1999-01-01');
+    expect(body.daily_note.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it('dev env + malformed ?date= override: returns 400 with format error', async () => {
+    // No upstream mock needed — the route fails fast on format validation.
+    const { env } = makeEnv();
+    const req = new Request(
+      'https://w/daily-note?lat=50.45&lng=30.52&tz=Europe%2FKyiv&date=not-a-date',
+      { headers: { 'X-Device-Id': 'test-device' } },
+    );
+    const res = await handleDailyNote(req, env);
+
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string; message: string };
+    expect(body.error).toBe('bad_request');
+    expect(body.message).toMatch(/YYYY-MM-DD/);
+  });
 });
