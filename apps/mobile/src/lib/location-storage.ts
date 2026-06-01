@@ -1,7 +1,7 @@
 import { storage } from './storage';
 
 // Canonical persisted shape for "the location the user last picked." Read by
-// useTodayMoment (today's single-day query) and the picker chain when the
+// the Today screen's useDailyNote query and the picker chain when the
 // user starts a new search.
 //
 // `timezone` is mandatory because the Worker's ElectionalSearchRequestSchema

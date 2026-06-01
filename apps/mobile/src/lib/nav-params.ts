@@ -6,7 +6,7 @@
  * The selected window flows: TodayScreen / CalendarScreen → MomentDetail.
  * We pass the whole Window object (not an index) because the source screen
  * and the detail screen may run different searches — TodayScreen does a
- * single-day query via useTodayMoment, CalendarScreen does a 30-day query.
+ * single-day query via /daily-note, CalendarScreen does a 30-day search.
  * Passing an index against a different React Query cache produces "tapped
  * Tuesday, see Saturday" bugs.
  */
