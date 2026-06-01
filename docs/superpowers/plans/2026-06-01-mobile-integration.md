@@ -1454,7 +1454,7 @@ import React, { useState } from 'react';
 import { View, ScrollView } from 'react-native';
 import { useDailyNote } from '../hooks/useDailyNote';
 import DailyNoteSection from '../components/daily-note/DailyNoteSection';
-import DailyHero, { LoadingHero, ErrorHero } from '../components/daily-note/DailyHero';
+import { LoadingHero, ErrorHero } from '../components/daily-note/DailyHero';
 import StatePicker from '../components/StatePicker';
 import PrimaryButton from '../components/PrimaryButton';
 import { getSavedMoments } from '../lib/draft-store';
