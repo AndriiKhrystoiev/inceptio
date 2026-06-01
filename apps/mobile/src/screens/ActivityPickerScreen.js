@@ -47,7 +47,7 @@ export default function ActivityPickerScreen({ go }) {
           {/* Hero */}
           <View className="px-6 pt-6 pb-9">
             <Text className="font-display text-[32px] leading-[38px] tracking-[-0.3px] text-cream">
-              What do you want{'\n'}to begin?
+              What are you planning?
             </Text>
             <Text className="font-ui text-[14px] leading-5 text-muted mt-3">
               We'll find your best windows in the sky.

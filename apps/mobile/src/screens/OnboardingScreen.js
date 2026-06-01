@@ -32,10 +32,10 @@ export default function OnboardingScreen({ go }) {
         {/* Headline */}
         <View className="items-center">
           <Text className="font-display-reg text-[32px] leading-[40px] tracking-[-0.3px] text-cream text-center max-w-[320px]">
-            Find the right time to begin.
+            Every beginning has its moment.
           </Text>
-          <Text className="font-ui text-base leading-6 text-muted text-center mt-4 max-w-[300px]">
-            Inceptio reads the sky to help you choose your moment.
+          <Text className="font-ui text-base leading-6 text-muted text-center mt-4 max-w-[320px]">
+            Inceptio helps you find the right time to start what matters — a wedding, a launch, a journey, a fresh page.
           </Text>
         </View>
 
@@ -44,7 +44,7 @@ export default function OnboardingScreen({ go }) {
 
         {/* Action */}
         <View className="pb-8">
-          <PrimaryButton onPress={() => go('today')}>Get started</PrimaryButton>
+          <PrimaryButton onPress={() => go('today')}>Find your moment</PrimaryButton>
           <Text className="font-ui text-[13px] text-subtle text-center mt-5">
             No account needed
           </Text>
