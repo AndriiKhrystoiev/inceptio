@@ -207,3 +207,79 @@ export async function healthCheck(): Promise<HealthResult> {
   if (!res.ok) throw new ServerError(res.status, 'Health check failed');
   return (await res.json()) as HealthResult;
 }
+
+// ─── /daily-note ──────────────────────────────────────────────────────────
+
+import { DailyNoteResponseSchema } from '@inceptio/shared-types';
+import type { DailyNoteResponse } from '@inceptio/shared-types';
+
+export interface DailyNoteResult {
+  response: DailyNoteResponse;
+  cacheHit: boolean;
+}
+
+export interface GetDailyNoteInput {
+  lat: number;
+  lng: number;
+  tz: string;
+}
+
+/**
+ * GET /daily-note?lat={n}&lng={n}&tz={iana}
+ *
+ * Worker contract per docs/superpowers/design-handoff/daily-note/
+ * PICKER-CONTRACT.md. Mobile sends lat/lng/tz; Worker derives
+ * today_iso_date server-side and returns the full DailyNoteResponseShape
+ * (daily_note + saved_searches + total_saved_count + library_version +
+ * part_of_day_cutoffs).
+ *
+ * Errors map to the existing discriminated hierarchy:
+ *   - 429 rate-limited → RateLimitError (shares the per-device counter
+ *     since /daily-note internally fans out to /electional/search)
+ *   - 429 upstream quota → UpstreamQuotaError
+ *   - 502 → ServerError(502, ...)
+ *   - Zod parse failure → SchemaMismatchError
+ */
+export async function getDailyNote(
+  input: GetDailyNoteInput,
+): Promise<DailyNoteResult> {
+  const url = `${API_CONFIG.baseUrl}/daily-note?lat=${input.lat}&lng=${input.lng}&tz=${encodeURIComponent(input.tz)}`;
+
+  const res = await fetchWithTimeout(
+    url,
+    { method: 'GET' },
+    API_CONFIG.timeout,
+  );
+
+  if (res.status === 429) {
+    const body = (await res.json().catch(() => ({}))) as {
+      error?: string;
+      reset_at_unix?: number;
+      upstream?: { detail?: { error?: { error_code?: string; message?: string } } };
+    };
+    const upstreamError = body.upstream?.detail?.error;
+    if (upstreamError?.error_code === 'RATE_LIMIT_EXCEEDED') {
+      throw new UpstreamQuotaError(upstreamError.message ?? 'Upstream quota exhausted');
+    }
+    throw new RateLimitError(body.reset_at_unix ?? null);
+  }
+
+  if (!res.ok) {
+    throw new ServerError(res.status, `HTTP ${res.status}`);
+  }
+
+  const json = await res.json();
+  const parseResult = DailyNoteResponseSchema.safeParse(json);
+  if (!parseResult.success) {
+    console.error(
+      '[getDailyNote] schema mismatch — zod issues:',
+      JSON.stringify(parseResult.error.issues, null, 2),
+    );
+    throw new SchemaMismatchError(parseResult.error.issues);
+  }
+
+  return {
+    response: parseResult.data,
+    cacheHit: parseResult.data.cache_hit ?? false,
+  };
+}
