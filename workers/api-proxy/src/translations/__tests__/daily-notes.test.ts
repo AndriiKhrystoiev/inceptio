@@ -22,6 +22,7 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
       topWindow: top,
       excludedRangesActiveToday: [],
       today_iso_date: '2026-05-28',
+      noViableWindows: false,
     });
     expect(result.entry_id).toBe('strong-sky-is-clear');
     expect(result.mood).toBe('strong');
@@ -45,21 +46,58 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
       topWindow: top,
       excludedRangesActiveToday: [],
       today_iso_date: '2026-05-28',
+      noViableWindows: false,
     });
     expect(result.entry_id).toBe('good-venus-warm');
     expect(result.mood).toBe('good');
   });
 
-  it('Closed bucket: picks closed-moon-voc when an active moon_voc exclusion covers today', () => {
+  it('Closed bucket: picks closed-moon-voc when no_viable_windows: true AND moon_voc covers today (day-dominating void)', () => {
+    // This is the genuine full-day Moon-VoC case — upstream confirmed
+    // nothing viable exists anywhere in the day. Distinct from a
+    // partial-day Moon-VoC (covered by the partial-void test below).
     const top = window_({ score: 35, grade: 'poor' });
     const result = synthesizeDailyNote({
       topWindow: top,
       excludedRangesActiveToday: [excludedRange({ reason_id: 'moon_voc' })],
       today_iso_date: '2026-05-28',
+      noViableWindows: true,
     });
     expect(result.entry_id).toBe('closed-moon-voc');
     expect(result.mood).toBe('closed');
     expect(result.exclusion_reason).toBe('moon_voc');
+  });
+
+  it('Partial-day exclusion routes to mixed bucket when no_viable_windows: false (the empirical-batch fix)', () => {
+    // A high-score afternoon window with a morning Moon-void exclusion.
+    // Pre-fix this misclassified as closed; post-fix the mixed bucket
+    // entries express the "positive with a caveat" voice (voice spec §3.3
+    // entries #10-14). The selection logic within mixed is unchanged —
+    // pick by dominant PASS factor.
+    const top = window_({
+      score: 88,
+      grade: 'strong',
+      factors: [
+        factor({
+          factor_id: 'venus_dignified_direct_well_aspected',
+          status: 'pass',
+          weight_class: 'high',
+          contribution: 18,
+        }),
+      ],
+    });
+    const result = synthesizeDailyNote({
+      topWindow: top,
+      excludedRangesActiveToday: [excludedRange({ reason_id: 'moon_voc' })],
+      today_iso_date: '2026-06-19',
+      noViableWindows: false,
+    });
+    expect(result.mood).toBe('mixed');
+    // Venus-dominant PASS routes to the venus-bright-mercury-dim mixed entry.
+    expect(result.entry_id).toBe('mixed-venus-bright-mercury-dim');
+    // exclusion_reason is reserved for closed-bucket picks; mixed-bucket
+    // entries don't expose the exclusion in the displayable contract.
+    expect(result.exclusion_reason).toBeUndefined();
   });
 
   it('Closed bucket: Mercury retrograde — exclusion-specific entry (rotation may surface any sibling) when station <= 3 days away', () => {
@@ -73,6 +111,7 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
       topWindow: top,
       excludedRangesActiveToday: [excludedRange({ reason_id: 'mercury_retrograde' })],
       today_iso_date: '2026-08-29',
+      noViableWindows: true,
     });
     expect(result.entry_id).toBe('closed-mercury-retrograde');
     const pool = DAILY_NOTE_VARIANT_POOLS['closed-mercury-retrograde']!;
@@ -92,19 +131,24 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
       topWindow: top,
       excludedRangesActiveToday: [excludedRange({ reason_id: 'mercury_retrograde' })],
       today_iso_date: '2026-08-10',
+      noViableWindows: true,
     });
     expect(result.entry_id).toBe('closed-mercury-retrograde-vague');
     expect(result.supporting).toContain('for now');
     expect(result.used_fallback).toBe(true);
   });
 
-  it('exclusion precedence: closed-bucket wins even when raw score is in good band', () => {
-    // Score 72 ("good"-band) but Venus rx covers today — must pick closed entry.
+  it('day-dominating Venus rx + good-band score: closed-bucket wins via no_viable_windows', () => {
+    // Score 72 ("good"-band) but Venus rx covers today AND upstream
+    // reports no_viable_windows: true. The authoritative day-closed
+    // signal is the latter; the score is moot. Distinct from the
+    // partial-day exclusion case where no_viable_windows: false → mixed.
     const top = window_({ score: 72, grade: 'fair' });
     const result = synthesizeDailyNote({
       topWindow: top,
       excludedRangesActiveToday: [excludedRange({ reason_id: 'venus_retrograde' })],
       today_iso_date: '2026-05-28',
+      noViableWindows: true,
     });
     expect(result.entry_id).toBe('closed-venus-retrograde');
     expect(result.mood).toBe('closed');
@@ -120,11 +164,13 @@ describe('synthesizeDailyNote — sibling-variant rotation for long conditions',
       topWindow: top,
       excludedRangesActiveToday: exclusions,
       today_iso_date: '2026-08-30',  // 1 day before Mercury direct → primary entry path
+      noViableWindows: true,
     });
     const day1Repeat = synthesizeDailyNote({
       topWindow: top,
       excludedRangesActiveToday: exclusions,
       today_iso_date: '2026-08-30',
+      noViableWindows: true,
     });
     expect(day1.headline).toBe(day1Repeat.headline);
   });
@@ -138,6 +184,7 @@ describe('synthesizeDailyNote — sibling-variant rotation for long conditions',
           topWindow: top,
           excludedRangesActiveToday: exclusions,
           today_iso_date,
+          noViableWindows: true,
         }).headline,
     );
     // At least 2 of the 3 days should differ — proves rotation is happening.
@@ -148,5 +195,10 @@ describe('synthesizeDailyNote — sibling-variant rotation for long conditions',
   it('variant pool exists for currently-supported long conditions', () => {
     expect(DAILY_NOTE_VARIANT_POOLS['closed-mercury-retrograde']).toBeDefined();
     expect(DAILY_NOTE_VARIANT_POOLS['closed-venus-retrograde']).toBeDefined();
+    // Empirical-batch additions (June 2026): moon_voc fires ~19 days/month
+    // pre-fix and ~10 days/month post-fix — variant rotation is MVP-blocking
+    // for both. Eclipse windows fire 2-3x/year for several days each.
+    expect(DAILY_NOTE_VARIANT_POOLS['closed-moon-voc']).toBeDefined();
+    expect(DAILY_NOTE_VARIANT_POOLS['closed-eclipse-window']).toBeDefined();
   });
 });

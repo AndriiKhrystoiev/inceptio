@@ -161,20 +161,31 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
       data?: {
         top_windows?: Array<{ score: number; factors: unknown[] }>;
         excluded_ranges?: Array<{ reason_id: string; severity: 'hard_stop' | 'medium' }>;
+        summary?: { no_viable_windows?: boolean };
       };
     };
 
     const topWindow = searchPayload.data?.top_windows?.[0] ?? null;
     const excludedRanges = searchPayload.data?.excluded_ranges ?? [];
+    // `summary.no_viable_windows` is the authoritative day-closed signal —
+    // upstream determined no viable election exists anywhere in the day. A
+    // missing summary defaults to `false` (fail-safe: prefer score-based
+    // bucketing over collapsing to closed when the contract slips). See
+    // quality-bucket.ts for the empirical rationale.
+    const noViableWindows = searchPayload.data?.summary?.no_viable_windows ?? false;
 
-    // No-viable-windows is a NORMAL daily-note case, not an error. On Moon
-    // void days, retrograde stretches, eclipse windows etc., the upstream
-    // returns `top_windows: []` + `excluded_ranges: [reason]` — the picker's
-    // branch 1 ("closed by exclusion") is designed for exactly this and
-    // synthesizes the right closed-bucket entry from the reason_id. The
-    // picker's pickClosedEntry path doesn't read topWindow.score, so a
-    // placeholder { score: 0, factors: [] } is sufficient input when no
-    // real top window exists but exclusions do.
+    // No-viable-windows is a NORMAL daily-note case, not an error. Two
+    // distinct shapes the route handles:
+    //
+    //   (a) Full-day exclusion (e.g. all-day Moon-VoC): upstream returns
+    //       top_windows: [] + excluded_ranges: [reason] + summary.no_viable_windows:
+    //       true. Picker takes the closed path via reason_id mapping.
+    //
+    //   (b) Partial-day exclusion (e.g. morning Moon-VoC with afternoon
+    //       windows): upstream returns top_windows: [...] (the surviving
+    //       slots) + excluded_ranges: [reason] + summary.no_viable_windows:
+    //       false. Picker routes through the mixed bucket — voice spec §3.3
+    //       entries #10-14 are designed for "positive with a caveat".
     //
     // 502 stays for the genuine no-data case (no top window AND no
     // exclusions) — upstream has nothing usable to say about the day.
@@ -191,6 +202,7 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
       topWindow: effectiveTopWindow as any,
       excludedRangesActiveToday: excludedRanges as any,
       today_iso_date: dateIso,
+      noViableWindows,
     });
 
     // Compose PickResult + moon_phase into DailyNoteOutput

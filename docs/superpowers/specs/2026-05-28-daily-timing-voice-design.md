@@ -1134,4 +1134,34 @@ This spec's §3 and §6 libraries are *not* push-ready as-is; the next session w
 
 ---
 
+## 12. Post-MVP empirical discoveries
+
+This section is appended as findings emerge from real-data validation. Each entry names what was assumed, what was measured, and how the system was corrected. Future maintainers should read this before treating §4.5 (the decision tree) or §3.3 (the entry library) as static.
+
+### 12.1 Branch-1 precedence assumption — partial-day exclusions (2026-06-01)
+
+**Assumption.** §4.5's branch-1-wins rule ("any named exclusion covering today → closed bucket, regardless of score") treated all named exclusions as day-dominating. The spec's Lilly citation supported this for *full-day* impediments (full-day Moon void, eclipse, Mercury retrograde, etc.) but did not distinguish the *partial-day* case.
+
+**Measurement.** Empirical curl batch against the Worker `/daily-note` endpoint for 30 consecutive Kyiv dates (June 2026):
+
+- 66.7% (20/30) of days were classified `closed` — far above the ~25-35% rate traditional electional (Lilly Bk III, Bonatti Tr. 7, Brennan 2017) implies.
+- 95% of closed days (19/20) fired the same `closed-moon-voc` entry with the same headline ("The Moon is between signs today") — both a misclassification signal and a retention-killing repetition.
+- Probing upstream `/electional/search` directly on 5 of those `closed-moon-voc` days surfaced top windows scoring 80, 81, 85, **94**, and 88 outside the partial-day void periods (which lasted 90 minutes to a few hours). Upstream's `summary.no_viable_windows` was `false` on every one — upstream had already determined viable elections existed.
+
+**Correction.** The picker's `assignBucket` now uses `summary.no_viable_windows` as the authoritative closed signal, NOT the mere presence of a named exclusion:
+
+| `no_viable_windows` | Named exclusion | Bucket |
+|---|---|---|
+| true | (any) | `closed` |
+| false | none | by score (`strong` / `good` / `mixed`) |
+| false | present | `mixed` (regardless of score) |
+
+Partial-day exclusions with viable windows now route through the §3.3 mixed-bucket entries (#10-14). Those entries were already designed for "positive factors with a caveat" — structurally what a partial-void high-score day IS. No new entries were authored; the existing voice library got more use.
+
+**Variant pools added in the same coordinated commit.** `closed-moon-voc` (post-fix still fires ~10 days/month) and `closed-eclipse-window` (2-3 multi-day stretches/year) each got 3 sibling phrasings in `DAILY_NOTE_VARIANT_POOLS`, so the date-seeded rotation diffuses headlines across consecutive same-condition days. Moon void of course and eclipse stillness are uncontroversial across traditional schools, so these did not require pre-launch astrologer review.
+
+**Lesson for future maintainers.** If a decision-tree rule names a single authoritative signal (e.g. "X means Y"), verify that the signal really IS authoritative against real-world distributions before relying on it. Upstream contracts can carry richer state than first-glance reading suggests; `summary.no_viable_windows` was always there — it just wasn't load-bearing in our reading until the data made it so.
+
+---
+
 *End of spec.*

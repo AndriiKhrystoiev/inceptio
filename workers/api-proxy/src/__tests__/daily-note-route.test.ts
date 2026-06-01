@@ -110,10 +110,10 @@ describe('handleDailyNote — error envelopes', () => {
   });
 
   it('returns 502 when upstream returns no top window AND no excluded_ranges (genuine no-data)', async () => {
-    // Without explicit `excluded_ranges: []` the envelope() default includes
-    // a mercury_retrograde range, which now (post-coordinated-fix) drives
-    // the closed-bucket path → 200 with closed-mercury-retrograde entry.
-    // To test the genuine no-data 502, both arrays must be empty.
+    // Both arrays MUST be empty to hit the 502. The envelope() default
+    // includes a mercury_retrograde range and a viable top window; either
+    // one is enough for the picker to produce a daily note. The 502 is
+    // reserved for upstream having nothing usable to say about the day.
     const { env } = makeEnv();
     vi.mocked(handleSearch).mockResolvedValue(
       searchResponse(envelope({ top_windows: [], excluded_ranges: [] })),
@@ -244,13 +244,27 @@ describe('handleDailyNote — full response shape parses against DailyNoteRespon
   // for the user's reported state (closed-moon-voc entry); a separate
   // assertion here so a future regression that only breaks the closed branch
   // is caught — not just the strong/good/mixed branches.
-  it('daily_note.moon_phase: present on closed-bucket (moon_voc) path too', async () => {
+  it('daily_note.moon_phase: present on closed-bucket (full-day moon_voc) path too', async () => {
+    // Day-dominating Moon-void: no top windows, moon_voc exclusion,
+    // summary.no_viable_windows: true. After the 2026-06-01 picker
+    // classification fix this last field is the authoritative closed
+    // signal — without it, the partial-void semantics route to mixed.
     const { env } = makeEnv();
     vi.mocked(handleSearch).mockResolvedValue(
       searchResponse(
         envelope({
           top_windows: [],
           excluded_ranges: [excludedRange({ reason_id: 'moon_voc' })],
+          summary: {
+            total_candidates_evaluated: 168,
+            viable_windows_count: 0,
+            excluded_ranges_count: 1,
+            best_score: 0,
+            best_grade: 'poor',
+            no_viable_windows: true,
+            quality_advisory: null,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- partial summary; runtime guarded
+          } as any,
         }),
       ),
     );
@@ -357,13 +371,27 @@ describe('handleDailyNote — daily-note quality buckets surfaced as mood', () =
     expect(body.daily_note.mood).toBe('mixed');
   });
 
-  it('closed bucket: Venus retrograde exclusion → mood: "closed", exclusion_reason set', async () => {
+  it('closed bucket: Venus retrograde exclusion + no_viable_windows: true → mood: "closed", exclusion_reason set', async () => {
+    // Day-dominating Venus rx: summary.no_viable_windows: true makes
+    // this the authoritative closed case. A score-60 top window is moot
+    // when the upstream tells us no viable election exists today —
+    // the picker chooses by reason_id.
     const { env } = makeEnv();
     vi.mocked(handleSearch).mockResolvedValue(
       searchResponse(
         envelope({
           top_windows: [window_({ score: 60, grade: 'fair' })],
           excluded_ranges: [excludedRange({ reason_id: 'venus_retrograde' })],
+          summary: {
+            total_candidates_evaluated: 168,
+            viable_windows_count: 0,
+            excluded_ranges_count: 1,
+            best_score: 60,
+            best_grade: 'fair',
+            no_viable_windows: true,
+            quality_advisory: null,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any -- partial summary; runtime guarded
+          } as any,
         }),
       ),
     );
@@ -372,6 +400,43 @@ describe('handleDailyNote — daily-note quality buckets surfaced as mood', () =
     expect(body.daily_note.mood).toBe('closed');
     expect(body.daily_note.entry_id).toBe('closed-venus-retrograde');
     expect(body.daily_note.exclusion_reason).toBe('venus_retrograde');
+  });
+
+  it('partial-day exclusion: Venus rx + no_viable_windows: false → mood: "mixed", routes through mixed bucket', async () => {
+    // The empirical-batch fix regression guard at the route layer. A
+    // viable top window with an active exclusion and no_viable_windows:
+    // false is a "positive factors with a caveat" day — voice spec §3.3
+    // mixed entries get to speak instead of the closed-bucket reason
+    // entry. Pre-fix this misclassified as closed.
+    const { env } = makeEnv();
+    vi.mocked(handleSearch).mockResolvedValue(
+      searchResponse(
+        envelope({
+          top_windows: [
+            window_({
+              score: 72,
+              grade: 'fair',
+              factors: [
+                factor({
+                  factor_id: 'venus_dignified_direct_well_aspected',
+                  status: 'pass',
+                  weight_class: 'high',
+                  contribution: 18,
+                }),
+              ],
+            }),
+          ],
+          excluded_ranges: [excludedRange({ reason_id: 'venus_retrograde' })],
+          // Default envelope() already sets summary.no_viable_windows: false.
+        }),
+      ),
+    );
+    const res = await handleDailyNote(makeRequest('lat=50.45&lng=30.52&tz=UTC'), env);
+    const body = (await res.json()) as { daily_note: { mood: string; entry_id: string; exclusion_reason?: string } };
+    expect(body.daily_note.mood).toBe('mixed');
+    // Venus-led PASS factor → mixed-venus-bright-mercury-dim.
+    expect(body.daily_note.entry_id).toBe('mixed-venus-bright-mercury-dim');
+    expect(body.daily_note.exclusion_reason).toBeUndefined();
   });
 });
 

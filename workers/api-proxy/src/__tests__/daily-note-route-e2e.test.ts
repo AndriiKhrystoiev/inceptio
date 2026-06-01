@@ -134,21 +134,32 @@ describe('handleDailyNote — e2e against real handleSearch (regression guard)',
     expect(calledReq).not.toHaveProperty('date_to');
   });
 
-  it('no-viable-windows day (e.g. Moon void) returns 200 with closed-bucket entry, NOT 502', async () => {
-    // Real upstream response when today is a Moon void-of-course day:
-    // top_windows: [], excluded_ranges: [moon_voc], no_viable_windows: true.
-    // The 2026-06-01 Kyiv response that surfaced the original bug had this
-    // exact shape — see Image 3 in the user's diagnostic. The picker's
-    // branch 1 ("closed by exclusion") fires on the reason_id; the route
-    // must synthesize a placeholder topWindow so the picker can run.
+  it('full-day Moon-void (no_viable_windows: true) returns 200 with closed-bucket entry, NOT 502', async () => {
+    // Real upstream response when today is a day-dominating Moon void-of-
+    // course: top_windows: [], excluded_ranges: [moon_voc], summary.
+    // no_viable_windows: true. The 2026-06-01 Kyiv response that surfaced
+    // the original 502 bug had this exact shape.
     //
-    // The translations/fixtures `noViableResponse` is named misleadingly —
-    // it actually ships one caution-graded window. We construct the real
-    // moon-void shape inline.
+    // After the 2026-06-01 picker classification fix (see quality-bucket.ts),
+    // `no_viable_windows: true` is the authoritative day-closed signal —
+    // explicitly set here. The default envelope() fixture has
+    // no_viable_windows: false, which after the fix would route this
+    // payload through the mixed bucket; this test pins the genuine
+    // full-day case.
     vi.mocked(callUpstream).mockResolvedValue(
       envelope({
         top_windows: [],
         excluded_ranges: [excludedRange({ reason_id: 'moon_voc' })],
+        summary: {
+          total_candidates_evaluated: 168,
+          viable_windows_count: 0,
+          excluded_ranges_count: 1,
+          best_score: 0,
+          best_grade: 'poor',
+          no_viable_windows: true,
+          quality_advisory: null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- partial summary; runtime guarded
+        } as any,
       }),
     );
 
@@ -167,6 +178,40 @@ describe('handleDailyNote — e2e against real handleSearch (regression guard)',
     expect(body.daily_note.mood).toBe('closed');
     expect(body.daily_note.exclusion_reason).toBe('moon_voc');
     expect(body.daily_note.entry_id).toBe('closed-moon-voc');
+  });
+
+  it('partial-day Moon-void (no_viable_windows: false) routes to MIXED bucket, not closed', async () => {
+    // The empirical-batch fix regression guard. Real upstream response on
+    // 2026-06-19 Kyiv: top_windows: [{score: 94, ...}] (the afternoon
+    // window outside the brief 11:30-13:00 void) + excluded_ranges:
+    // [moon_voc] + summary.no_viable_windows: false. Pre-fix this routed
+    // to closed-moon-voc; post-fix it goes through the mixed bucket so the
+    // voice spec §3.3 "positive with a caveat" entries get to speak.
+    //
+    // The default envelope() fixture already sets no_viable_windows: false
+    // and includes a Venus-led top window — we just need to add the
+    // moon_voc exclusion to it.
+    vi.mocked(callUpstream).mockResolvedValue(
+      envelope({
+        excluded_ranges: [excludedRange({ reason_id: 'moon_voc' })],
+      }),
+    );
+
+    const { env } = makeEnv();
+    const req = new Request('https://w/daily-note?lat=50.45&lng=30.52&tz=Europe%2FKyiv', {
+      headers: { 'X-Device-Id': 'test-device' },
+    });
+    const res = await handleDailyNote(req, env);
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      daily_note: { mood: string; entry_id: string; exclusion_reason?: string };
+    };
+    expect(body.daily_note.mood).toBe('mixed');
+    // The default envelope's top window leads with Venus → mixed-venus-bright-mercury-dim.
+    expect(body.daily_note.entry_id).toBe('mixed-venus-bright-mercury-dim');
+    // exclusion_reason is reserved for closed-bucket picks.
+    expect(body.daily_note.exclusion_reason).toBeUndefined();
   });
 
   it('genuine no-data case (no top window AND no exclusions) still returns 502', async () => {

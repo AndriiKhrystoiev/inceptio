@@ -21,6 +21,15 @@ export interface SynthesizeInput {
   excludedRangesActiveToday: ExcludedRange[];
   /** ISO YYYY-MM-DD wall-clock date in the event location's timezone. */
   today_iso_date: string;
+  /**
+   * Upstream's `summary.no_viable_windows` — the authoritative closed
+   * signal. When true, the day is closed regardless of any per-window
+   * score; when false, an active named exclusion is a partial-day
+   * caveat that routes through the mixed bucket. See
+   * `quality-bucket.ts` for the full rationale and voice spec's
+   * "Post-MVP empirical discoveries" section.
+   */
+  noViableWindows: boolean;
 }
 
 /**
@@ -75,14 +84,25 @@ const REASON_TO_ENTRY: Record<string, KnownDailyNoteId> = {
  */
 export function synthesizeDailyNote(input: SynthesizeInput): PickResult {
   const hasNamedExclusion = input.excludedRangesActiveToday.length > 0;
-  const bucket = assignBucket(input.topWindow.score, hasNamedExclusion);
+  const bucket = assignBucket(
+    input.topWindow.score,
+    input.noViableWindows,
+    hasNamedExclusion,
+  );
 
-  // Branch 1 — closed by exclusion (highest precedence per §4.5)
+  // Branch 1 — closed by no_viable_windows (the authoritative day-closed
+  // signal). The exclusion-reason entry is preferred when an exclusion
+  // covers today; otherwise falls through to closed-long-quiet-stretch.
   if (bucket === 'closed') {
     return pickClosedEntry(input);
   }
 
-  // Branches 2-4 — score-band picks via dominant factor
+  // Branches 2-4 — score-band picks via dominant factor. Note that
+  // bucket === 'mixed' here can arise from EITHER a low score (no
+  // exclusion) OR a partial-day exclusion with viable top windows
+  // (assignBucket §post-MVP-empirical-discoveries rule). The selection
+  // within the mixed bucket is the same either way: pick by dominant
+  // PASS factor of the surviving top window.
   return pickByDominantFactor(input, bucket);
 }
 
