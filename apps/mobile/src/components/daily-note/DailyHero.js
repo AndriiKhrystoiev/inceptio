@@ -25,7 +25,7 @@ import HeroGradient from '../HeroGradient';
 import Starfield from '../Starfield';
 import Moon from '../Moon';
 import Pulse from '../Pulse';
-import { MOOD_TOKENS } from './mood-tokens';
+import { MOOD_TOKENS, haloColorSolid, parseHaloAlpha } from './mood-tokens';
 import { friendlyMessage } from '../../lib/error-messages';
 
 function HeroBackdrop({ children }) {
@@ -60,9 +60,9 @@ export default function DailyHero({ mood = 'good', phase = 'waxing-crescent', ch
           // iOS colored halo via shadow. Android falls back to grey elevation.
           ...(m.halo
             ? {
-                shadowColor: m.halo.replace(/rgba\(([^)]+),[^,]+\)/, 'rgba($1,1)'),
+                shadowColor: haloColorSolid(m.halo),
                 shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 1,
+                shadowOpacity: parseHaloAlpha(m.halo),
                 shadowRadius: 13,
                 elevation: 2,
               }

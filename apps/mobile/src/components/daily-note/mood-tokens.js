@@ -19,14 +19,12 @@
 // Removing the field is a structural guarantee that mood and moon_phase
 // don't conflate semantically.
 //
-// Halo rendering note: the current DailyHero/DailyNoteBody renderers
-// extract the rgba color into shadowColor and use shadowOpacity: 1 (the
-// regex strips the alpha). So the alpha values below are documentary
-// for now — they encode the design intent for intensity, even if the
-// renderer doesn't honor them. A follow-up renderer fix can extract the
-// alpha into shadowOpacity to make the documented "3x weaker" intent
-// literal; until then, the closed halo will render at full intensity in
-// a muted-purple color.
+// Halo rendering note: DailyHero (moon glyph) and DailyNoteBody (mood dot)
+// extract this rgba into shadowColor (alpha forced to 1 via haloColorSolid)
+// and apply the alpha as shadowOpacity (via parseHaloAlpha). Honoring the
+// alpha means each mood renders at its design-spec'd intensity — strong
+// at 0.55, good at 0.45, mixed at 0.30, closed at 0.18 — rather than all
+// uniformly at full strength.
 import { colors } from '../../theme';
 
 export const MOOD_TOKENS = {
@@ -35,3 +33,25 @@ export const MOOD_TOKENS = {
   mixed:  { dot: colors.goldMuted,   halo: 'rgba(212,184,114,0.30)', dim: false },
   closed: { dot: colors.textSubtle,  halo: 'rgba(184,176,204,0.18)', dim: true },
 };
+
+/**
+ * Parse the alpha float from an rgba(r, g, b, a) string.
+ * Returns 1.0 when no alpha is present or the string doesn't match.
+ * Used by DailyHero and DailyNoteBody to honor each mood's design-intent
+ * intensity (see file-header invariant).
+ */
+export function parseHaloAlpha(rgba) {
+  if (typeof rgba !== 'string') return 1;
+  const m = rgba.match(/rgba\([^)]+,\s*([0-9.]+)\s*\)$/);
+  return m ? parseFloat(m[1]) : 1;
+}
+
+/**
+ * Return the rgba string with alpha forced to 1.0 — suitable for RN's
+ * shadowColor (which takes a solid color and an opacity controlled via
+ * shadowOpacity separately).
+ */
+export function haloColorSolid(rgba) {
+  if (typeof rgba !== 'string') return rgba;
+  return rgba.replace(/rgba\(([^)]+),\s*[0-9.]+\s*\)$/, 'rgba($1,1)');
+}

@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { View, Text } from 'react-native';
-import { MOOD_TOKENS } from './mood-tokens';
+import { MOOD_TOKENS, haloColorSolid, parseHaloAlpha } from './mood-tokens';
 import { formatDailyEyebrow } from '../../lib/format-date';
 
 /**
@@ -35,9 +35,9 @@ export default function DailyNoteBody({ mood = 'good', date, headline, supportin
             backgroundColor: m.dot,
             ...(m.halo
               ? {
-                  shadowColor: m.halo.replace(/rgba\(([^)]+),[^,]+\)/, 'rgba($1,1)'),
+                  shadowColor: haloColorSolid(m.halo),
                   shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 1,
+                  shadowOpacity: parseHaloAlpha(m.halo),
                   shadowRadius: 4,
                   elevation: 1,
                 }
