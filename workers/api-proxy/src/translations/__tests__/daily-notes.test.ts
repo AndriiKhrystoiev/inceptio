@@ -200,5 +200,11 @@ describe('synthesizeDailyNote — sibling-variant rotation for long conditions',
     // for both. Eclipse windows fire 2-3x/year for several days each.
     expect(DAILY_NOTE_VARIANT_POOLS['closed-moon-voc']).toBeDefined();
     expect(DAILY_NOTE_VARIANT_POOLS['closed-eclipse-window']).toBeDefined();
+    // Post-fix empirical batch surfaced the SAME retention pattern in the
+    // mixed and strong else-fallthrough entries — moved buckets, didn't
+    // disappear. Pools added to diffuse while picker selection-logic
+    // refinement is deferred to astrologer brief BLOCKING #3.
+    expect(DAILY_NOTE_VARIANT_POOLS['mixed-moon-steady-sky-thin']).toBeDefined();
+    expect(DAILY_NOTE_VARIANT_POOLS['strong-ruler-in-motion']).toBeDefined();
   });
 });

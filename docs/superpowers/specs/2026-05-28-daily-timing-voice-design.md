@@ -1104,7 +1104,31 @@ Domain-expert reading: "resting" reads as passive/optional/neutral. Tradition tr
 
 ---
 
-**These two items are the first and currently only launch-blocking gates in the spec.** They are not advisory; they gate MVP launch. The astrologer's recorded ruling closes them.
+---
+
+**[🚨 BLOCKING #3] Picker selection breadth — entry-reachability gap (empirical finding 2026-06-01)**
+
+Post-`§12.1` empirical batch (June 2026 Kyiv, n=30; December spot-check, n=10) showed **16 of 21 §3.3 library entries never fire** in a real-data 30-day window — 5 of 6 `good-bucket` entries, 4 of 5 `mixed-bucket` entries. The picker's `pickByDominantFactor` (in `workers/api-proxy/src/translations/daily-notes/picker.ts`) maps top-window factors to entries using factor combinations the spec described gedanken-experiment style; real upstream top windows lead with different factors (e.g. `moon_waxing`, `house_ruler_dignified`) than the spec's keyed venus/mercury/jupiter patterns. Result: most entries are unreachable, and the few else-fallthroughs over-fire (see §12.2 for full data).
+
+Variant-pool diffusion has been applied to the two over-threshold fallthroughs (`mixed-moon-steady-sky-thin`, `strong-ruler-in-motion`) as a temporary measure. The structural fix needs astrologer ruling.
+
+**Astrologer rules on (must pick one):**
+- **(A)** Keep the existing factor-to-entry mappings — accepting that 16/21 entries are unreachable. Required: a one-sentence reason captured back into this spec, and ideally a recommendation on whether the unreachable entries should be removed from the library.
+- **(B)** Rewrite the existing entries' `dominant_factors_hint` to match real upstream factor distributions (e.g. rekey `good-venus-warm` to fire on the realistic top-window factor pattern for "Venus-led day"). Provide the revised hints; voice review pass follows.
+- **(C)** Extend `pickByDominantFactor`'s branch coverage so more entries are reachable on real factor combinations (e.g. add a "moon_waxing-led with no benefic" → `good-moon-steady` branch). Provide the proposed factor-to-entry mapping; engineer wires it; voice review pass follows.
+- **(D)** Author NEW entries that match real-data factor patterns and retire unreachable ones. Triggers a full voice review for any new entries.
+
+**If the ruling is B / C / D — coordinated PR required:**
+1. This spec, §3.3 entries' `dominant_factors_hint` lines (B/D) or the picker logic (C).
+2. `workers/api-proxy/src/translations/daily-notes/picker.ts` `pickByDominantFactor`.
+3. `workers/api-proxy/src/translations/dictionary/daily-notes.ts` for any entries added/removed.
+4. Re-run the 30-day empirical batch after landing; confirm distribution improves before sign-off.
+
+This is a structural item, not a copy item — the ruling shapes architecture, not phrasing.
+
+---
+
+**These three items are the currently launch-blocking gates in the spec.** They are not advisory; they gate MVP launch. The astrologer's recorded ruling closes them.
 
 ---
 
@@ -1161,6 +1185,28 @@ Partial-day exclusions with viable windows now route through the §3.3 mixed-buc
 **Variant pools added in the same coordinated commit.** `closed-moon-voc` (post-fix still fires ~10 days/month) and `closed-eclipse-window` (2-3 multi-day stretches/year) each got 3 sibling phrasings in `DAILY_NOTE_VARIANT_POOLS`, so the date-seeded rotation diffuses headlines across consecutive same-condition days. Moon void of course and eclipse stillness are uncontroversial across traditional schools, so these did not require pre-launch astrologer review.
 
 **Lesson for future maintainers.** If a decision-tree rule names a single authoritative signal (e.g. "X means Y"), verify that the signal really IS authoritative against real-world distributions before relying on it. Upstream contracts can carry richer state than first-glance reading suggests; `summary.no_viable_windows` was always there — it just wasn't load-bearing in our reading until the data made it so.
+
+### 12.2 Picker selection breadth — entry-reachability gap (2026-06-01)
+
+**Assumption.** §3.3's 21-entry library was written gedanken-experiment style — each entry described a factor pattern (e.g. "Venus dignified PASS + Mercury combust" → entry 14) under the implicit assumption that real upstream data would distribute top-window factors roughly uniformly across those patterns. `pickByDominantFactor` in `picker.ts` was then written to mirror those patterns, with else-fallthroughs to a default-of-bucket entry.
+
+**Measurement.** Post-§12.1-fix empirical batch (June 2026 Kyiv, n=30) and December spot-check (n=10):
+
+- **16 of 21 library entries never fired** in the June window. 5 of 6 `good-bucket` entries dead. 4 of 5 `mixed-bucket` entries dead.
+- **The else-fallthrough entries dominated.** `mixed-moon-steady-sky-thin` fired 17/30 (June) and 7/10 (December). `strong-ruler-in-motion` fired 6/30 (June). Both exceeded §11.4 IMPORTANT #9's retention threshold (>4× in 30 days). The retention-risk pattern §12.1 fixed in `closed-bucket` reappeared in `mixed` and `strong` — same problem in different buckets.
+- **Real-data factor distributions don't match spec assumptions.** Top windows in Kyiv real data lead with factors like `moon_waxing` and `house_ruler_dignified`, not the venus/mercury/jupiter combinations §3.3 entries were keyed on.
+
+**Immediate diffusion (this PR).** Variant pools added for `mixed-moon-steady-sky-thin` and `strong-ruler-in-motion` (same pattern as §12.1's pools — date-seeded rotation across 3 sibling phrasings each, voice-spec-faithful, no astrologer pre-review since the claims are uncontroversial).
+
+**Deferred to astrologer brief (BLOCKING #3 in §11.4).** The deeper picker-selection refinement — making good/mixed-bucket entries reachable so users see variety — requires astrologer ruling on what factor patterns SHOULD map to which entries. The spec was a thought experiment; real factor distributions differ. Possible outcomes include rewriting entries (their factor-requirement hints) and/or extending `pickByDominantFactor`'s branch coverage. Either way: new voice review territory.
+
+### 12.3 Process lesson — empirical validation as a gate
+
+§12.1 and §12.2 are the second and third structural findings the unit-test-and-audit pass missed but a real-data batch caught. (The first was iOS shadow alpha-rendering on the mobile daily hero: the renderer stripped the alpha tuned for CSS rgba, making moods indistinguishable on device — caught only by cycling through StatePicker on a real iOS build, not by any test.) The pattern is consistent: **assumptions about how the system would behave under real data are systematically more optimistic than actual behavior.**
+
+Empirical batch — direct `/electional/search` probing plus a multi-week `/daily-note` curl across a real city — should be treated as a gate, not a polish step. The unit tests verify *what we asked the system to do*; the empirical batch verifies *what the system actually does on the real distribution*. Both are needed before declaring a daily-note feature complete.
+
+For future daily-note-touching work: run the 30-day batch (with at least one summer + one winter month, ideally one Northern + one Southern hemisphere location) before sign-off. The cost is ~5 minutes of curl + a histogram script; the catch rate has been 100% so far for findings unit tests missed.
 
 ---
 

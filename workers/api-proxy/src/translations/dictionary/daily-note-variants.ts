@@ -104,4 +104,69 @@ export const DAILY_NOTE_VARIANT_POOLS: Partial<
       },
     ],
   },
+
+  // Added 2026-06-01 after the post-fix June batch surfaced the same
+  // retention-risk pattern in mixed-bucket that closed-bucket had pre-fix:
+  // 17 of 30 days fired this single entry because the picker's mixed
+  // selection logic (picker.ts:pickByDominantFactor) has only 3 branches
+  // and every partial-void day with non-venus/non-mercury PASS factors
+  // falls through here. Selection-logic refinement is deferred to the
+  // astrologer brief (BLOCKING #3 in §11.4); rotation is the immediate
+  // diffusion fix.
+  //
+  // Astrologer pre-review NOT required: "steady but thin → small moves"
+  // is uncontroversial across schools. The claim under all three siblings
+  // is the same — positive enough for tending and follow-up, not strong
+  // enough for new launches.
+  'mixed-moon-steady-sky-thin': {
+    primary_entry_id: 'mixed-moon-steady-sky-thin',
+    variants: [
+      {
+        headline: 'A day for steady hands, not big swings.',
+        supporting_line:
+          "The sky is workable but thin — good for tending what's already in motion; save the bigger asks for clearer days.",
+      },
+      {
+        headline: 'Workable, but small.',
+        supporting_line:
+          "The Moon is steady; the rest of the sky is quiet — good for follow-ups and finishing what's started, not for new launches.",
+      },
+      {
+        headline: 'A measured day — small moves first.',
+        supporting_line:
+          'The sky carries you for tending and follow-up; hold the bigger asks for stronger days.',
+      },
+    ],
+  },
+
+  // Added 2026-06-01 alongside mixed-moon-steady-sky-thin for the same
+  // reason: 6 firings in 30 days crossed the §11.4 IMPORTANT #9
+  // retention threshold. Strong-bucket selection has 3 branches (6+ PASS,
+  // venus+jupiter pair, else); the else-fallthrough is this entry, and
+  // most strong days in real upstream data don't hit the two specific
+  // branches.
+  //
+  // Astrologer pre-review NOT required: "the ruler is dignified and the
+  // sky carries action well" is uncontroversial across schools. All three
+  // siblings carry the same claim — bright supportive sky worth using.
+  'strong-ruler-in-motion': {
+    primary_entry_id: 'strong-ruler-in-motion',
+    variants: [
+      {
+        headline: "A stretch for what you've been waiting on.",
+        supporting_line:
+          'The sky carries this kind of day well — good for taking the thing off the list, signing the thing, starting the thing.',
+      },
+      {
+        headline: 'A clear day — worth using.',
+        supporting_line:
+          "Conditions favor action — good for the launches and decisions you've been putting off; the sky won't be like this every day.",
+      },
+      {
+        headline: 'A day with momentum behind it.',
+        supporting_line:
+          "The sky is on side — good for setting things in motion, making the call, asking the thing. Use it for what's been waiting.",
+      },
+    ],
+  },
 };
