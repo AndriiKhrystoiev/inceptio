@@ -1279,10 +1279,16 @@ All other ~18 sky conditions covered by the §3.3 voice library remain genuinely
 {
   // existing fields from §3.1 ...
   severity_hints?: {
-    wedding: string;          // ≤ 140 chars, follows §9 voice checklist
-    contracts: string;        // ≤ 140 chars
-    business_launch: string;  // ≤ 140 chars
-    travel: string;           // ≤ 140 chars
+    // ≤ 150 chars. Differs intentionally from §3.1 supporting_line (≤ 140):
+    // severity_hints carry a mandatory "For a {activity}, " framing prefix
+    // (~14–20 chars depending on activity name), eating budget that supporting
+    // lines do not pay. ≤ 150 reserves equivalent content space. Supporting
+    // lines stay ≤ 140. This is a documented, principled differentiation —
+    // not a global relaxation of the voice library length discipline.
+    wedding: string;          // ≤ 150 chars, follows §9 voice checklist
+    contracts: string;        // ≤ 150 chars
+    business_launch: string;  // ≤ 150 chars
+    travel: string;           // ≤ 150 chars
   };
 }
 ```
@@ -1291,7 +1297,7 @@ Entries WITHOUT `severity_hints` (~18 of 21) render unchanged. Entries WITH `sev
 
 **The 12 severity-hint strings (locked draft, pending astrologer verification per §11.4).**
 
-Each hint applies a cited tradition-stance to a specific activity. None introduce novel astrology; each is a refinement of a documented severity gradient. All pass the §9 voice checklist (no forbidden words, ≤140 chars, declarative + practical voice, no future-pointing). Travel is the explicit tolerant outlier for Venus Rx and Moon VOC per audit Constraint 4.
+Each hint applies a cited tradition-stance to a specific activity. None introduce novel astrology; each is a refinement of a documented severity gradient. All pass the §9 voice checklist (no forbidden words, **≤150 chars** — see schema rationale above for why this differs from supporting_line's ≤140, declarative + practical voice, no future-pointing). Travel is the explicit tolerant outlier for Venus Rx and Moon VOC per audit Constraint 4.
 
 #### Entry 16 (Mercury retrograde) — `closed-mercury-retrograde.severity_hints`
 
