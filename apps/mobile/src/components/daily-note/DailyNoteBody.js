@@ -16,12 +16,15 @@ import { formatDailyEyebrow } from '../../lib/format-date';
 
 /**
  * Props:
- *   mood       — 'strong' | 'good' | 'mixed' | 'closed' (drives dot color/halo)
- *   date       — ISO YYYY-MM-DD from daily_note.date (event tz)
- *   headline   — locked copy, ≤ 48 chars
- *   supporting — locked copy, ≤ 140 chars
+ *   mood          — 'strong' | 'good' | 'mixed' | 'closed' (drives dot color/halo)
+ *   date          — ISO YYYY-MM-DD from daily_note.date (event tz)
+ *   headline      — locked copy, ≤ 48 chars
+ *   supporting    — locked copy, ≤ 140 chars
+ *   activitySlot  — optional React node rendered between the eyebrow row and the
+ *                   headline. Used by DailyNoteSection (Task 5.1) to inject the
+ *                   tappable ActivityLine. When absent the layout is unchanged.
  */
-export default function DailyNoteBody({ mood = 'good', date, headline, supporting }) {
+export default function DailyNoteBody({ mood = 'good', date, headline, supporting, activitySlot }) {
   const m = MOOD_TOKENS[mood] || MOOD_TOKENS.good;
   const eyebrow = date ? formatDailyEyebrow(date) : '';
   return (
@@ -49,6 +52,10 @@ export default function DailyNoteBody({ mood = 'good', date, headline, supportin
           {eyebrow}
         </Text>
       </View>
+
+      {/* activitySlot: injected by DailyNoteSection when hydrationStatus === 'set'.
+          Null when no preference is stored — layout is unchanged in that case. */}
+      {activitySlot ?? null}
 
       <Text
         className="font-display text-cream"
