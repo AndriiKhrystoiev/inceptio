@@ -3,6 +3,8 @@ import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-q
 import { getDailyNote, type DailyNoteResult } from '../lib/api';
 import { getLastLocation } from '../lib/location-storage';
 import { storage } from '../lib/storage';
+import { useActivityPreference } from '../lib/activity-preference';
+import { __computeQueryKey, __computeEnabled } from './useDailyNote.helpers';
 
 const FALLBACK_LOCATION = {
   lat: 50.4501,
@@ -40,14 +42,32 @@ function round2(n: number): number {
  * fetch automatically — no spontaneous refetches within a day) and gcTime
  * is 24h (release memory by the next day at latest).
  *
+ * Activity reactivity:
+ *   useActivityPreference() subscribes to the activity external store via
+ *   useSyncExternalStore. When setDefaultActivity() fires, the hook
+ *   re-renders with a new `activity` value. __computeQueryKey places activity
+ *   at position 5 of the queryKey array. TanStack Query detects the content
+ *   change via deep equality and issues a fresh fetch automatically — no
+ *   explicit invalidateQueries call needed.
+ *
+ *   The query is gated by __computeEnabled: it does not fire while the store
+ *   is hydrating ("loading") or when no preference has been set ("unset").
+ *   The Today screen should handle those states with its own loading/prompt UI.
+ *
  * Library-version invalidation (PICKER-CONTRACT §6, design memo §3):
  *   On every successful fetch, compare response.library_version against
  *   the persisted marker. On mismatch, store the new value and
  *   invalidateQueries(['daily-note']) — silent, no UI surface.
  *   Astrology changes quietly.
+ *
+ * queryKey is NOT wrapped in useMemo — a missing dep (e.g. forgetting
+ * `activity`) would silently lock the key to a stale value. TanStack Query
+ * hashes array contents and only refetches on actual content change, so
+ * unmemoized array literals are correct usage here.
  */
 export function useDailyNote(): UseQueryResult<DailyNoteResult, Error> {
   const queryClient = useQueryClient();
+  const { hydrationStatus, activity } = useActivityPreference();
 
   const { lat, lng, tz } = useMemo(() => {
     const loc = getLastLocation();
@@ -62,11 +82,11 @@ export function useDailyNote(): UseQueryResult<DailyNoteResult, Error> {
   const todayIsoDate = useMemo(() => isoTodayInTz(tz), [tz]);
 
   const query = useQuery<DailyNoteResult, Error>({
-    queryKey: ['daily-note', lat, lng, tz, todayIsoDate] as const,
-    queryFn: () => getDailyNote({ lat, lng, tz }),
+    queryKey: __computeQueryKey({ lat, lng, tz, todayIsoDate, activity }),
+    queryFn: () => getDailyNote({ lat, lng, tz, activity: activity! }),
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60 * 24,
-    enabled: true,
+    enabled: __computeEnabled({ hydrationStatus, activity }),
   });
 
   // Silent library-version invalidation. Runs after every successful fetch.
