@@ -18,6 +18,7 @@ import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import { colors } from './src/theme';
 import { queryClient } from './src/lib/query-client';
 import { hydrateStorage, storage } from './src/lib/storage';
+import { initActivityPreference } from './src/lib/activity-preference';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import TodayScreen from './src/screens/TodayScreen';
 import ActivityPickerScreen from './src/screens/ActivityPickerScreen';
@@ -82,6 +83,10 @@ export default function App() {
       // across in-session navigation (back from MomentDetail keeps your
       // view) but each fresh app launch starts on the defaults.
       storage.delete('inceptio.results_view');
+      // Resolve hydrationStatus ('loading' → 'set'|'unset') before the
+      // render gate lifts. Task 6.2 will gate on 'unset' to route to
+      // FirstLaunchActivityPicker before anything else mounts.
+      initActivityPreference();
       setStorageReady(true);
     });
   }, []);
