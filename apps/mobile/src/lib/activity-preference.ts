@@ -58,6 +58,22 @@ export function initActivityPreference(): void {
   notify();
 }
 
+/**
+ * Update the user's default activity preference.
+ *
+ * Ordering: in-memory state (current + hydrationStatus + snapshot) is updated
+ * BEFORE storage.set. This is acceptable because storage.set is sync-cache +
+ * async-flush — see lib/storage.ts. AsyncStorage I/O failures are swallowed
+ * at the storage-wrapper level and cannot be detected here synchronously.
+ *
+ * Residual risk (accepted, see spec EC-14): if AsyncStorage's async flush
+ * fails (e.g. disk full, sandbox crash mid-write), the in-memory cache is
+ * ahead of disk. The current session reads the new value correctly. On cold
+ * boot, the unsynced write is lost and the user reverts to either the
+ * previously-stored explicit preference or the first-launch picker. This is
+ * unpreventable synchronously given the storage shape; documented rather than
+ * worked around.
+ */
 export function setDefaultActivity(activity: Activity): void {
   const parsed = ActivitySchema.safeParse(activity);
   if (!parsed.success) {

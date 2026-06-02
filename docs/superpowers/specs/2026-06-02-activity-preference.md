@@ -721,6 +721,36 @@ Flagged for out-of-scope cleanup. See §10 last paragraph. Three screens (`NoVia
 
 No error-reporting SDK is installed. All drift / fallback / invalid-value logs are `console.warn` with the `[activity-pref]` or `[daily-note]` bracketed namespace. When observability is added (future), promote these to tagged events with consistent property names already in use.
 
+### EC-14 — Sync-cache storage write-success ordering (accepted residual risk)
+
+> *Numbering note: an early brainstorm iteration referenced this as "EC-2 — flip to 'set' only after successful write." The spec's EC-2 ultimately captured "Migration from prior install" instead. This EC-14 carries the original brainstorm constraint forward with reconciled framing matched to the actual storage shape.*
+
+**The original brainstorm constraint** assumed `storage.set()` was synchronously awaitable / throwing — i.e. that a failing persistent write could be detected before flipping `hydrationStatus` to `'set'`, and the in-memory state could be left at the prior value with the error surfaced.
+
+**The actual `apps/mobile/src/lib/storage.ts` shape** is **sync-cache + async-flush, never throws sync**:
+
+```ts
+set(key: string, value: string): void {  // ← returns void, not Promise<void>
+  cache.set(key, value);                                 // sync Map.set
+  AsyncStorage.setItem(key, value).catch(() => {});      // async, errors swallowed
+}
+```
+
+The function returns `void`, the in-memory `cache.set()` is synchronous and never throws under normal conditions, and the async AsyncStorage write swallows any I/O failure at the wrapper level. There is no synchronous failure signal available to `setDefaultActivity` callers.
+
+**Implication for ordering.** `setDefaultActivity` (lib/activity-preference.ts:79-87) updates in-memory state (`current`, `hydrationStatus`, snapshot) FIRST, then calls `storage.set()`, then notifies listeners. This ordering is correct for the actual storage shape — write-first ordering would gain nothing (the write cannot fail synchronously, so there is no "failure" branch to gate on).
+
+**Residual risk (accepted).** If the AsyncStorage async flush fails after `setDefaultActivity` returns (disk full, sandbox terminated mid-write, app force-quit milliseconds after setDefaultActivity), the in-memory cache is ahead of disk for the remainder of the session. The user reads the new value correctly during the session. On cold boot, the unsynced write is lost and the user reverts to either the previously-stored explicit preference or, if none, the first-launch picker.
+
+**Why not worked around.** Three reasons:
+1. **No synchronous signal.** `AsyncStorage.setItem`'s rejection is caught and discarded at the storage-wrapper level (`lib/storage.ts:45`). Capturing it would require a refactor of `setDefaultActivity` to `async` and propagating the change through every consumer (including `useActivityPreference`'s hook contract), which is out of proportion to the risk.
+2. **Storage-wrapper convention.** All other consumers of `storage.set()` (draft-store, location-storage, device-id) operate under the same fire-and-forget contract. Introducing a different shape for activity-preference would diverge from the pattern.
+3. **Risk magnitude is low.** AsyncStorage I/O failures on mobile are rare (the platform handles disk pressure via app suspension). The user-facing outcome is "select your activity again" on next boot — annoying but recoverable, not corrupting.
+
+**The setDefaultActivity JSDoc** (activity-preference.ts:79-95) documents this residual risk inline so future maintainers do not interpret context-first ordering as a bug.
+
+**Migration path if ever needed.** When the storage backend moves to `react-native-mmkv` v3+ on a dev-client build (per the comment in `lib/storage.ts:1-12`), `storage.set` becomes synchronous + throwing (MMKV's native write is sync). At that point, `setDefaultActivity` can adopt write-first ordering: `try { storage.set(...) } catch { return; } current = ...; hydrationStatus = 'set'; notify();`. A test "write failure does not flip to set" becomes meaningful then. Until then, this is accepted.
+
 ---
 
 ## 12. Out of scope (deliberately, with reasons)
