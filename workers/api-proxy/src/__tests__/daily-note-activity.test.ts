@@ -10,6 +10,7 @@ vi.mock('../routes/search', () => ({
 import { handleDailyNote } from '../routes/daily-note';
 import { handleSearch } from '../routes/search';
 import { envelope } from '../translations/__tests__/fixtures';
+import { ActivitySchema } from '@inceptio/shared-types';
 
 import type { Env } from '../env';
 
@@ -109,5 +110,21 @@ describe('Phase A — /daily-note route accepts ?activity= (optional)', () => {
     expect(body.valid).toEqual(
       expect.arrayContaining(['wedding', 'contracts', 'business_launch', 'travel']),
     );
+  });
+
+  it('invalid activity 400 response uses ActivitySchema.options not a hardcoded list', async () => {
+    // Regression guard: the 400 body's `valid` array MUST be sourced from
+    // the canonical Zod enum, not a literal duplicate in route code. If a
+    // future PR adds e.g. 'surgery' to ActivitySchema without updating the
+    // route, this test will catch the drift on the next CI run rather
+    // than letting it ship.
+    const { env } = makeEnv();
+    const res = await handleDailyNote(
+      makeRequest('lat=50.45&lng=30.52&tz=Europe/Kyiv&activity=not_real'),
+      env,
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { error: string; valid: string[] };
+    expect(body.valid).toEqual(ActivitySchema.options);
   });
 });

@@ -174,6 +174,31 @@ describe('Phase A KV counter — metrics:dn-total + metrics:dn-activity-missing'
     expect(missingCalls).toHaveLength(0);
   });
 
+  it('counter resets to 1 when KV value is corrupted (NaN guard)', async () => {
+    // Regression guard for the Phase-2 NaN-guard fix. If `bumpCounter`
+    // ever reads a non-numeric string from KV (e.g. an earlier corrupt
+    // write left a literal 'NaN' on disk), it MUST reset to 1 rather
+    // than write 'NaN' back — otherwise the counter would stay poisoned
+    // for the full 14-day TTL window. We pre-populate the key with
+    // 'NaN', fire a normal request, drain the best-effort waitUntil,
+    // and assert the key is now '1'.
+    const { env } = makeEnv();
+    const ctx = makeCtx();
+    const today = new Date().toISOString().slice(0, 10);
+    await env.CACHE.put(`metrics:dn-total:${today}`, 'NaN');
+
+    const res = await handleDailyNote(
+      makeRequest('lat=50.45&lng=30.52&tz=Europe/Kyiv&activity=wedding'),
+      env,
+      ctx,
+    );
+    await drain(ctx);
+
+    expect(res.status).toBe(200);
+    const after = await env.CACHE.get(`metrics:dn-total:${today}`);
+    expect(after).toBe('1');
+  });
+
   it('counter increments are best-effort (KV failure does not 5xx the request)', async () => {
     const { env } = makeEnv();
     const ctx = makeCtx();

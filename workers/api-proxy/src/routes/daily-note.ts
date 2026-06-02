@@ -62,7 +62,15 @@ const COUNTER_TTL_SECONDS = 14 * 86400;
 async function bumpCounter(kv: KVNamespace, key: string): Promise<void> {
   try {
     const prev = await kv.get(key);
-    const next = String((prev ? Number(prev) : 0) + 1);
+    const prevNum = prev !== null ? Number(prev) : 0;
+    // Guard against corruption: if KV ever returns a non-numeric string
+    // (e.g. literal 'NaN' from an earlier corrupt write, or a stray
+    // non-digit value), Number(prev) yields NaN. Without this guard,
+    // NaN + 1 = NaN → String(NaN) = 'NaN' written back to KV — the
+    // counter would then stay stuck at 'NaN' for the full 14-day TTL.
+    // Treat non-finite reads as zero and reset cleanly on the next bump.
+    const base = Number.isFinite(prevNum) ? prevNum : 0;
+    const next = String(base + 1);
     await kv.put(key, next, { expirationTtl: COUNTER_TTL_SECONDS });
   } catch {
     // Best-effort: swallow KV errors so the user request still succeeds.
@@ -157,10 +165,16 @@ export async function handleDailyNote(
   } else {
     const parsed = ActivitySchema.safeParse(activityRaw);
     if (!parsed.success) {
+      // `ActivitySchema.options` is Zod 3's literal-tuple exposure for
+      // z.enum([...]) — single source of truth so this list never drifts
+      // when a future activity (e.g. v1.4 surgery/legal) is added to the
+      // schema. Previously hard-coded ['wedding','contracts',...]; a
+      // schema addition would have silently shipped an outdated 400
+      // response body until someone noticed in production.
       return Response.json(
         {
           error: 'invalid_activity',
-          valid: ['wedding', 'contracts', 'business_launch', 'travel'],
+          valid: ActivitySchema.options,
         },
         { status: 400 },
       );
