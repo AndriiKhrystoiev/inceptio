@@ -2,6 +2,7 @@ import type { Env } from '../env';
 import { ActivitySchema, type Activity } from '@inceptio/shared-types';
 import { readCache, writeCache } from '../daily-note-cache';
 import { PART_OF_DAY_CUTOFFS } from '../translations/dictionary/part-of-day';
+import { composeDisplayable } from '../translations/daily-notes/composer';
 import { computeMoonPhase } from '../translations/daily-notes/moon-phase';
 import { synthesizeDailyNote } from '../translations/daily-notes/picker';
 import { LIBRARY_VERSION } from '../translations/types';
@@ -96,9 +97,15 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
   // truth for the four MVP activities lives in @inceptio/shared-types.
   const activityRaw = url.searchParams.get('activity');
   let activity: Activity;
+  // Tracks whether the missing-?activity= branch fired. Threaded to the
+  // composer so an asymmetric severity_hint composed against the default
+  // business_launch can emit a diagnostic warn. Phase B (Task 8.1) removes
+  // both the fallback and this boolean once the mobile rollout completes.
+  let wasActivityFallback = false;
   if (activityRaw === null) {
     console.warn('[daily-note] activity missing, defaulting to business_launch');
     activity = 'business_launch';
+    wasActivityFallback = true;
   } else {
     const parsed = ActivitySchema.safeParse(activityRaw);
     if (!parsed.success) {
@@ -112,10 +119,9 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
     }
     activity = parsed.data;
   }
-  // `activity` is now a guaranteed Activity. Task 2.3 will embed it in the
-  // cache key; Task 2.4 will thread it through the composer for activity-
-  // specific severity hints. For this commit it is only used to drive the
-  // upstream /electional/search fan-out below.
+  // `activity` is now a guaranteed Activity. Task 2.3 embeds it in the
+  // cache key; Task 2.4 threads it through composeDisplayable for the
+  // activity-specific severity_hint and the fallback diagnostic warn.
 
   const now = new Date();
 
@@ -257,11 +263,15 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
       noViableWindows,
     });
 
-    // Compose PickResult + moon_phase into DailyNoteOutput
-    dailyNote = {
-      ...picked,
-      moon_phase: computeMoonPhase(dateIso),
-    };
+    // Compose PickResult + moon_phase (+ activity-asymmetric severity_hint
+    // when the picked entry warrants one) into DailyNoteOutput. The composer
+    // is activity-aware; the picker is not.
+    dailyNote = composeDisplayable({
+      picked,
+      moonPhase: computeMoonPhase(dateIso),
+      activity,
+      wasActivityFallback,
+    });
 
     const nowUnix = Math.floor(now.getTime() / 1000);
     await writeCache(env, cacheKey, dailyNote, nowUnix);

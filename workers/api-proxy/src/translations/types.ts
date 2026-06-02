@@ -240,6 +240,14 @@ export interface DailyNoteOutput {
   entry_id: string;
   /** True when the picker fell through to a vague-variant fallback. */
   used_fallback: boolean;
+  /**
+   * Optional activity-asymmetric clarifier — mirrors
+   * DailyNoteOutputSchema.severity_hint in shared-types. Composed by
+   * `composeDisplayable` when the picked entry maps to an asymmetric
+   * exclusion condition (mercury_retrograde, venus_retrograde, moon_voc).
+   * Bounded at ≤ 150 chars by the severity-hints dictionary.
+   */
+  severity_hint?: string;
 }
 
 /** Saved-search status — array, one per saved search (PICKER-CONTRACT.md §2). */

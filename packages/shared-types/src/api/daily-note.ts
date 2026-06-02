@@ -46,6 +46,15 @@ export const DailyNoteOutputSchema = z.object({
   exclusion_reason: z.string().optional(),
   entry_id: z.string(),
   used_fallback: z.boolean(),
+  /**
+   * Optional activity-asymmetric clarifier composed in the Worker when the
+   * picked entry is one of the asymmetric exclusion conditions
+   * (mercury_retrograde, venus_retrograde, moon_voc). Carries the mandatory
+   * "For a {activity}, …" framing per voice spec §3.3 and is bounded at
+   * ≤ 150 chars by the source dictionary. Optional preserves backward
+   * compatibility with existing mobile decoders that pre-date this field.
+   */
+  severity_hint: z.string().max(150).optional(),
 });
 export type DailyNoteOutput = z.infer<typeof DailyNoteOutputSchema>;
 
