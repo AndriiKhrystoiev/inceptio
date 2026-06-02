@@ -1,3 +1,4 @@
+import type { Activity } from '@inceptio/shared-types';
 import type { Env } from './env';
 import type { DailyNoteOutput } from './translations/types';
 import { LIBRARY_VERSION } from './translations/types';
@@ -7,6 +8,15 @@ export interface DailyNoteCacheKey {
   lng: number;
   /** Wall-clock date YYYY-MM-DD in the event location's timezone. */
   dateIso: string;
+  /**
+   * Activity dimension (Phase A — feature/activity-preference, Task 2.3).
+   * Without this, two requests on the same lat/lng/date but different
+   * activities (e.g. wedding vs travel) would share a cache entry — wrong
+   * response. Embedding activity in the key namespaces entries per activity
+   * and naturally produces a fresh miss when the same device upgrades from
+   * the legacy fallback (`business_launch`) to a specific activity.
+   */
+  activity: Activity;
 }
 
 /**
@@ -18,11 +28,14 @@ export interface DailyNoteCacheKey {
  * Lat/lng round to 2 decimal places (~1.1 km granularity) so nearby
  * locations share a cache entry. Adequate for daily-note purposes; the sky
  * doesn't change meaningfully at city-block scale.
+ *
+ * Activity is the final segment so it reads naturally and so existing log
+ * tooling that grep'd on the date prefix still matches the leading portion.
  */
-export function keyOf({ lat, lng, dateIso }: DailyNoteCacheKey): string {
+export function keyOf({ lat, lng, dateIso, activity }: DailyNoteCacheKey): string {
   const latRounded = lat.toFixed(2);
   const lngRounded = lng.toFixed(2);
-  return `daily-note:${LIBRARY_VERSION}:${latRounded}:${lngRounded}:${dateIso}`;
+  return `daily-note:${LIBRARY_VERSION}:${latRounded}:${lngRounded}:${dateIso}:${activity}`;
 }
 
 /**

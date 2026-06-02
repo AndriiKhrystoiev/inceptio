@@ -149,7 +149,12 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
     dateIso = formatDateInTz(now, tz);
   }
 
-  const cacheKey = { lat, lng, dateIso };
+  // Activity is part of the cache key (Task 2.3) so cross-activity requests
+  // don't share entries. Phase A fallback case (activity defaulted to
+  // business_launch above) is naturally namespaced under
+  // `...:business_launch`; when the client later upgrades to ?activity=wedding,
+  // it's a fresh cache miss against `...:wedding` — correct behavior.
+  const cacheKey = { lat, lng, dateIso, activity };
 
   // Read cache. On hit we have the daily_note portion; envelope is added below.
   let dailyNote: DailyNoteOutput | null = await readCache(env, cacheKey);

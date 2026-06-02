@@ -2,22 +2,30 @@ import { describe, expect, it } from 'vitest';
 import { keyOf, ttlSecondsForDay } from '../daily-note-cache';
 import { LIBRARY_VERSION } from '../translations/types';
 
+// `activity` became a required dimension of the cache key in Task 2.3
+// (feature/activity-preference Phase A). Tests below default to
+// `business_launch` — the historical fallback — so the assertions remain
+// focused on the dimension under test (LIBRARY_VERSION, lat/lng rounding,
+// date). Cross-activity distinctness is covered separately in
+// daily-note-cache-key.test.ts.
+const A: 'business_launch' = 'business_launch';
+
 describe('keyOf', () => {
   it('includes LIBRARY_VERSION so library bumps invalidate cached entries atomically', () => {
-    const key = keyOf({ lat: 50.4501, lng: 30.5234, dateIso: '2026-05-29' });
+    const key = keyOf({ lat: 50.4501, lng: 30.5234, dateIso: '2026-05-29', activity: A });
     expect(key).toContain(LIBRARY_VERSION);
     expect(key.startsWith(`daily-note:${LIBRARY_VERSION}:`)).toBe(true);
   });
 
   it('rounds lat/lng to 2 decimal places (~1.1 km granularity) so nearby locations share a cache entry', () => {
-    const k1 = keyOf({ lat: 50.4501234, lng: 30.5234567, dateIso: '2026-05-29' });
-    const k2 = keyOf({ lat: 50.4499999, lng: 30.5234001, dateIso: '2026-05-29' });
+    const k1 = keyOf({ lat: 50.4501234, lng: 30.5234567, dateIso: '2026-05-29', activity: A });
+    const k2 = keyOf({ lat: 50.4499999, lng: 30.5234001, dateIso: '2026-05-29', activity: A });
     expect(k1).toBe(k2);
   });
 
   it('different dates produce different keys', () => {
-    const k1 = keyOf({ lat: 50.45, lng: 30.52, dateIso: '2026-05-29' });
-    const k2 = keyOf({ lat: 50.45, lng: 30.52, dateIso: '2026-05-30' });
+    const k1 = keyOf({ lat: 50.45, lng: 30.52, dateIso: '2026-05-29', activity: A });
+    const k2 = keyOf({ lat: 50.45, lng: 30.52, dateIso: '2026-05-30', activity: A });
     expect(k1).not.toBe(k2);
   });
 });
