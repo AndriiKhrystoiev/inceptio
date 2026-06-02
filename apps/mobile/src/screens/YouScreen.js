@@ -12,7 +12,7 @@ import * as Clipboard from 'expo-clipboard';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import Toast from '../components/Toast';
-import { getLastActivity } from '../lib/draft-store';
+import { useActivityPreference } from '../lib/activity-preference';
 import { clearSavedMoments } from '../lib/draft-store';
 import { getLastLocation } from '../lib/location-storage';
 import { getDeviceId, clearDeviceId } from '../lib/device-id';
@@ -46,7 +46,11 @@ export default function YouScreen() {
   const [tick, setTick] = useState(0);
   const bumpTick = useCallback(() => setTick((t) => t + 1), []);
 
-  const lastActivity = getLastActivity() ?? 'wedding';
+  // Checkpoint 1 canary: read explicit default activity preference via the
+  // useSyncExternalStore hook. Phase 7 (Task 7.1) replaces this with full
+  // change-sheet wiring. For now: pure read swap, onPress = comingSoon stays.
+  const { hydrationStatus, activity } = useActivityPreference();
+  const lastActivity = hydrationStatus === 'set' ? activity : 'wedding';
   const lastLocation = getLastLocation();
 
   // Device id is async (platform vendor lookup on first call). Cache locally.
