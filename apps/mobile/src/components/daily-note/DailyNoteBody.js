@@ -16,15 +16,19 @@ import { formatDailyEyebrow } from '../../lib/format-date';
 
 /**
  * Props:
- *   mood          — 'strong' | 'good' | 'mixed' | 'closed' (drives dot color/halo)
- *   date          — ISO YYYY-MM-DD from daily_note.date (event tz)
- *   headline      — locked copy, ≤ 48 chars
- *   supporting    — locked copy, ≤ 140 chars
- *   activitySlot  — optional React node rendered between the eyebrow row and the
- *                   headline. Used by DailyNoteSection (Task 5.1) to inject the
- *                   tappable ActivityLine. When absent the layout is unchanged.
+ *   mood           — 'strong' | 'good' | 'mixed' | 'closed' (drives dot color/halo)
+ *   date           — ISO YYYY-MM-DD from daily_note.date (event tz)
+ *   headline       — locked copy, ≤ 48 chars
+ *   supporting     — locked copy, ≤ 140 chars
+ *   severityHint   — optional activity-asymmetric clarifier from the Worker, ≤ 150
+ *                    chars. Rendered after `supporting` when present. Carries the
+ *                    "For a {activity}, …" framing per voice spec §3.3. text-muted
+ *                    (#B8B0CC) is binding per EC-9 — do not use text-subtle.
+ *   activitySlot   — optional React node rendered between the eyebrow row and the
+ *                    headline. Used by DailyNoteSection (Task 5.1) to inject the
+ *                    tappable ActivityLine. When absent the layout is unchanged.
  */
-export default function DailyNoteBody({ mood = 'good', date, headline, supporting, activitySlot }) {
+export default function DailyNoteBody({ mood = 'good', date, headline, supporting, severityHint, activitySlot }) {
   const m = MOOD_TOKENS[mood] || MOOD_TOKENS.good;
   const eyebrow = date ? formatDailyEyebrow(date) : '';
   return (
@@ -68,6 +72,18 @@ export default function DailyNoteBody({ mood = 'good', date, headline, supportin
         style={{ fontSize: 15, lineHeight: 22, marginTop: 12, maxWidth: 318 }}>
         {supporting}
       </Text>
+
+      {/* severityHint: activity-asymmetric clarifier, e.g. "For a wedding, …".
+          text-muted (#B8B0CC) is binding here — EC-9 forbids text-subtle which
+          fails WCAG AA against bg-deep. marginTop 8 (not 12) keeps it visually
+          attached to supporting rather than floating as a separate section. */}
+      {severityHint ? (
+        <Text
+          className="font-ui text-muted"
+          style={{ fontSize: 15, lineHeight: 22, marginTop: 8, maxWidth: 318 }}>
+          {severityHint}
+        </Text>
+      ) : null}
     </View>
   );
 }

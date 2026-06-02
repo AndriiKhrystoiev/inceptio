@@ -61,6 +61,7 @@ export default function DailyNoteSection({ dailyNote, savedMomentsCount, onInvit
           date={dailyNote.date}
           headline={dailyNote.headline}
           supporting={dailyNote.supporting}
+          severityHint={dailyNote.severity_hint}
           activitySlot={activitySlot}
         />
       </DailyHero>
