@@ -1,34 +1,30 @@
-// Activity nouns sourced from voice spec §6.3 STATUS_PRE_WINDOW template.
-// MUST match the Worker dictionary verbatim — drift breaks the contract.
-// Worker side: workers/api-proxy/src/translations/dictionary/status-lines.ts
-// ACTIVITY_NOUNS.
+// Activity display data is now the canonical source from lib/activities.
+// ACTIVITY_NOUNS, ACTIVITY_DISPLAY, and getActivityNoun are re-exported from
+// there so the scaffold stays in sync automatically.
 //
-// Drift-prevention: the enum is enumerated against the locked voice library,
-// not hand-rolled per-call. A scaffold-time mistake like
-// `business_launch → 'business'` (which would drop the voice-locked noun
-// "Launch") is structurally impossible because the value is sourced from
-// this table, not invented at call sites.
+// NOTE: lib/activities.ts ACTIVITY_NOUNS uses sentence-context lowercase
+// ('wedding', 'contract', 'launch', 'journey') while the Worker dictionary
+// (status-lines.ts) uses capitalized display nouns ('Wedding', 'Contract',
+// 'Launch', 'Travel'). This divergence is flagged in Task 1.4 — the worker-
+// mirror parity test surfaces it explicitly. Resolve before wire-in.
+//
+// NOTE: lib/activities.ts ACTIVITY_DISPLAY uses NativeWind class strings
+// ('bg-wedding-tint' / 'border-wedding-ring') rather than rgba literals.
+// ActivityPlate's inline style usage (backgroundColor: a.tint) will receive
+// a NativeWind class string after this re-export — acceptable for a scaffold-
+// only component not rendered in MVP; must be updated at wire-in time.
 
-export const ACTIVITY_NOUNS = {
-  wedding:         'Wedding',
-  contracts:       'Contract',
-  business_launch: 'Launch',
-  travel:          'Travel',
-};
+// All imports must precede other module statements per ES module spec.
+import React from 'react';
+import { View, Text } from 'react-native';
+import { ACTIVITY_DISPLAY } from '../../../lib/activities';
 
-export function getActivityNoun(activity) {
-  return ACTIVITY_NOUNS[activity] ?? 'Window';
-}
-
-// Visual tokens for ActivityPlate. Tint/ring rgba literals at scaffold-time
-// MUST promote to theme.js semantic tokens before wire-in per the README's
-// "Before wire-in" section.
-export const ACTIVITY_DISPLAY = {
-  wedding:         { emoji: '💍', tint: 'rgba(249,181,200,0.16)', ring: 'rgba(249,181,200,0.30)' },
-  contracts:       { emoji: '📋', tint: 'rgba(244,193,154,0.16)', ring: 'rgba(244,193,154,0.30)' },
-  business_launch: { emoji: '🚀', tint: 'rgba(229,199,125,0.16)', ring: 'rgba(229,199,125,0.30)' },
-  travel:          { emoji: '✈️', tint: 'rgba(103,232,199,0.16)', ring: 'rgba(103,232,199,0.30)' },
-};
+// Re-export canonical data so existing consumers of this path keep working.
+export {
+  ACTIVITY_NOUNS,
+  ACTIVITY_DISPLAY,
+  getActivityNoun,
+} from '../../../lib/activities';
 
 /**
  * ActivityPlate — emoji-in-tinted-square used by SavedRow, InWindowCard,
@@ -38,9 +34,6 @@ export const ACTIVITY_DISPLAY = {
  *   activity — Activity enum value
  *   size     — pixel size (default 32)
  */
-import React from 'react';
-import { View, Text } from 'react-native';
-
 export function ActivityPlate({ activity, size = 32 }) {
   const a = ACTIVITY_DISPLAY[activity] || ACTIVITY_DISPLAY.wedding;
   return (
