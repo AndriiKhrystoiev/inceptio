@@ -107,6 +107,14 @@ export default function App() {
     if (fontsLoaded && storageReady) await SplashScreen.hideAsync();
   }, [fontsLoaded, storageReady]);
 
+  // useActivityPreference MUST be called before any conditional return below
+  // — Rules of Hooks: every hook call site must be reached on every render in
+  // the same order. Placing this after the boot gate caused "Rendered more
+  // hooks than during the previous render" when storageReady flipped from
+  // false to true. See activity-preference.ts: useActivityPreference wraps
+  // useSyncExternalStore.
+  const { hydrationStatus } = useActivityPreference();
+
   if (!fontsLoaded || !storageReady) {
     return (
       <View style={styles.boot}>
@@ -114,8 +122,6 @@ export default function App() {
       </View>
     );
   }
-
-  const { hydrationStatus } = useActivityPreference();
 
   // Belt-and-suspenders: if pref is still loading at render, fall back to the
   // boot view. In practice, the storage hydrate effect runs initActivityPreference
