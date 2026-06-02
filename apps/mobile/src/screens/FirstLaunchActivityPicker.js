@@ -92,7 +92,7 @@ export default function FirstLaunchActivityPicker({ go }) {
             </PrimaryButton>
           </View>
           {/* Hint text reassures users that this isn't permanent */}
-          <Text className="font-ui text-[13px] text-subtle text-center mt-5">
+          <Text className="font-ui text-[13px] text-muted text-center mt-5">
             You can change this anytime in You → Settings.
           </Text>
         </View>

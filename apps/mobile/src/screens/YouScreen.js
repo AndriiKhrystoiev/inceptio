@@ -208,7 +208,7 @@ export default function YouScreen() {
 function Section({ title }) {
   return (
     <View className="px-6 pt-9 pb-3 flex-row items-center gap-[14px]">
-      <Text className="font-ui-semi text-[11px] text-subtle tracking-[1px] uppercase">
+      <Text className="font-ui-semi text-[11px] text-muted tracking-[1px] uppercase">
         {title}
       </Text>
       <View className="flex-1 h-px bg-soft" />
@@ -227,7 +227,7 @@ function Row({ label, detail, onPress, destructive, hint }) {
       <View>
         <Text className={labelClass}>{label}</Text>
         {hint ? (
-          <Text className="font-ui text-[11px] text-subtle mt-[2px]">{hint}</Text>
+          <Text className="font-ui text-[11px] text-muted mt-[2px]">{hint}</Text>
         ) : null}
       </View>
       {detail ? (
