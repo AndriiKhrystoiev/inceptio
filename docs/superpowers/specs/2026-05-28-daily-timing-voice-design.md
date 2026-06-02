@@ -307,6 +307,31 @@ Plus two domain-expert revisions and one user-directed revision applied after th
 
 These revisions are flagged so a reviewer can push back if the original phrasing was load-bearing for a reason. The astrologer-review pass (§11.4) should also check these specifically.
 
+### 3.5 Activity eyebrow phrases (2026-06-02 — D3 Decision 1 Path B)
+
+Added alongside the default activity preference feature (`docs/superpowers/specs/2026-06-02-activity-preference.md` §7 + plan Task 1.2 + plan Task 5.1). The daily-note hero gains a **tappable activity-line** between the date eyebrow and the headline, rendering one of these four phrases:
+
+| Activity | Eyebrow phrase | Char count |
+|---|---|---|
+| `wedding` | *"for your wedding"* | 16 |
+| `contracts` | *"for your contracts"* | 18 |
+| `business_launch` | *"for your launch"* | 15 |
+| `travel` | *"for your travels"* | 16 |
+
+**Voice-check pass:**
+- All four start with the same prepositional frame (`for your …`) — visual rhythm matches the three-tier hierarchy (eyebrow → activity-line → headline).
+- Singular for wedding / launch (each a single event); plural for contracts (a partnership document set typically signed across two parties) and travels (a journey across stops). Singular vs plural is a per-activity intuition call, not a tradition claim.
+- No forbidden words. No future-pointing. No agency / cosmic-weight verb.
+- All ≤ 20 chars to keep the line short and visually anchored against the longer headline below.
+
+**Where the strings live in code.** Source-of-truth in this voice spec (above). Mirrored to `apps/mobile/src/lib/activities.ts` as `ACTIVITY_EYEBROW_PHRASES`. Verify-in-sync discipline: when this section ships a revision (astrologer review or copy refinement), update both surfaces in the same PR.
+
+**Astrologer-review scope (§11.4 addendum):** these four phrases are standalone framing copy, not factor-keyed entries. Review is for tone consistency with the §3.3 library; the phrases do not assert sky claims and so do not gate launch as BLOCKING items. Add to the "Important items (likely keep but verify — these do NOT gate launch)" section of §11.4.
+
+**Not in scope here:**
+- Activity-line **chevron + tap behavior** is implementation-level — design is fixed in feature spec §7 + plan Task 5.1.
+- Activity-line **rendering when `hydrationStatus !== 'set'`** is governed by the gate cascade in feature spec §3 + §4; voice spec only owns the copy.
+
 ---
 
 ## 4. Unfavorable-Day Strategies (Fork B)
@@ -1164,6 +1189,8 @@ The empirical-batch evidence for `mixed-moon-steady-sky-thin` (17 firings / 30 J
 - **The Fork B decision tree (§4.5)** — does the branch-1-wins precedence rule (named exclusion beats uniformly-weak) hold in tradition? Lilly's distinction between *"the time is unfit"* (no good significator) and *"the matter is impeded"* (Moon void/combust/besieged) supports this — please verify.
 - **Lot of Fortune in `factors.ts`** — domain-expert flagged that the literal phrase "Lot of Fortune" / "Part of Fortune" sits adjacent to the locked forbidden word *fortune*, and is opaque to non-astrologers in L1 voice. Review the existing `part_of_fortune_in_good_house` factor translation; consider whether to translate away from the literal term. This is a `factors.ts` concern, not a daily-note spec concern, but the audit surfaced it and it should be in scope for the review.
 - **Entry 18 eclipse window** — domain-expert noted eclipse effects in tradition are often described as lasting *the lunation cycle* (days-to-a-fortnight either side), not "a week". Is "eclipse week" acceptable consumer simplification, or should it stretch?
+- **§3.5 ACTIVITY_EYEBROW_PHRASES (4 phrases).** Added 2026-06-02 alongside the default activity preference feature (Decision 1 Path B — Today-tap → change activity). Standalone framing copy ("for your wedding", "for your contracts", "for your launch", "for your travels"), not factor-keyed sky claims. Review for tone consistency with the §3.3 library. Not BLOCKING — these don't assert sky doctrine. Mirror in `apps/mobile/src/lib/activities.ts` `ACTIVITY_EYEBROW_PHRASES`; if revised here, update both surfaces in the same PR.
+- **The activity-asymmetric severity hints in §12.4 (D3 rescue) — 12 confirmed + 4 pending = 16 total strings.** Added 2026-06-02 alongside the default activity preference feature (`docs/superpowers/specs/2026-06-02-activity-preference.md`). 12 confirmed (Venus Rx, Mercury Rx, day-dominant Moon VOC × 4 activities). 4 pending astrologer ruling on whether intraday Moon VOC (Entry 12) warrants the same activity-asymmetric treatment as day-dominant Moon VOC (Entry 15). These are **refinements of cited traditional stances**, not novel astrological claims — each hint applies a documented Lilly/Bonatti/Dorotheus/Frawley severity gradient (Venus Rx, Mercury Rx, Moon VOC) to a specific MVP activity. Sources cited inline in the D3 audit doc (`docs/superpowers/expert/2026-06-02-default-activity-d3-audit.md`) and KB (`docs/superpowers/expert/_knowledge-base/astrology-electional.md`). **Treat as pending verification, NOT as new BLOCKING #4-#15.** Astrologer review confirms (a) the activity-severity mapping matches tradition, (b) the consumer phrasings are appropriate, and (c) travel correctly reads as the "tolerant outlier" for Venus Rx and Moon VOC per the cited sources. If any of the 12 needs revision, the same coordinated-PR discipline as BLOCKING #1/#2 applies — both this spec (§12.4) and the Worker dictionary (`workers/api-proxy/src/translations/dictionary/severity-hints.ts`) must change together.
 
 **Nice-to-have (do not gate launch):**
 
@@ -1231,6 +1258,103 @@ Partial-day exclusions with viable windows now route through the §3.3 mixed-buc
 Empirical batch — direct `/electional/search` probing plus a multi-week `/daily-note` curl across a real city — should be treated as a gate, not a polish step. The unit tests verify *what we asked the system to do*; the empirical batch verifies *what the system actually does on the real distribution*. Both are needed before declaring a daily-note feature complete.
 
 For future daily-note-touching work: run the 30-day batch (with at least one summer + one winter month, ideally one Northern + one Southern hemisphere location) before sign-off. The cost is ~5 minutes of curl + a histogram script; the catch rate has been 100% so far for findings unit tests missed.
+
+### 12.4 D3 reopened — activity-asymmetric severity hints (2026-06-02)
+
+**Assumption.** The brainstorm for default activity preference (`docs/superpowers/specs/2026-06-02-activity-preference.md`) initially proposed (as decision D3): the daily-note's base sky-state sentence is *activity-agnostic* across all 4 MVP activities. Only the call-to-action and framing differ. Architectural payoff: 1× voice spec instead of 4× per-activity variants.
+
+**Audit finding.** Domain-expert pre-flight audit (`docs/superpowers/expert/2026-06-02-default-activity-d3-audit.md`) stress-tested D3 against traditional electional sources and returned **WEAKENS (borderline FAILS)**. Three conditions break the activity-agnostic claim with citations:
+
+- **Venus retrograde** — Severity asymmetric across activities (Frawley significator rule on Skyscript; CHANI 2026 dates-to-avoid post applies Venus Rx primarily to wedding + business, not travel; Susan Miller: *"you can go on vacation when Venus is retrograde"*). Wedding/business/contracts severe; travel tolerant.
+- **Mercury retrograde** — Severity asymmetric (Lilly Bk III, Bonatti Tr. 7; modern practitioner consensus — Big Sky Astrology, YourTango — that wedding Mercury Rx is mitigatable via legal-paperwork-outside-ceremony workaround). Contracts catastrophic (Mercury IS the significator); travel/business cautionary; wedding mitigatable.
+- **Moon void of course** — Severity asymmetric (Lilly's dignified-Moon exceptions in Cancer/Taurus/Sagittarius/Pisces; modern practice that journey-during-VOC is fine, *booking* during VOC is the problem). Wedding/contracts/business severe; travel tolerant for the journey, not for the booking.
+
+All other ~18 sky conditions covered by the §3.3 voice library remain genuinely activity-agnostic in tradition. D3's strict "1× voice across all conditions" does not hold; D3's spirit — *"avoid 4× spec explosion"* — is preserved via a thin asymmetry layer.
+
+**Correction (architectural).** Adopt **"uniform base sentence + optional one-line severity hint per activity"** for the three asymmetric conditions only. The base headline + supporting_line of the relevant §3.3 entries (Entry 16 `closed-mercury-retrograde`, Entry 17 `closed-venus-retrograde`, Entry 15 `closed-moon-voc` and intraday Entry 12 `mixed-moon-void-until-noon`) stay activity-agnostic. A new optional `severity_hint` field is added to the entry schema (extending §3.1), keyed by `Activity`. When the picker selects one of these entries AND the request carries an `activity`, the Worker composes the response with the corresponding hint as a third body line. When activity is absent (Phase A Worker fallback — see activity-preference spec §6), the Worker omits the hint slot and logs the fallback.
+
+**Schema extension (§3.1 entry schema).** Three §3.3 entries (the three asymmetric conditions) carry an additional optional field:
+
+```ts
+{
+  // existing fields from §3.1 ...
+  severity_hints?: {
+    wedding: string;          // ≤ 140 chars, follows §9 voice checklist
+    contracts: string;        // ≤ 140 chars
+    business_launch: string;  // ≤ 140 chars
+    travel: string;           // ≤ 140 chars
+  };
+}
+```
+
+Entries WITHOUT `severity_hints` (~18 of 21) render unchanged. Entries WITH `severity_hints` render the matching activity's string as a third body line in `text-muted` (not `text-subtle` — see activity-preference spec EC-9).
+
+**The 12 severity-hint strings (locked draft, pending astrologer verification per §11.4).**
+
+Each hint applies a cited tradition-stance to a specific activity. None introduce novel astrology; each is a refinement of a documented severity gradient. All pass the §9 voice checklist (no forbidden words, ≤140 chars, declarative + practical voice, no future-pointing). Travel is the explicit tolerant outlier for Venus Rx and Moon VOC per audit Constraint 4.
+
+#### Entry 16 (Mercury retrograde) — `closed-mercury-retrograde.severity_hints`
+
+| Activity | Severity hint string |
+|---|---|
+| `wedding` | *"For a wedding, tradition is gentler here than for a contract — the vows themselves are less impacted than the legal documents that accompany them."* |
+| `contracts` | *"For a contract, this is the stretch tradition asks you to wait through — words and agreements made now tend to need rewriting."* |
+| `business_launch` | *"For a launch, the announcements and the early outreach don't land the way they will in a few weeks. Better held."* |
+| `travel` | *"For travel, the trip itself is fine — but build buffer for delays, and double-check the tickets and the times."* |
+
+Source: Lilly *Christian Astrology* Bk III on Mercury and contracts; Bonatti *Liber Astronomiae* Tr. 7 on retrogradation; Frawley significator-of-matter rule (Mercury is the natural significator for words and agreements — contracts most affected, weddings less so since Venus is their natural significator).
+
+#### Entry 17 (Venus retrograde) — `closed-venus-retrograde.severity_hints`
+
+| Activity | Severity hint string |
+|---|---|
+| `wedding` | *"For a wedding, this is the stretch tradition asks you to wait through — Venus governs marriage, and her support is withdrawn now."* |
+| `contracts` | *"For a contract, this matters most for partnerships and anything tied to money — renewing an old agreement holds; beginning a new one strains."* |
+| `business_launch` | *"For a launch, this stretch sits across the things you want this venture to attract — revenue, customers, goodwill. Better to wait."* |
+| `travel` | *"For travel, this matters less than it does for the other beginnings — a trip during this stretch is fine to take."* |
+
+Source: Frawley *The Real Astrology* (significator-of-matter rule — strengthen the planet naturally associated with the task; Venus is wedding's natural significator); Bonatti *Liber Astronomiae* Tr. 7 (retrogradation as universal affliction, severity scaling with which house ruler is afflicted); Lilly *Christian Astrology* Bk III on marriage elections. Travel tolerance: Susan Miller via [Glam](https://www.glam.com/1268856/astrologer-susan-miller-wedding-date-hack-venus-retrograde/) — exact quote: *"You can go on vacation when Venus is retrograde, but I don't want you getting married..."*
+
+#### Entry 15 (Moon void of course) — `closed-moon-voc.severity_hints`
+
+| Activity | Severity hint string |
+|---|---|
+| `wedding` | *"For a wedding, tradition is unambiguous here — what's started today does not take root the way it does on other days."* |
+| `contracts` | *"For a contract, today is the day to hold signing — the matter begun now tends to need revisiting or quietly fall away."* |
+| `business_launch` | *"For a launch, the announcement made today tends to land softly or get reshuffled later — wait for the Moon to settle into the next sign."* |
+| `travel` | *"For travel, the journey itself is fine — but if you're booking a ticket, wait until the Moon reaches the next sign."* |
+
+Source: Lilly *Christian Astrology* Bk III on VOC — canonical definition via [Anthony Louis](https://tonylouis.wordpress.com/2021/02/27/lillys-definition-of-the-void-of-course-moon/); Cancer/Taurus/Sagittarius/Pisces dignity exceptions (Bonatti aphorism 64 + Lilly) via [Lee Lehman](https://leelehman.com/wp/index.php/2003/10/21/the-void-of-course-moon-from-linear-time-to-lunar-time/); Bonatti's Considerations on impediments via Dykes translation of *Liber Astronomiae*. Travel tolerance per modern practitioner consensus: journey-during-VOC fine, *booking* during VOC is the impeded act.
+
+**Intraday Moon VOC — Entry 12 (`mixed-moon-void-until-noon`)**
+
+Entry 12 is intraday (the void ends before evening) rather than day-dominant. Its severity_hints follow the same activity-asymmetric pattern but with the intraday horizon class preserved:
+
+| Activity | Severity hint string |
+|---|---|
+| `wedding` | *"For a wedding, time the vows for the afternoon — the morning hours aren't held by the sky the way the afternoon will be."* |
+| `contracts` | *"For a contract, hold the signing until after midday — the morning void doesn't carry agreements."* |
+| `business_launch` | *"For a launch, time the announcement for the afternoon — the morning hours land softer than the rest of the day."* |
+| `travel` | *"For travel, the morning is fine to be in motion — but hold any new bookings or reservations for the afternoon."* |
+
+This brings the total to 16 strings if Entry 12 is treated as an asymmetric condition (the brainstorm's "12 strings" figure assumed 3 entries × 4 activities; including Entry 12 as a 4th asymmetric entry yields 4 entries × 4 activities = 16). **Decision to include Entry 12 in the asymmetry layer is itself pending astrologer verification** — Entry 12 was added during §3.3 hardening for the intraday case and may or may not warrant the same activity-asymmetric treatment as Entry 20.
+
+**Where the strings live in code.** Source-of-truth in this spec (above). Mirrored to `workers/api-proxy/src/translations/dictionary/severity-hints.ts` with the same verify-in-sync discipline as `status-lines.ts` per CLAUDE.md's translation-layer policy. The Worker reads the matching string at composition time based on the picked entry id + the request's `activity` param.
+
+**QA gate (split sampling rule — replaces the prior §12.4 placeholder).**
+
+The activity-preference spec's per-activity batch QA gate must use **split sampling** to be meaningful. A flat "sample 1 day across 4 activities" is too narrow — on a moon-dominated day, the 4 activities surface the same top factor and the same headline + body, with only the eyebrow CTA differing. The asymmetry layer only fires on the 3 (or 4) asymmetric conditions, which are not the everyday case.
+
+| Sample category | Description | Minimum sample size | What to verify |
+|---|---|---|---|
+| **Convergent (moon-dominated)** | A typical day with no asymmetric condition — e.g. a clean Moon waxing day, no retrograde, no VOC | 1 day × 4 activities | Headline + body + supporting line are **identical** across the 4 activities. Only eyebrow CTA and activity-noun differ. NO severity hint rendered. |
+| **Divergent (significator-asymmetric)** | A day where one of the 3 (or 4) asymmetric conditions fires | 1 day × 4 activities × 3 conditions (= 12 sample cells, minimum) | Headline + body activity-agnostic AND identical across 4 activities. Severity hint **differs across the 4 activities**, with travel reading tolerant for Venus Rx + Moon VOC per Constraint 4. |
+| **Venus Rx 2026 (mandatory)** | At least one sample date in October–November 2026 (Venus Rx period covering MVP launch window) | 1 date × 4 activities | All 4 hints render. Wedding/business/contracts read severe; travel reads tolerant. |
+| **Phase A fallback case** | A Worker request without `?activity=` during Phase A migration | 1 request × 1 asymmetric date | Severity hint slot is OMITTED (Worker doesn't compose it when activity is absent). `[daily-note] severity-hint composed with fallback activity` warn fires. |
+
+Without the split, QA either over-fires on every flat day (false positive — the 4 are supposed to converge) or misses the asymmetry case (false negative — the 4 should diverge but the sample didn't catch it). The split makes both halves of the gate verifiable.
+
+**Lesson for future maintainers.** Architectural payoff claims that rest on a single load-bearing astrological doctrine (here, "sky state is activity-agnostic in tradition") need stress-testing against the doctrine itself before the spec text locks. The D3 audit was the cheap version of that test — it ran in ~5 minutes and caught a load-bearing weakening before the brainstorm wrote 4× scope into the spec. The 12-string rescue is the cheap fix — O(asymmetric_conditions × activities), not O(all_conditions × activities). If a future feature makes a similar "X is uniform across activities" claim, run the equivalent stress-test before the architectural commitment.
 
 ---
 
