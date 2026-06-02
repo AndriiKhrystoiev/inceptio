@@ -12,15 +12,13 @@ import * as Clipboard from 'expo-clipboard';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import Toast from '../components/Toast';
-import { useActivityPreference } from '../lib/activity-preference';
+import { useActivityPreference, setDefaultActivity } from '../lib/activity-preference';
+import { getActivityLabel } from '../lib/activities';
+import { ActivityChangeSheet } from '../components/ActivityChangeSheet';
 import { clearSavedMoments } from '../lib/draft-store';
 import { getLastLocation } from '../lib/location-storage';
 import { getDeviceId, clearDeviceId } from '../lib/device-id';
 
-function capitalize(s) {
-  if (!s) return s;
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 export default function YouScreen() {
   // Toast state — mirrors the pattern from MomentDetailScreen.
@@ -46,12 +44,23 @@ export default function YouScreen() {
   const [tick, setTick] = useState(0);
   const bumpTick = useCallback(() => setTick((t) => t + 1), []);
 
-  // Checkpoint 1 canary: read explicit default activity preference via the
-  // useSyncExternalStore hook. Phase 7 (Task 7.1) replaces this with full
-  // change-sheet wiring. For now: pure read swap, onPress = comingSoon stays.
   const { hydrationStatus, activity } = useActivityPreference();
-  const lastActivity = hydrationStatus === 'set' ? activity : 'wedding';
+  const activityDetail =
+    hydrationStatus === 'set' && activity
+      ? getActivityLabel(activity)
+      : hydrationStatus === 'unset'
+      ? 'Not set'
+      : '...'; // 'loading' — Phase 6 gate makes this unreachable in practice
   const lastLocation = getLastLocation();
+
+  // Change-sheet state for the Default activity Row.
+  const [changeSheetOpen, setChangeSheetOpen] = useState(false);
+  const openActivityChangeSheet = useCallback(() => setChangeSheetOpen(true), []);
+  const closeActivityChangeSheet = useCallback(() => setChangeSheetOpen(false), []);
+  const onSelectActivity = useCallback((next) => {
+    setDefaultActivity(next);
+    setChangeSheetOpen(false);
+  }, []);
 
   // Device id is async (platform vendor lookup on first call). Cache locally.
   const [deviceId, setDeviceId] = useState(null);
@@ -121,7 +130,6 @@ export default function YouScreen() {
     );
   }
 
-  const activityLabel = capitalize(lastActivity.replace('_', ' '));
   const locationLabel = lastLocation?.city ?? 'Not set';
   const truncatedDeviceId = deviceId
     ? deviceId.length > 16
@@ -150,7 +158,7 @@ export default function YouScreen() {
         </View>
 
         <Section title="Your preferences" />
-        <Row label="Default activity" detail={activityLabel} onPress={comingSoon} />
+        <Row label="Default activity" detail={activityDetail} onPress={openActivityChangeSheet} />
         <Row label="Default location" detail={locationLabel} onPress={comingSoon} />
 
         {/* Long-press the About header for 3s to reveal the Debug section
@@ -196,6 +204,13 @@ export default function YouScreen() {
           onDismiss={dismissToast}
         />
       )}
+
+      <ActivityChangeSheet
+        open={changeSheetOpen}
+        current={activity}
+        onSelect={onSelectActivity}
+        onClose={closeActivityChangeSheet}
+      />
     </View>
   );
 }
