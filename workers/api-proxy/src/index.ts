@@ -3,6 +3,7 @@ import { handleHealth } from './routes/health';
 import { handleSearch } from './routes/search';
 import { handleDailyNote } from './routes/daily-note';
 import { handleAlertAck } from './routes/alert-ack';
+import { handleActivityMissingRate } from './routes/admin';
 
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -24,6 +25,14 @@ export default {
 
     if (url.pathname === '/daily-note/alert-ack' && req.method === 'POST') {
       return handleAlertAck(req, env);
+    }
+
+    // Admin: Checkpoint 3 gate query for the activity-missing fallback
+    // rate. Auth is the x-admin-token header (env.ADMIN_TOKEN secret),
+    // checked inside the handler. Mounted on the same Worker so it
+    // ships with the staging deploy, not as a separate Worker.
+    if (url.pathname === '/admin/activity-missing-rate' && req.method === 'GET') {
+      return handleActivityMissingRate(req, env);
     }
 
     return Response.json(

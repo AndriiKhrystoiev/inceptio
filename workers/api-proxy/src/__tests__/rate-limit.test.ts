@@ -31,6 +31,7 @@ function makeEnv(
     WORKER_VERSION: 'test',
     ASTROLOGY_API_KEY: 'test-key',
     ENV: envName,
+    ADMIN_TOKEN: 'test-admin-token',
   };
 }
 

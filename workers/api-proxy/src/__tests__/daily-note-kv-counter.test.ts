@@ -61,6 +61,7 @@ function makeEnv() {
     WORKER_VERSION: 'test',
     ASTROLOGY_API_KEY: 'k',
     ENV: 'development',
+    ADMIN_TOKEN: 'test-admin-token',
   };
   return { env, store, kv: namespace };
 }

@@ -64,6 +64,7 @@ function makeEnv(): { env: Env; store: Map<string, string> } {
       WORKER_VERSION: 'test',
       ASTROLOGY_API_KEY: 'test-key',
       ENV: 'development',
+      ADMIN_TOKEN: 'test-admin-token',
     },
   };
 }
