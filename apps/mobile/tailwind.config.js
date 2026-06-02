@@ -43,6 +43,17 @@ module.exports = {
         'heat-ok':        '#5B4F8A', // theme.heatOk
         'heat-good':      '#8B6FE8', // theme.heatGood
         'heat-excellent': '#E5C77D', // theme.heatExcellent
+
+        // Activity tint/ring tokens — verbatim from scaffold/activity-display.js.
+        // Used by ACTIVITY_DISPLAY in src/lib/activities.ts as bg-*/border-* classes.
+        'wedding-tint':         'rgba(249,181,200,0.16)',
+        'wedding-ring':         'rgba(249,181,200,0.30)',
+        'contracts-tint':       'rgba(244,193,154,0.16)',
+        'contracts-ring':       'rgba(244,193,154,0.30)',
+        'business-launch-tint': 'rgba(229,199,125,0.16)',
+        'business-launch-ring': 'rgba(229,199,125,0.30)',
+        'travel-tint':          'rgba(103,232,199,0.16)',
+        'travel-ring':          'rgba(103,232,199,0.30)',
       },
 
       fontFamily: {

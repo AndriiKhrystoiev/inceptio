@@ -40,6 +40,18 @@ export const colors = {
   heatOk:        '#5B4F8A',
   heatGood:      '#8B6FE8',
   heatExcellent: '#E5C77D',
+
+  // Activity tint/ring tokens — verbatim from scaffold/activity-display.js.
+  // Parallel to tailwind.config.js 'wedding-tint' etc.; used by ActivityPlate
+  // consumers that reference theme.js directly rather than NativeWind classes.
+  weddingTint:         'rgba(249,181,200,0.16)',
+  weddingRing:         'rgba(249,181,200,0.30)',
+  contractsTint:       'rgba(244,193,154,0.16)',
+  contractsRing:       'rgba(244,193,154,0.30)',
+  businessLaunchTint:  'rgba(229,199,125,0.16)',
+  businessLaunchRing:  'rgba(229,199,125,0.30)',
+  travelTint:          'rgba(103,232,199,0.16)',
+  travelRing:          'rgba(103,232,199,0.30)',
 };
 
 // Font families — names match those loaded in App.js via @expo-google-fonts.
