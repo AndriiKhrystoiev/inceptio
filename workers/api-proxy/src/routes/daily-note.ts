@@ -47,7 +47,55 @@ import { handleSearch } from './search';
  * own saved-search statuses using local data (or via a future endpoint that
  * accepts saved searches in a POST body).
  */
-export async function handleDailyNote(req: Request, env: Env): Promise<Response> {
+/**
+ * Best-effort KV counter used by the Phase A activity-missing rate metric.
+ * Read-modify-write — not atomic, but Workers KV doesn't expose atomic
+ * increment and a single-digit miss rate on a 14-day rolling counter
+ * is well within the accuracy needed at Checkpoint 3 (gate is "did the
+ * mobile rollout actually happen?", not exact arithmetic).
+ *
+ * Errors are swallowed: a KV outage MUST NOT bubble up and 5xx a
+ * user-facing /daily-note request just because a metric write failed.
+ */
+const COUNTER_TTL_SECONDS = 14 * 86400;
+
+async function bumpCounter(kv: KVNamespace, key: string): Promise<void> {
+  try {
+    const prev = await kv.get(key);
+    const next = String((prev ? Number(prev) : 0) + 1);
+    await kv.put(key, next, { expirationTtl: COUNTER_TTL_SECONDS });
+  } catch {
+    // Best-effort: swallow KV errors so the user request still succeeds.
+    // The counter is monitoring infrastructure, not load-bearing.
+  }
+}
+
+/**
+ * No-op ExecutionContext fallback for legacy callers (sibling test files
+ * that haven't been updated to pass ctx). In production the entry handler
+ * in src/index.ts always passes the real ctx from the Worker runtime;
+ * this default only fires from tests that pre-date Task 2.6. waitUntil
+ * just executes the promise (best-effort fire-and-forget) so counter
+ * writes still happen — without the deferred lifetime extension, but
+ * that's harmless in tests.
+ */
+const NOOP_CTX: ExecutionContext = {
+  waitUntil(p: Promise<unknown>) {
+    void p;
+  },
+  passThroughOnException() {
+    // no-op
+  },
+  // `props` is required by recent @cloudflare/workers-types but is only
+  // used by Workers-for-Platforms; empty object satisfies the type.
+  props: {},
+};
+
+export async function handleDailyNote(
+  req: Request,
+  env: Env,
+  ctx: ExecutionContext = NOOP_CTX,
+): Promise<Response> {
   const url = new URL(req.url);
   const latRaw = url.searchParams.get('lat');
   const lngRaw = url.searchParams.get('lng');
@@ -122,6 +170,26 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
   // `activity` is now a guaranteed Activity. Task 2.3 embeds it in the
   // cache key; Task 2.4 threads it through composeDisplayable for the
   // activity-specific severity_hint and the fallback diagnostic warn.
+
+  // Phase A activity-missing rate counter (Task 2.6). Gates Checkpoint 3 —
+  // we want a queryable rolling rate of "what % of /daily-note requests
+  // are still hitting the legacy no-activity fallback?" before flipping
+  // Phase B (Task 8.1) which removes the fallback. Counter is intentionally
+  // dated by UTC `today` to give a 14-day rolling window via TTL; the date
+  // boundary is fine for a rate metric even if individual requests are in
+  // other timezones. ctx.waitUntil keeps the read-modify-write off the
+  // response critical path; the helper swallows errors so a KV outage
+  // doesn't 5xx the user's request.
+  //
+  // TODO(follow-up before Checkpoint 3): add /admin/activity-missing-rate
+  // endpoint and query-activity-missing-rate.ts CLI per plan Task 2.6 Step 5.
+  // Counter primitives ship now; the read-side query surface lands when
+  // Checkpoint 3 actually fires in Phase 8.
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  ctx.waitUntil(bumpCounter(env.CACHE, `metrics:dn-total:${todayUtc}`));
+  if (wasActivityFallback) {
+    ctx.waitUntil(bumpCounter(env.CACHE, `metrics:dn-activity-missing:${todayUtc}`));
+  }
 
   const now = new Date();
 

@@ -5,7 +5,7 @@ import { handleDailyNote } from './routes/daily-note';
 import { handleAlertAck } from './routes/alert-ack';
 
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(req.url);
 
     if (url.pathname === '/health' && req.method === 'GET') {
@@ -17,7 +17,9 @@ export default {
     }
 
     if (url.pathname === '/daily-note' && req.method === 'GET') {
-      return handleDailyNote(req, env);
+      // ctx threaded so the route can use ctx.waitUntil for best-effort
+      // KV counter writes (Task 2.6) without blocking the response.
+      return handleDailyNote(req, env, ctx);
     }
 
     if (url.pathname === '/daily-note/alert-ack' && req.method === 'POST') {
