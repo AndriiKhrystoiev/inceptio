@@ -1,4 +1,5 @@
 import type { Env } from '../env';
+import { ActivitySchema, type Activity } from '@inceptio/shared-types';
 import { readCache, writeCache } from '../daily-note-cache';
 import { PART_OF_DAY_CUTOFFS } from '../translations/dictionary/part-of-day';
 import { computeMoonPhase } from '../translations/daily-notes/moon-phase';
@@ -21,10 +22,24 @@ import { handleSearch } from './search';
  * lockstep PR) atomically invalidates all entries — see contract §6 and
  * daily-note-cache.ts.
  *
- * The activity used for the underlying search is `business_launch` — chosen
- * because (a) it produces the most balanced factor distribution for a
- * general-purpose daily reading, (b) it never depends on natal data, and
- * (c) it's an MVP activity so the API key already authorizes it.
+ * Activity selection (Phase A — feature/activity-preference):
+ *   - The client MAY supply ?activity=<wedding|contracts|business_launch|travel>.
+ *     The chosen activity drives the underlying /electional/search call (so the
+ *     daily note reflects the activity the user actually cares about) and will,
+ *     in Task 2.3, be embedded in the cache key.
+ *   - If the param is missing (legacy mobile clients pre-rollout), the route
+ *     logs a `console.warn` and falls back to `business_launch`. The fallback
+ *     is temporary: Phase B (Task 8.1) makes activity required and removes
+ *     the fallback once the mobile rollout completes.
+ *   - If the param is present but not a known MVP activity, the route returns
+ *     400 `invalid_activity` with the enumerated valid values. We fail loudly
+ *     here rather than silently substituting business_launch — an unknown
+ *     activity from a client is a contract violation, not a legacy gap.
+ *
+ * Why business_launch as the fallback: (a) it produces the most balanced
+ * factor distribution for a general-purpose daily reading, (b) it never
+ * depends on natal data, and (c) it's an MVP activity so the API key
+ * already authorizes it.
  *
  * Saved-search status fan-out is deferred to a follow-on task — for MVP the
  * endpoint returns `saved_searches: []` and the mobile client derives its
@@ -69,6 +84,38 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
       { status: 400 },
     );
   }
+
+  // Activity selection (Phase A). See route docstring for full rationale.
+  //   - Present + valid  → use it
+  //   - Present + invalid → 400 invalid_activity (loud contract violation)
+  //   - Missing          → warn + fall back to business_launch (legacy compat,
+  //                        removed in Phase B / Task 8.1)
+  //
+  // We use ActivitySchema.safeParse so the same enum that validates
+  // /electional/search bodies validates this query param — single source of
+  // truth for the four MVP activities lives in @inceptio/shared-types.
+  const activityRaw = url.searchParams.get('activity');
+  let activity: Activity;
+  if (activityRaw === null) {
+    console.warn('[daily-note] activity missing, defaulting to business_launch');
+    activity = 'business_launch';
+  } else {
+    const parsed = ActivitySchema.safeParse(activityRaw);
+    if (!parsed.success) {
+      return Response.json(
+        {
+          error: 'invalid_activity',
+          valid: ['wedding', 'contracts', 'business_launch', 'travel'],
+        },
+        { status: 400 },
+      );
+    }
+    activity = parsed.data;
+  }
+  // `activity` is now a guaranteed Activity. Task 2.3 will embed it in the
+  // cache key; Task 2.4 will thread it through the composer for activity-
+  // specific severity hints. For this commit it is only used to drive the
+  // upstream /electional/search fan-out below.
 
   const now = new Date();
 
@@ -128,7 +175,7 @@ export async function handleDailyNote(req: Request, env: Env): Promise<Response>
     // agnostic fan-out has no meaningful city label. Placeholder is fine:
     // city is a display label, never used for chart math.
     const searchBody = {
-      activity: 'business_launch',
+      activity,
       lat,
       lng,
       start: dateIso,
