@@ -329,9 +329,9 @@ The existing `App.js:103-108` storage hydration gate already shows a splash equi
 - `apps/mobile/src/components/daily-note/scaffold/SavedRow.js` — import path swap
 - `apps/mobile/src/screens/ActivityPickerScreen.js` — `CARDS` keeps inline visual styling, but the **labels** (`title`, `subtitle`) read from `ACTIVITY_LABELS` in `lib/activities.ts`
 
-### Files NOT modified — verify-in-sync contract
+### Files NOT modified — intentional divergence (NOT a verify-in-sync contract)
 
-- `workers/api-proxy/src/translations/dictionary/status-lines.ts:9-14` — Worker noun mirror stays separately reviewed per CLAUDE.md's Worker translation-dictionary discipline. It is NOT consolidated into `lib/activities.ts`. The two are independent sources kept in sync by code review; this spec adds a **"verify-in-sync" check** as a test (see §9): a unit test that imports both and asserts the noun maps are equal.
+- `workers/api-proxy/src/translations/dictionary/status-lines.ts:9-14` — Worker noun map holds **Title Case display nouns** (`Wedding`, `Contract`, `Launch`, `Travel`) used internally to compose status-line templates like `"{activity_noun} window — tomorrow."`. This spec's `lib/activities.ts` `ACTIVITY_NOUNS` is the **sentence-context** map (`wedding`, `contract`, `launch`, `journey`) used in user-facing eyebrow / scaffold prose like `"for your journey"`. The semantic shift `travel → 'journey'` is deliberate — it pairs with `OnboardingScreen.js`'s existing poetic copy (`"a wedding, a launch, a journey, a fresh page"`). **The two maps are NOT mirrors and NOT subject to a sync test** — they are two canonical sources for two distinct surfaces. A `lib/activities.ts` header comment documents this so future maintainers don't re-introduce a false parity test (the original plan included one; it was deleted in Task 1.4's resolution).
 
 ### Canonical shape (locked)
 
@@ -581,11 +581,7 @@ The existing tick state at `YouScreen.js:46-47` and `:62` is used for **Reset op
   - `ACTIVITY_LABELS`, `ACTIVITY_NOUNS`, `ACTIVITY_EMOJI`, `ACTIVITY_DISPLAY` have entries for all 4 MVP activities, no extras.
   - `getActivityNoun` and `getActivityLabel` return correct values.
 
-- `apps/mobile/src/__tests__/worker-mirror-parity.test.ts` (NEW — verify-in-sync gate)
-  - Imports `ACTIVITY_NOUNS` from `apps/mobile/src/lib/activities.ts`.
-  - Imports `ACTIVITY_NOUNS` from `workers/api-proxy/src/translations/dictionary/status-lines.ts`.
-  - Asserts they are deeply equal. Fails CI if they drift.
-  - This is the verify-in-sync contract that lets the two copies remain independent without silent divergence.
+- ~~`apps/mobile/src/__tests__/worker-mirror-parity.test.ts`~~ — **REMOVED 2026-06-02 in Task 1.4 resolution.** Original plan assumed mobile and Worker `ACTIVITY_NOUNS` were byte-mirrors; investigation surfaced they are semantically distinct concepts (sentence-context lowercase nouns vs Title Case status-line display nouns, `travel → 'journey'` vs `'Travel'`). The intentional divergence is documented in `lib/activities.ts` header comment and §5 above; no sync test exists, and CI does NOT gate on cross-map parity.
 
 ### Worker tests
 
@@ -747,7 +743,7 @@ No error-reporting SDK is installed. All drift / fallback / invalid-value logs a
 The planner MUST surface these as explicit `/plan-and-implement` review checkpoints:
 
 **Checkpoint 1 — Architectural commitment (after §3 module + §5 canonical migration).**
-Verify the `useSyncExternalStore` module pattern works end-to-end across at least two consumer screens (YouScreen + Today via useDailyNote) before building the rest. Confirm: hydration-status trinary renders correctly in all three states; canonical activity display data is the single source; worker-mirror parity test passes.
+Verify the `useSyncExternalStore` module pattern works end-to-end across at least two consumer screens (YouScreen + Today via useDailyNote) before building the rest. Confirm: hydration-status trinary renders correctly in all three states; canonical activity display data is the single source.
 
 **Checkpoint 2 — Per-activity batch reality check (after §6 + §7 Worker route ships in Phase A).**
 Real-data validation across the 4 MVP activities on a Venus-Rx fixture date (e.g. 2026-10-15). Verify the asymmetry-hint composition surfaces the 4 distinct severity hints (or absences thereof for travel-as-tolerant). This is the moment where the §12.4 split-sampling QA gate from the voice spec kicks in for the first time on real data. If the per-activity batch shows all 4 activities surfacing the same hint (i.e. asymmetry not actually wired), STOP and debug before continuing.
@@ -785,7 +781,7 @@ The phased rollout has a natural pause point: Phase A is shipped, but Phase B (r
 | D16 | Severity-hint string source | Worker `severity-hints.ts` dictionary, mirrors voice spec §12.4 | Worker-side translation discipline. |
 | D17 | Component for picker selection | Thin new `ActivityOption`, NOT extract from `ActivityPickerScreen` | Code-arch Finding (Card is inline-private). |
 | D18 | When to consolidate to PreferencesContext | At 3+ preferences | Threshold rule. |
-| D19 | Canonical activity display | `lib/activities.ts` consolidates scaffold + picker labels; Worker `status-lines.ts` stays separate with verify-in-sync test | Code-arch Finding (3 sources). |
+| D19 | Canonical activity display | `lib/activities.ts` consolidates scaffold + picker labels. Worker `status-lines.ts` stays separate — **intentionally divergent semantics** (sentence-context vs status-line display), NOT a verify-in-sync mirror. Original plan added a parity test; deleted in Task 1.4 resolution. | Code-arch Finding (3 sources); divergence surfaced empirically 2026-06-02. |
 | D20 | Today screen mount discipline | Unchanged — unmounts on tab switch; TanStack cache survives | Code-arch Finding D. |
 | D21 | `KEY_LAST_ACTIVITY` fate | KEEP — distinct semantic from `KEY_DEFAULT_ACTIVITY` | Code-arch Finding E. |
 | D22 | This spec's file path | `docs/superpowers/specs/2026-06-02-activity-preference.md` | — |

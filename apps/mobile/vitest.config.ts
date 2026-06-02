@@ -6,8 +6,6 @@ export default defineConfig({
   test: {
     include: [
       'src/lib/__tests__/**/*.test.ts',
-      // Cross-cutting integration tests (e.g. worker-mirror parity).
-      'src/__tests__/**/*.test.ts',
     ],
     environment: 'node',
   },

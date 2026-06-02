@@ -1,5 +1,20 @@
 import type { Activity } from '@inceptio/shared-types';
 
+// Canonical activity display data for the mobile app. Mirrors the activity
+// label / noun / emoji / theme-token / eyebrow-phrase needs of UI surfaces.
+//
+// INTENTIONAL DIVERGENCE from Worker's status-line dictionary
+// (`workers/api-proxy/src/translations/dictionary/status-lines.ts`): the Worker
+// holds Title Case display nouns (`Wedding`, `Contract`, `Launch`, `Travel`)
+// used internally to compose status-line templates like
+// `"{activity_noun} window — tomorrow."`. This module's ACTIVITY_NOUNS is the
+// **sentence-context** map used in user-facing eyebrow / scaffold prose like
+// `"for your journey"`. The semantic shift `travel → 'journey'` is deliberate —
+// it pairs with OnboardingScreen's existing poetic copy
+// ("a wedding, a launch, a journey, a fresh page"). Do NOT add a sync test
+// asserting the two maps match — they are not mirrors, they are two distinct
+// canonical sources for two distinct surfaces.
+
 export const ACTIVITY_LABELS: Record<Activity, string> = {
   wedding: 'Wedding',
   contracts: 'Contract',
