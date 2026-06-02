@@ -211,7 +211,7 @@ export async function healthCheck(): Promise<HealthResult> {
 // ─── /daily-note ──────────────────────────────────────────────────────────
 
 import { DailyNoteResponseSchema } from '@inceptio/shared-types';
-import type { DailyNoteResponse } from '@inceptio/shared-types';
+import type { Activity, DailyNoteResponse } from '@inceptio/shared-types';
 
 export interface DailyNoteResult {
   response: DailyNoteResponse;
@@ -222,6 +222,7 @@ export interface GetDailyNoteInput {
   lat: number;
   lng: number;
   tz: string;
+  activity: Activity;
 }
 
 /**
@@ -244,7 +245,7 @@ export async function getDailyNote(
   input: GetDailyNoteInput,
 ): Promise<DailyNoteResult> {
   const deviceId = await getDeviceId();
-  const url = `${API_CONFIG.baseUrl}/daily-note?lat=${input.lat}&lng=${input.lng}&tz=${encodeURIComponent(input.tz)}`;
+  const url = `${API_CONFIG.baseUrl}/daily-note?lat=${input.lat}&lng=${input.lng}&tz=${encodeURIComponent(input.tz)}&activity=${input.activity}`;
 
   const res = await fetchWithTimeout(
     url,
