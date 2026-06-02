@@ -18,7 +18,7 @@ import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import { colors } from './src/theme';
 import { queryClient } from './src/lib/query-client';
 import { hydrateStorage, storage } from './src/lib/storage';
-import { initActivityPreference } from './src/lib/activity-preference';
+import { initActivityPreference, useActivityPreference } from './src/lib/activity-preference';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import TodayScreen from './src/screens/TodayScreen';
 import ActivityPickerScreen from './src/screens/ActivityPickerScreen';
@@ -112,6 +112,39 @@ export default function App() {
       <View style={styles.boot}>
         <ActivityIndicator color={colors.primaryGlow}/>
       </View>
+    );
+  }
+
+  const { hydrationStatus } = useActivityPreference();
+
+  // Belt-and-suspenders: if pref is still loading at render, fall back to the
+  // boot view. In practice, the storage hydrate effect runs initActivityPreference
+  // (Task 6.1) before setStorageReady(true), so hydrationStatus should be 'set'
+  // or 'unset' by the time storageReady === true.
+  if (hydrationStatus === 'loading') {
+    return (
+      <View style={styles.boot}>
+        <ActivityIndicator color={colors.primaryGlow}/>
+      </View>
+    );
+  }
+
+  // First-launch gate: no preference set yet → mount the FirstLaunchActivityPicker
+  // as a modal-style full-screen experience (no tab bar). User selects + taps
+  // Continue → setDefaultActivity fires → hydrationStatus moves to 'set' → next
+  // render falls through to the normal screen tree.
+  if (hydrationStatus === 'unset' && screen !== 'first-launch-activity') {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider>
+          <View style={styles.root} onLayout={onLayoutRoot}>
+            <StatusBar style="light"/>
+            <View style={styles.content}>
+              <FirstLaunchActivityPicker go={go}/>
+            </View>
+          </View>
+        </SafeAreaProvider>
+      </QueryClientProvider>
     );
   }
 
