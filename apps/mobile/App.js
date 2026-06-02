@@ -30,6 +30,7 @@ import MomentDetailScreen from './src/screens/MomentDetailScreen';
 import YourMomentsScreen from './src/screens/YourMomentsScreen';
 import YouScreen from './src/screens/YouScreen';
 import PaywallScreen from './src/screens/PaywallScreen';
+import FirstLaunchActivityPicker from './src/screens/FirstLaunchActivityPicker';
 import TabBar from './src/components/TabBar';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -47,10 +48,11 @@ const SCREENS = {
   moments:    YourMomentsScreen,
   you:        YouScreen,
   paywall:    PaywallScreen,
+  'first-launch-activity': FirstLaunchActivityPicker,
 };
 
 // Screens that hide the bottom tab bar (modal flows + onboarding).
-const MODAL_SCREENS = new Set(['onboarding', 'picker', 'date', 'location', 'loading', 'noviable', 'paywall']);
+const MODAL_SCREENS = new Set(['onboarding', 'picker', 'date', 'location', 'loading', 'noviable', 'paywall', 'first-launch-activity']);
 
 // Tab id (one of: today / calendar / moments / you) is independent
 // of screen id so a modal flow doesn't deactivate the tab below it.
