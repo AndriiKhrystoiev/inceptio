@@ -56,10 +56,10 @@ export default function FirstLaunchActivityPicker({ go }) {
         {/* Headline */}
         <View className="items-center">
           <Text className="font-display text-[32px] leading-[40px] tracking-[-0.3px] text-cream text-center max-w-[320px]">
-            What matters to you most?
+            Welcome to Inceptio
           </Text>
           <Text className="font-ui text-[15px] leading-[22px] text-muted text-center mt-4 max-w-[300px]">
-            Choose the kind of moment you'd like to find first. You can change this anytime in You.
+            What kind of moment would you like to find first?
           </Text>
         </View>
 
@@ -82,18 +82,18 @@ export default function FirstLaunchActivityPicker({ go }) {
 
         {/* Continue CTA — disabled until selection is made */}
         <View className="pb-8">
-          <PrimaryButton
-            testID="first-launch-continue"
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !selected }}
-            onPress={onContinue}
-            disabled={!selected}
-          >
-            Continue
-          </PrimaryButton>
+          {/* View wrapper owns testID because PrimaryButton's signature does not
+              forward testID to its internal Pressable — adding it there would
+              affect every consumer. The wrapper gives RNTL and smoke tests a
+              stable query target without touching the shared component. */}
+          <View testID="first-launch-continue">
+            <PrimaryButton onPress={onContinue} disabled={!selected}>
+              Continue
+            </PrimaryButton>
+          </View>
           {/* Hint text reassures users that this isn't permanent */}
           <Text className="font-ui text-[13px] text-subtle text-center mt-5">
-            You can change this anytime in You
+            You can change this anytime in You → Settings.
           </Text>
         </View>
       </SafeAreaView>
