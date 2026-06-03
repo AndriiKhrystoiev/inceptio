@@ -24,24 +24,13 @@ import IconBtn from '../components/IconBtn';
 import PrimaryButton from '../components/PrimaryButton';
 import Toast from '../components/Toast';
 import { patchDraft, getDraft } from '../lib/draft-store';
-import { saveLocation, getLastLocation, deviceTimezone } from '../lib/location-storage';
+import { saveLocation, getLastLocation, pickToSavedLocation } from '../lib/location-storage';
 import { useLocationSearch } from '../hooks/useLocationSearch';
 import {
   NominatimRateLimitError,
   NominatimError,
   reverseGeocode,
 } from '../lib/nominatim';
-
-function pickToSavedLocation(pick) {
-  return {
-    lat: pick.lat,
-    lng: pick.lng,
-    city: pick.city || pick.display_name.split(',')[0].trim(),
-    country: pick.country ?? '',
-    timezone: deviceTimezone(),
-    selected_at: Math.floor(Date.now() / 1000),
-  };
-}
 
 function errorMessage(err) {
   if (err instanceof NominatimRateLimitError) {

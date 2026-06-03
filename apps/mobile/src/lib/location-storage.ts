@@ -1,4 +1,5 @@
 import { storage } from './storage';
+import type { NominatimResult } from './nominatim';
 
 // Canonical persisted shape for "the location the user last picked." Read by
 // the Today screen's useDailyNote query and the picker chain when the
@@ -87,4 +88,23 @@ export function deviceTimezone(): string {
   } catch {
     return 'UTC';
   }
+}
+
+/**
+ * Convert a Nominatim search result into a SavedLocation persistable shape.
+ *
+ * Canonical writer for SavedLocation. Lifted from LocationPickerScreen.js so
+ * the tz invariant can be enforced at a single site. In Phase 0 this function
+ * preserves the existing deviceTimezone() body — Phase 1 swaps it to
+ * tzLookup-derived tz.
+ */
+export function pickToSavedLocation(pick: NominatimResult): SavedLocation {
+  return {
+    lat: pick.lat,
+    lng: pick.lng,
+    city: pick.city || pick.display_name.split(',')[0].trim(),
+    country: pick.country ?? '',
+    timezone: deviceTimezone(),
+    selected_at: Math.floor(Date.now() / 1000),
+  };
 }
