@@ -160,6 +160,14 @@ export async function handleDailyNote(
     );
   }
 
+  // Hoisted once for both observability paths below (tz-mismatch + activity-
+  // missing) so two separate `new Date()` calls can't straddle the UTC midnight
+  // boundary and produce different date keys for counters that should agree.
+  // activityRaw is hoisted alongside so the tz-mismatch warn payload can name
+  // the activity without re-parsing the query string.
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const activityRaw = url.searchParams.get('activity');
+
   // ── Tz authority block (Spec §7 / Task 3.2) ────────────────────────────────
   // The Worker is the canonical timezone source: derive from coordinates, fall
   // back to client-supplied tz, fall back to UTC. All downstream logic uses
@@ -174,16 +182,15 @@ export async function handleDailyNote(
   // Fires on gradual-rollout drift detection; does NOT fire when client omitted
   // tz entirely (clientTz === null) — that's the legacy no-tz-param path.
   if (derivedTz !== null && clientTz !== null && clientTz !== derivedTz) {
-    const today = new Date().toISOString().slice(0, 10);
     console.warn('[daily-note] tz_lat_lng_mismatch:', {
       lat,
       lng,
       got: clientTz,
       expected: derivedTz,
-      activity: url.searchParams.get('activity') ?? 'unknown',
-      date: today,
+      activity: activityRaw ?? 'unknown',
+      date: todayUtc,
     });
-    ctx.waitUntil(bumpCounter(env.CACHE, `metrics:dn-tz-mismatch:${today}`));
+    ctx.waitUntil(bumpCounter(env.CACHE, `metrics:dn-tz-mismatch:${todayUtc}`));
   }
   // ────────────────────────────────────────────────────────────────────────────
 
@@ -196,7 +203,7 @@ export async function handleDailyNote(
   // We use ActivitySchema.safeParse so the same enum that validates
   // /electional/search bodies validates this query param — single source of
   // truth for the four MVP activities lives in @inceptio/shared-types.
-  const activityRaw = url.searchParams.get('activity');
+  // (activityRaw hoisted above the tz authority block.)
   let activity: Activity;
   // Tracks whether the missing-?activity= branch fired. Threaded to the
   // composer so an asymmetric severity_hint composed against the default
@@ -244,7 +251,7 @@ export async function handleDailyNote(
   // endpoint and query-activity-missing-rate.ts CLI per plan Task 2.6 Step 5.
   // Counter primitives ship now; the read-side query surface lands when
   // Checkpoint 3 actually fires in Phase 8.
-  const todayUtc = new Date().toISOString().slice(0, 10);
+  // (todayUtc hoisted above the tz authority block.)
   ctx.waitUntil(bumpCounter(env.CACHE, `metrics:dn-total:${todayUtc}`));
   if (wasActivityFallback) {
     ctx.waitUntil(bumpCounter(env.CACHE, `metrics:dn-activity-missing:${todayUtc}`));
