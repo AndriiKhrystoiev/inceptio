@@ -1,3 +1,4 @@
+import tzLookup from '@photostructure/tz-lookup';
 import { storage } from './storage';
 import type { NominatimResult } from './nominatim';
 
@@ -91,20 +92,41 @@ export function deviceTimezone(): string {
 }
 
 /**
+ * @photostructure/tz-lookup throws on invalid coords ('invalid coordinates' error).
+ * Wrap defensively so callers can use null-coalescing fallback.
+ *
+ * Spec §10 EC-T1: the actual API throws on invalid coords (lat outside
+ * [-90, 90] etc.); this wrapper coerces to null so the fallback chain
+ * (tzLookup → deviceTimezone → 'UTC') reads naturally at call sites.
+ *
+ * console.warn on catch is a debug aid for the migration path (Phase 2)
+ * where unresolvable historical entries leave their existing tz in place.
+ */
+function tryTzLookup(lat: number, lng: number): string | null {
+  try {
+    return tzLookup(lat, lng);
+  } catch (e) {
+    console.warn('[location-storage] tzLookup failed for', lat, lng, e);
+    return null;
+  }
+}
+
+/**
  * Convert a Nominatim search result into a SavedLocation persistable shape.
  *
- * Canonical writer for SavedLocation. Lifted from LocationPickerScreen.js so
- * the tz invariant can be enforced at a single site. In Phase 0 this function
- * preserves the existing deviceTimezone() body — Phase 1 swaps it to
- * tzLookup-derived tz.
+ * Canonical writer for SavedLocation. Derives timezone authoritatively from
+ * coordinates via tz-lookup. Falls back to device tz only when tz-lookup
+ * can't resolve (open ocean, polar, exotic coordinates). deviceTimezone() is
+ * now the last-resort fallback — see spec §5 + §10 EC-T1.
  */
 export function pickToSavedLocation(pick: NominatimResult): SavedLocation {
+  const derivedTz = tryTzLookup(pick.lat, pick.lng);
   return {
     lat: pick.lat,
     lng: pick.lng,
     city: pick.city || pick.display_name.split(',')[0].trim(),
     country: pick.country ?? '',
-    timezone: deviceTimezone(),
+    timezone: derivedTz ?? deviceTimezone(),
     selected_at: Math.floor(Date.now() / 1000),
   };
 }
