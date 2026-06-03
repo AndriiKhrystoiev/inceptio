@@ -12,9 +12,35 @@
 // explicit map; do NOT use Intl.resolvedOptions for canonicalization
 // (inconsistent across V8 versions / runtimes).
 //
-// When the IANA backward file is updated (rare — ~once a year for renames
-// and deprecations), add new pairs here in the same PR. The fragment will
-// be small and the existing tests will catch regressions.
+// ─── MAINTENANCE / FORK-LOCKSTEP DISCIPLINE ──────────────────────────────────
+//
+// This table MUST stay in lockstep with the tzdata bundled inside
+// @photostructure/tz-lookup. The pin script (scripts/verify-tz-lookup-pin.sh)
+// enforces fork==fork across mobile + Worker — it does NOT enforce table==fork.
+//
+// When bumping the @photostructure/tz-lookup version pin:
+//   1. Diff the new bundle's tzdata version against this file's stated version
+//      (header line 2). The fork's release notes name the underlying tzdata
+//      bundle release (e.g. "Uses tzdata 2025a").
+//   2. Pull the corresponding `backward` file from
+//      https://github.com/eggert/tz/blob/<tag>/backward
+//      Diff against this table; add any new Link entries, remove any retracted
+//      ones (rare), and update the "current as of tzdata YYYYx" line above.
+//   3. Run the full Worker suite — the alias unit tests catch regressions on
+//      the canonical mappings they assert (Kiev/Kyiv, Calcutta/Kolkata, etc).
+//
+// Drift risk if step 2 is skipped: an old-tzdata device sending the legacy
+// name + fresh Worker deriving the new canonical → benign-but-counted
+// mismatch that pollutes the CP-C unpark signal. The §12.3 loop validates
+// table completeness operationally — during CP-B/bake watch the wrangler
+// tail for `tz_lat_lng_mismatch` warns with {got, expected} alias pairs that
+// represent the SAME zone (no real cross-location). Each such pair is a
+// missing table entry to add here.
+//
+// Auto-generation from the fork's bundled tzdata is the ideal long-term
+// posture; the minimum-viable discipline is this header + the pin script's
+// echoed reminder on every successful sync check.
+// ─────────────────────────────────────────────────────────────────────────────
 
 const ALIAS_TO_CANONICAL: Record<string, string> = {
   // Recent renames (2022b — Ukraine, 2024a et al.)

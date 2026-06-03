@@ -23,4 +23,11 @@ if [ "$MOBILE_VER" != "$WORKER_VER" ]; then
 fi
 
 echo "OK: @photostructure/tz-lookup pinned at $MOBILE_VER on both sides"
+echo ""
+echo "REMINDER (when bumping this pin): the alias table at"
+echo "  workers/api-proxy/src/lib/tz-aliases.ts"
+echo "must be reviewed against the new bundled tzdata. The pin script"
+echo "enforces fork==fork; it does NOT enforce table==fork. See that"
+echo "file's MAINTENANCE / FORK-LOCKSTEP DISCIPLINE header for the"
+echo "review checklist. Spec §12.3 amendment context."
 exit 0
