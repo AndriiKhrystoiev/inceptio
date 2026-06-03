@@ -19,6 +19,7 @@ import { colors } from './src/theme';
 import { queryClient } from './src/lib/query-client';
 import { hydrateStorage, storage } from './src/lib/storage';
 import { initActivityPreference, useActivityPreference } from './src/lib/activity-preference';
+import { migrateLocationTimezones_v1 } from './src/lib/location-storage';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import TodayScreen from './src/screens/TodayScreen';
 import ActivityPickerScreen from './src/screens/ActivityPickerScreen';
@@ -86,6 +87,10 @@ export default function App() {
       // Resolve hydrationStatus ('loading' → 'set'|'unset') before the
       // render gate lifts. Task 6.2 will gate on 'unset' to route to
       // FirstLaunchActivityPicker before anything else mounts.
+      // Migration runs BEFORE init* calls so getLastLocation() reads the
+      // corrected tz on first post-migration render. Idempotent; safe under
+      // hot reload. Spec §6 / Phase 2 / Task 2.2.
+      migrateLocationTimezones_v1();
       initActivityPreference();
       setStorageReady(true);
     });
