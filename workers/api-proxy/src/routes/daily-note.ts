@@ -247,10 +247,9 @@ export async function handleDailyNote(
   // response critical path; the helper swallows errors so a KV outage
   // doesn't 5xx the user's request.
   //
-  // TODO(follow-up before Checkpoint 3): add /admin/activity-missing-rate
-  // endpoint and query-activity-missing-rate.ts CLI per plan Task 2.6 Step 5.
-  // Counter primitives ship now; the read-side query surface lands when
-  // Checkpoint 3 actually fires in Phase 8.
+  // /admin/activity-missing-rate endpoint and query-correctness-metrics.ts CLI
+  // are now live (Task 3.3/3.4). Counter primitives here feed the dual-signal
+  // Checkpoint 3 gate (tz_mismatch + activity-missing ratios).
   // (todayUtc hoisted above the tz authority block.)
   ctx.waitUntil(bumpCounter(env.CACHE, `metrics:dn-total:${todayUtc}`));
   if (wasActivityFallback) {
