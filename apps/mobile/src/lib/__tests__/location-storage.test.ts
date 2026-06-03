@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { storage } from '../storage';
 
 // In-memory stand-in for the synchronous storage wrapper. We mock the module
 // path so the unit under test resolves to this implementation instead of
@@ -25,6 +26,7 @@ import {
   clearLocation,
   deviceTimezone,
   pickToSavedLocation,
+  migrateLocationTimezones_v1,
 } from '../location-storage';
 
 beforeEach(() => {
@@ -165,5 +167,67 @@ describe('pickToSavedLocation — tz derivation', () => {
     });
     expect(typeof result.timezone).toBe('string');
     expect(result.timezone.length).toBeGreaterThan(0);
+  });
+});
+
+// --- migrateLocationTimezones_v1 (Phase 2 / Task 2.1) ---
+
+describe('migrateLocationTimezones_v1', () => {
+  beforeEach(() => {
+    storage.delete('inceptio.tz_migration_v1');
+    storage.delete('inceptio.last_location');
+  });
+
+  it('rewrites tz when legacy entry has deviceTimezone but coords belong to a different zone', () => {
+    storage.set('inceptio.last_location', JSON.stringify({
+      lat: 35.68, lng: 139.69, city: 'Tokyo', country: 'Japan',
+      timezone: 'Europe/Berlin', // legacy deviceTimezone value (user was in Berlin)
+      selected_at: 1234567890,
+    }));
+    migrateLocationTimezones_v1();
+    const after = JSON.parse(storage.getString('inceptio.last_location')!);
+    expect(after.timezone).toBe('Asia/Tokyo');
+    expect(storage.getString('inceptio.tz_migration_v1')).toBe('done');
+  });
+
+  it('no-op rewrite when entry tz already matches lat/lng', () => {
+    storage.set('inceptio.last_location', JSON.stringify({
+      lat: 35.68, lng: 139.69, city: 'Tokyo', country: 'Japan',
+      timezone: 'Asia/Tokyo', // already correct
+      selected_at: 1234567890,
+    }));
+    const setSpy = vi.spyOn(storage, 'set');
+    migrateLocationTimezones_v1();
+    // Only the migration flag should have been set, not last_location
+    expect(setSpy).toHaveBeenCalledTimes(1);
+    expect(setSpy).toHaveBeenCalledWith('inceptio.tz_migration_v1', 'done');
+    setSpy.mockRestore();
+  });
+
+  it('idempotent — second call is no-op', () => {
+    storage.set('inceptio.tz_migration_v1', 'done');
+    storage.set('inceptio.last_location', JSON.stringify({
+      lat: 35.68, lng: 139.69, city: 'Tokyo', country: 'Japan',
+      timezone: 'Europe/Berlin', // would normally be rewritten
+      selected_at: 1234567890,
+    }));
+    const setSpy = vi.spyOn(storage, 'set');
+    migrateLocationTimezones_v1();
+    expect(setSpy).not.toHaveBeenCalled();
+    setSpy.mockRestore();
+  });
+
+  it('no-op when last_location absent (fresh install)', () => {
+    const setSpy = vi.spyOn(storage, 'set');
+    migrateLocationTimezones_v1();
+    expect(setSpy).toHaveBeenCalledWith('inceptio.tz_migration_v1', 'done');
+    expect(storage.getString('inceptio.last_location')).toBeUndefined();
+    setSpy.mockRestore();
+  });
+
+  it('survives corrupt JSON without throwing', () => {
+    storage.set('inceptio.last_location', '{not valid json');
+    expect(() => migrateLocationTimezones_v1()).not.toThrow();
+    expect(storage.getString('inceptio.tz_migration_v1')).toBe('done');
   });
 });
