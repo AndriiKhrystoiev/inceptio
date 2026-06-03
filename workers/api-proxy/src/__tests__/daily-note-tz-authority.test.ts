@@ -224,24 +224,39 @@ describe('Worker tz authority — alias-equivalent zones', () => {
   it('does NOT warn when clientTz is a legacy alias of derivedTz (Kiev vs Kyiv)', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { env } = makeEnv();
+    const ctx = makeCtx();
     // Kharkiv coords (49.83, 36.38) → tz-lookup returns canonical 'Europe/Kyiv'.
     // Client sent the legacy 'Europe/Kiev' (pre-tzdata-2022b name). Same zone.
     const res = await handleDailyNote(
       makeRequest('lat=49.83&lng=36.38&tz=Europe/Kiev&activity=wedding'),
       env,
-      makeCtx(),
+      ctx,
     );
+    // drain so the dn-total waitUntil completes BEFORE we assert it was bumped —
+    // proves the request reached the observability path (i.e. this isn't a
+    // trivial pass from an early 4xx/5xx).
+    await drain(ctx);
+
     expect(res.status).toBe(200);
     expect(warn).not.toHaveBeenCalledWith(
       expect.stringContaining('tz_lat_lng_mismatch'),
       expect.anything(),
     );
-    // Counter must NOT have been bumped — no metrics:dn-tz-mismatch:* put
+    // Counter must NOT have been bumped — no metrics:dn-tz-mismatch:* put.
     const tzMismatchPuts = vi
       .mocked(env.CACHE.put)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .mock.calls.filter((call: any[]) => typeof call[0] === 'string' && call[0].startsWith('metrics:dn-tz-mismatch:'));
     expect(tzMismatchPuts).toHaveLength(0);
+    // BUT dn-total must have been bumped — proves the request reached the
+    // observability path and the no-tz-mismatch is a real signal, not an
+    // accident of an early-return short-circuit.
+    const today = new Date().toISOString().slice(0, 10);
+    expect(env.CACHE.put).toHaveBeenCalledWith(
+      `metrics:dn-total:${today}`,
+      expect.any(String),
+      expect.objectContaining({ expirationTtl: COUNTER_TTL_SECONDS }),
+    );
     warn.mockRestore();
   });
 
@@ -249,15 +264,28 @@ describe('Worker tz authority — alias-equivalent zones', () => {
     // Sanity guard: the alias-aware fix must not silence real cross-location errors.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { env } = makeEnv();
+    const ctx = makeCtx();
     const res = await handleDailyNote(
       makeRequest('lat=35.68&lng=139.69&tz=Europe/Berlin&activity=wedding'),
       env,
-      makeCtx(),
+      ctx,
     );
+    // drain so the dn-tz-mismatch waitUntil counter write completes BEFORE
+    // we assert it. Without this the test silently regresses if someone
+    // wraps the bumpCounter call in a condition that doesn't fire — the
+    // warn would still appear (synchronous) but the counter would not.
+    await drain(ctx);
+
     expect(res.status).toBe(200);
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining('[daily-note] tz_lat_lng_mismatch:'),
       expect.objectContaining({ got: 'Europe/Berlin', expected: 'Asia/Tokyo' }),
+    );
+    const today = new Date().toISOString().slice(0, 10);
+    expect(env.CACHE.put).toHaveBeenCalledWith(
+      `metrics:dn-tz-mismatch:${today}`,
+      expect.any(String),
+      expect.objectContaining({ expirationTtl: COUNTER_TTL_SECONDS }),
     );
     warn.mockRestore();
   });
