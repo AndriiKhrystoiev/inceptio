@@ -82,3 +82,94 @@ On a given day, 7 of the API's verified factor IDs are activity-agnostic (moon w
 3. App Store medical-content risk for surgery (deferred to v1.4) — does it extend to legal/financial language for contracts and business_launch? Need to check App Store Review Guidelines §1.4.1 and §5.2.1.
 
 ---
+
+## Updated 2026-06-03 — Timezone is load-bearing election input, not a presentation hint (EC-19 audit)
+
+### The doctrinal claim
+
+In traditional Western electional astrology (Lilly, Bonatti, Dorotheus, Frawley), the chart is cast for **the moment and place where the matter unfolds**. Pre-modern astrologers used local apparent time (sundial noon at the meridian of the place). The modern IANA `timezone` is the 20th-century civil-time analogue of that — the canonical input that resolves wall-clock-at-place to a UTC Julian Day for ephemeris lookup. Three election-critical calculations bind directly to the place's local time:
+
+| Calculation | Binding | Effect of wrong tz |
+|---|---|---|
+| **House cusps + Ascendant** | Local Sidereal Time = GMST + longitude; reference wall-clock must be in the place's tz | Cross-continental tz error (8–12h) shifts Ascendant 4–6 signs |
+| **Planetary hours** | Segments between local sunrise/sunset at place lat/lng | Wrong-tz reference time picks wrong ruler entirely |
+| **Moon VoC overlap on chart ref time** | VoC instants are UTC-fixed, but "is Moon VoC when I sign at 3pm local" needs local→UTC mapping | Can flip viable ↔ blocked |
+
+Sources: Lilly *Christian Astrology* (1647); Bonatti 19th Consideration; Dorotheus *Carmen* Bk V (Dykes trans.); Frawley *Real Astrology*. ([Cafe Astrology Moon timing](https://cafeastrology.com/timingwiththemoon.html), [Tony Louis planetary hours](https://tonylouis.wordpress.com/2017/10/22/a-note-on-planetary-hours-in-horary-and-electional-astrology/)).
+
+### Swiss Ephemeris dependency chain (why this matters technically)
+
+astrology-api.io v3 is built on Swiss Ephemeris (DE431) backed by NASA JPL ([astrology-api.io product page](https://astrology-api.io/product), [RoxyAPI Swiss Ephemeris explainer](https://roxyapi.com/blogs/swiss-ephemeris-astrology-api-explained)). The dependency chain is:
+
+```
+(civil time + IANA tz) → swe_date_conversion → Julian Day in UT
+Julian Day + longitude → swe_sidtime → Local Sidereal Time
+LST + latitude → swe_houses → house cusps + Ascendant + MC
+Julian Day → JPL ephemeris lookup → planetary positions
+```
+
+Per [Swiss Ephemeris programmer doc §7](https://rdrr.io/cran/swephR/man/Section7.html) and [§13](https://rdrr.io/cran/swephR/man/Section13.html). A wrong tz → wrong JD → every downstream calculation is wrong. **There is no path through Swiss Ephemeris where tz feeds only date determination.**
+
+### astrology-api.io v3 upstream contract (verified from in-repo evidence)
+
+The upstream `/electional/search` request body includes (from `workers/api-proxy/src/upstream.ts:39-50`):
+
+```js
+location: {
+  year, month, day, hour: 12, minute: 0,   // ← chart reference time
+  latitude, longitude, timezone, city
+}
+```
+
+The combination `hour: 12 + timezone` is interpreted by the engine as "noon in `timezone` at `latitude/longitude`" — the chart reference moment for the election day. Sending `Europe/Berlin` with Tokyo's lat/lng tells the engine "12:00 Berlin time at Tokyo coordinates" = 20:00 Tokyo local. Different sky overhead, different planetary hour, different houses, different VoC overlap.
+
+Public docs ([astrology-api.io use-cases](https://api.astrology-api.io/docs/use-cases), [VoC guide](https://astrology-api.io/blog/void-of-course-moon-complete-guide)) confirm timezone is passed for tz-sensitive endpoints (VoC, electional). The engine does not cross-validate tz against lat/lng — any valid IANA string is accepted.
+
+### Two distinct failure modes when tz ≠ tzLookup(lat, lng)
+
+**Case A — tz feeds ONLY date determination (REJECTED for this stack)**
+Hypothetical world where tz only decides which calendar date "today" is. Would produce off-by-one date errors at midnight boundaries; self-corrects next day. *Does not apply to astrology-api.io v3 — upstream uses tz for chart math, not just date selection.*
+
+**Case B — tz feeds the SKY CALCULATION (CONFIRMED for this stack)**
+Persistent astronomical wrongness for cross-tz default users. Not bounded, not self-correcting, not "a day late" — the entire response is for a sky that doesn't correspond to either the device's location or the picked location.
+
+### Risk envelope for product surfaces using device-tz defaults
+
+Failure modes per request when default_location is cross-tz from device:
+- Ascendant shifts ~15°/hour of tz error
+- All 12 house cusps shift in lockstep — significator-house placement (the point of an election) becomes wrong
+- Planetary hour ruler: completely wrong
+- VoC overlap on local-noon ref: can flip viable ↔ blocked
+- Score / grade / top_windows / excluded_ranges: all derived from above → entire response is garbage
+
+Highest-risk user populations:
+1. **Destination wedding planners** — exactly the persona the product courts. Plan from NYC for Bali wedding → every daily-note is for "12:00 NY-time at Bali's lat/lng" = 1am Bali, inverted house cusps.
+2. **Digital nomads / remote workers** — set "home" as default, travel constantly.
+3. **Diaspora / expats** — set ancestral home as default, live elsewhere. Permanent miscalculation across all sessions.
+4. **Travel-activity users** — definitionally cross-tz, and the activity with highest practitioner sensitivity to Mercury timing (per the asymmetry matrix above).
+
+### Detection invariant for any Inceptio location-storage surface
+
+```
+∀ stored SavedLocation: SavedLocation.timezone === tzLookup(SavedLocation.lat, SavedLocation.lng)
+```
+
+This invariant is testable client-side in `location-storage.ts` and assertable Worker-side in `/electional/search` and `/daily-note` route handlers. A violating tuple should be treated as a defect — either auto-correct (re-resolve tz from lat/lng) or reject with `400 tz_lat_lng_mismatch`, never silently pass through to the upstream.
+
+### Cross-tz QA test pack (recommended for any tz-related change going forward)
+
+5 cross-tz pairs covering the failure space: NYC↔Tokyo, Berlin↔Sydney, LA↔Dubai, London↔Buenos Aires, Mumbai↔SF. For each pair, generate daily-notes with `tz = device_tz` (defect) vs `tz = tzLookup(lat, lng)` (correct). Astrologer review confirms (a) the correct-tz reading is internally coherent and (b) the device-tz reading is detectably wrong. This is the empirical proof Case B holds on this specific upstream, closing residual "maybe the API normalizes internally" ambiguity.
+
+### Sources
+
+- [Swiss Ephemeris programmer doc §7 (time conversion)](https://rdrr.io/cran/swephR/man/Section7.html)
+- [Swiss Ephemeris programmer doc §13 (house cusps)](https://rdrr.io/cran/swephR/man/Section13.html)
+- [RoxyAPI Swiss Ephemeris explainer](https://roxyapi.com/blogs/swiss-ephemeris-astrology-api-explained)
+- [astrology-api.io product page](https://astrology-api.io/product)
+- [astrology-api.io v3 use-cases](https://api.astrology-api.io/docs/use-cases)
+- [astrology-api.io VoC guide](https://astrology-api.io/blog/void-of-course-moon-complete-guide)
+- [Cafe Astrology — Timing with the Moon](https://cafeastrology.com/timingwiththemoon.html) — VoC tz-stamping convention
+- [Anthony Louis — planetary hours in electional](https://tonylouis.wordpress.com/2017/10/22/a-note-on-planetary-hours-in-horary-and-electional-astrology/) — local-sunrise anchoring
+- In-repo: `workers/api-proxy/src/upstream.ts:39-50` (upstream contract); `apps/mobile/src/lib/location-storage.ts:10` (pre-existing TODO); `apps/mobile/src/hooks/useDailyNote.ts:23-30` (current local-date-in-tz pattern)
+
+---
