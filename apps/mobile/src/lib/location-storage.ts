@@ -99,14 +99,21 @@ export function deviceTimezone(): string {
  * [-90, 90] etc.); this wrapper coerces to null so the fallback chain
  * (tzLookup → deviceTimezone → 'UTC') reads naturally at call sites.
  *
- * console.warn on catch is a debug aid for the migration path (Phase 2)
+ * console.warn on catch is a dev-only debug aid for the migration path (Phase 2)
  * where unresolvable historical entries leave their existing tz in place.
+ * Gated on __DEV__ so CI test runs that exercise the polar fallback (the
+ * regression-guard test at location-storage.test.ts) don't emit noise, and
+ * production Hermes logs stay quiet on documented expected fallbacks. The
+ * Worker's sibling (tryWorkerTzLookup in daily-note.ts) chose silent-on-catch
+ * for the same reason.
  */
 function tryTzLookup(lat: number, lng: number): string | null {
   try {
     return tzLookup(lat, lng);
   } catch (e) {
-    console.warn('[location-storage] tzLookup failed for', lat, lng, e);
+    if (__DEV__) {
+      console.warn('[location-storage] tzLookup failed for', lat, lng, e);
+    }
     return null;
   }
 }
