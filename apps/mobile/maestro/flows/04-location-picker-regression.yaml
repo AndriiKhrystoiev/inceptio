@@ -1,0 +1,89 @@
+appId: host.exp.Exponent
+name: "Location picker regression smoke (post tz-lookup fix)"
+---
+# Phase 1 / Task 1.4
+#
+# Verifies the per-search location flow continues to work end-to-end after
+# pickToSavedLocation was lifted to lib/location-storage.ts (Phase 0 / Task 0.4)
+# and updated to derive timezone from coordinates via @photostructure/tz-lookup
+# (Phase 1 / Task 1.2).
+#
+# This flow does NOT verify tz correctness — that's the unit tests + the
+# Phase 4 astrologer test pack. The flow verifies navigation + state:
+# user can search a city by name, pick a result, tap Find moments, and
+# arrive at the Loading screen.
+
+- launchApp:
+    clearState: false
+
+# JS bundle load. Expo Go takes ~2-6s to mount the React tree after the
+# native shell appears; 8s is the safe ceiling on a cold simulator boot.
+- waitForAnimationToEnd:
+    timeout: 8000
+
+# Fallback: if Expo Go shows its project list instead of our app
+# (happens if dev server connection dropped, or after a fresh install),
+# tap the Inceptio entry to re-open it.
+- runFlow:
+    when:
+      visible: "Recently opened"
+    commands:
+      - tapOn: "Inceptio"
+      - waitForAnimationToEnd:
+          timeout: 8000
+
+# Skip onboarding — App.js boots into 'onboarding' on every launch.
+- tapOn: "Find your moment"
+- waitForAnimationToEnd
+
+# Today screen → Find a moment CTA.
+# PrimaryButton exposes its label as accessibilityText; the shorthand
+# tapOn: form searches accessibility labels too. Scroll first so the CTA
+# clears the hero + state card.
+- scroll
+- scroll
+- tapOn: "Find a moment for…"
+- waitForAnimationToEnd
+
+# Activity picker — pick Wedding (any activity works; wedding is simplest).
+# Card accessibilityText is the comma-joined emoji + title + subtitle.
+- tapOn: "💍, Wedding or engagement, Lasting commitments and unions"
+- waitForAnimationToEnd
+
+# Date range — accept the default 30-day suggestion.
+- tapOn: "Continue"
+- waitForAnimationToEnd
+
+# Location picker — type Tokyo to exercise the Nominatim text-search path.
+# This is the regression target: pickToSavedLocation previously wrote
+# deviceTimezone into draft.timezone; after the tz-lookup fix it derives
+# timezone from coordinates. We verify the navigation path is unchanged.
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: "Search city"
+- inputText: "Tokyo"
+
+# Wait for Nominatim results to populate, then tap the first Tokyo result.
+- extendedWaitUntil:
+    visible: "Tokyo"
+    timeout: 5000
+- tapOn:
+    text: "Tokyo"
+    index: 0
+
+# Find moments button becomes enabled once a location row is selected.
+- extendedWaitUntil:
+    visible: "Find moments"
+    timeout: 5000
+
+# Tap Find moments — should navigate to LoadingScreen.
+- tapOn: "Find moments"
+
+# Verify we reached LoadingScreen. The first progressive copy stage fires
+# immediately at t=0s: "Looking at the sky for you…" (STAGES[0] in
+# LoadingScreen.js). Cold-cache Worker can take up to 40s; 10s is enough
+# to confirm the navigation landed (the copy appears before any API call
+# completes).
+- extendedWaitUntil:
+    visible: "Looking at the sky for you…"
+    timeout: 10000
