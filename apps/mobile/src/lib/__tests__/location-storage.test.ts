@@ -230,4 +230,31 @@ describe('migrateLocationTimezones_v1', () => {
     expect(() => migrateLocationTimezones_v1()).not.toThrow();
     expect(storage.getString('inceptio.tz_migration_v1')).toBe('done');
   });
+
+  it('preserves existing tz when tryTzLookup returns null (invalid/unresolvable coords)', () => {
+    // Legacy entry with out-of-range lat — tryTzLookup catches the
+    // @photostructure/tz-lookup 'invalid coordinates' throw and returns null.
+    // Migration must leave the entry alone (timezone unchanged, no crash,
+    // no null written) and still set the flag so subsequent boots don't
+    // retry the unresolvable lookup. This is boot-critical: the migration
+    // runs at boot for every existing user, so a crash or corruption here
+    // is a boot failure.
+    storage.set('inceptio.last_location', JSON.stringify({
+      lat: 91, // out of range — tryTzLookup will return null
+      lng: 0,
+      city: 'Ghost Town',
+      country: '',
+      timezone: 'Europe/Berlin', // existing tz must be preserved verbatim
+      selected_at: 1234567890,
+    }));
+    expect(() => migrateLocationTimezones_v1()).not.toThrow();
+    const after = JSON.parse(storage.getString('inceptio.last_location')!);
+    expect(after.timezone).toBe('Europe/Berlin'); // unchanged
+    expect(after.lat).toBe(91);
+    expect(after.lng).toBe(0);
+    expect(after.city).toBe('Ghost Town');
+    expect(after.selected_at).toBe(1234567890);
+    // Flag must still be set so subsequent boots don't retry.
+    expect(storage.getString('inceptio.tz_migration_v1')).toBe('done');
+  });
 });
