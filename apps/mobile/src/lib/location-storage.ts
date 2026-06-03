@@ -131,6 +131,65 @@ function tryTzLookup(lat: number, lng: number): string | null {
   }
 }
 
+const MIGRATION_FLAG_KEY = 'inceptio.tz_migration_v1';
+
+/**
+ * One-time rewrite of legacy `inceptio.last_location.timezone` values from
+ * `deviceTimezone()` (the historical broken default — runner/device tz, not
+ * coordinate-derived tz) to `tzLookup(lat, lng)` (the correct value).
+ *
+ * Idempotent — guarded by a version flag so subsequent boots are no-ops.
+ *
+ * Called from `App.js` storage hydrate effect BEFORE `setStorageReady(true)`,
+ * so any consumer reading `getLastLocation()` during the first post-migration
+ * render sees the corrected value. Plan §2.3 (Task 2.3 wire-in).
+ *
+ * Failure modes (all handled, none throw):
+ *   - last_location absent → no-op rewrite, flag still set (idempotent)
+ *   - last_location JSON corrupt → no-op rewrite, flag still set (defensive
+ *     parse in getLastLocation handles future reads anyway)
+ *   - tzLookup returns null (truly invalid coords) → leave existing tz, flag
+ *     still set (user can re-pick to fix)
+ *   - storage.set fails async → in-memory cache has the correct value for
+ *     the current session; on next boot the migration runs again because
+ *     the flag wasn't durably written
+ *
+ * Spec §6.
+ */
+export function migrateLocationTimezones_v1(): void {
+  if (storage.getString(MIGRATION_FLAG_KEY) === 'done') return;
+
+  const raw = storage.getString(KEY);
+  if (raw) {
+    try {
+      const loc = JSON.parse(raw) as Partial<SavedLocation>;
+      if (
+        typeof loc.lat === 'number' &&
+        typeof loc.lng === 'number' &&
+        typeof loc.city === 'string'
+      ) {
+        const correct = tryTzLookup(loc.lat, loc.lng);
+        if (correct !== null && correct !== loc.timezone) {
+          storage.set(KEY, JSON.stringify({ ...loc, timezone: correct }));
+          if (__DEV__) {
+            console.warn('[tz-migration] rewrote last_location.timezone:', {
+              from: loc.timezone,
+              to: correct,
+            });
+          }
+        }
+        // If correct === null (tzLookup failed) OR correct === loc.timezone
+        // (already right), no rewrite. Flag still gets set so we don't retry.
+      }
+    } catch {
+      // Corrupt JSON. getLastLocation's defensive parse handles future reads.
+      // Flag still gets set; we tried.
+    }
+  }
+
+  storage.set(MIGRATION_FLAG_KEY, 'done');
+}
+
 /**
  * Convert a Nominatim search result into a SavedLocation persistable shape.
  *
