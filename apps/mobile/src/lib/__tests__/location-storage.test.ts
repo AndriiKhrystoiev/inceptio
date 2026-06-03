@@ -24,6 +24,7 @@ import {
   getLastLocation,
   clearLocation,
   deviceTimezone,
+  pickToSavedLocation,
 } from '../location-storage';
 
 beforeEach(() => {
@@ -108,5 +109,61 @@ describe('deviceTimezone', () => {
     expect(tz.length).toBeGreaterThan(0);
     // Looks like an IANA zone or "UTC"
     expect(tz).toMatch(/^[A-Za-z/_+\-0-9]+$/);
+  });
+});
+
+// --- pickToSavedLocation — tz derivation (Phase 1 / Task 1.1) ---
+// These tests assert that pickToSavedLocation derives the timezone from
+// lat/lng via @photostructure/tz-lookup, NOT from deviceTimezone() (which
+// returns the test-runner's local tz, not the picked location's tz).
+//
+// They fail in Task 1.1's red phase because the current body uses
+// deviceTimezone(); Task 1.2 swaps to tzLookup-derived. Polar fallback
+// case asserts only that timezone is a non-empty string so it passes
+// either before OR after the body swap — its job is regression coverage
+// against accidental return-of-undefined in the wrapper.
+
+describe('pickToSavedLocation — tz derivation', () => {
+  it('derives Asia/Tokyo from Tokyo coordinates (35.68, 139.69)', () => {
+    const result = pickToSavedLocation({
+      place_id: 1,
+      lat: 35.68,
+      lng: 139.69,
+      display_name: 'Tokyo, Japan',
+      city: 'Tokyo',
+      country: 'Japan',
+    });
+    expect(result.timezone).toBe('Asia/Tokyo');
+  });
+
+  it('derives America/New_York from NYC coordinates (40.71, -74.01)', () => {
+    const result = pickToSavedLocation({
+      place_id: 2,
+      lat: 40.71,
+      lng: -74.01,
+      display_name: 'New York, USA',
+      city: 'New York',
+      country: 'USA',
+    });
+    expect(result.timezone).toBe('America/New_York');
+  });
+
+  it('returns a non-empty IANA-shaped string for extreme polar coords (regression guard)', () => {
+    // South Pole — @photostructure/tz-lookup may resolve OR throw. Either
+    // way, our wrapper guarantees a non-empty string falls through (the
+    // tryTzLookup wrapper in Task 1.2 catches throws and falls back to
+    // deviceTimezone). This test PASSES today (deviceTimezone is non-empty)
+    // and continues to pass after Task 1.2 — its job is to catch a future
+    // regression where the wrapper silently returns '' or undefined.
+    const result = pickToSavedLocation({
+      place_id: 3,
+      lat: -89.99,
+      lng: 0,
+      display_name: 'South Pole',
+      city: 'South Pole',
+      country: 'Antarctica',
+    });
+    expect(typeof result.timezone).toBe('string');
+    expect(result.timezone.length).toBeGreaterThan(0);
   });
 });
