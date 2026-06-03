@@ -57,6 +57,28 @@ export const ACTIVITY_EYEBROW_PHRASES: Record<Activity, string> = {
   travel:          'for your travels',
 };
 
+// Short descriptive subtitles shown beneath the activity title in card layouts.
+// Copy is verbatim from ActivityPickerScreen's CARDS constant — do not paraphrase.
+// When copy changes, update ActivityPickerScreen.js and this map in the same PR.
+export const ACTIVITY_SUBTITLES: Record<Activity, string> = {
+  wedding:         'Lasting commitments and unions',
+  contracts:       'Important signatures and deals',
+  business_launch: 'New ventures and openings',
+  travel:          'Journeys and relocations',
+};
+
+// Inline rgba tint values for card backgrounds and emoji icon squares.
+// These intentionally match ActivityPickerScreen's CARDS tint/tintDeep values
+// so both pickers render identically. Kept as raw strings (not Tailwind tokens)
+// because Tailwind's purge pass can't see dynamically constructed rgba strings,
+// and these colors need fractional opacity that Tailwind tokens don't expose.
+export const ACTIVITY_TINTS: Record<Activity, { tint: string; tintDeep: string }> = {
+  wedding:         { tint: 'rgba(249,181,200,0.10)', tintDeep: 'rgba(249,181,200,0.18)' },
+  contracts:       { tint: 'rgba(244,193,154,0.10)', tintDeep: 'rgba(244,193,154,0.18)' },
+  business_launch: { tint: 'rgba(229,199,125,0.10)', tintDeep: 'rgba(229,199,125,0.18)' },
+  travel:          { tint: 'rgba(103,232,199,0.10)', tintDeep: 'rgba(103,232,199,0.18)' },
+};
+
 export function getActivityLabel(activity: Activity): string {
   return ACTIVITY_LABELS[activity];
 }
@@ -67,4 +89,8 @@ export function getActivityNoun(activity: Activity): string {
 
 export function getActivityEyebrowPhrase(activity: Activity): string {
   return ACTIVITY_EYEBROW_PHRASES[activity];
+}
+
+export function getActivitySubtitle(activity: Activity): string {
+  return ACTIVITY_SUBTITLES[activity];
 }
