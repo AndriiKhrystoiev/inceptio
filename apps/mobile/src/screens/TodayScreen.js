@@ -5,8 +5,7 @@
 //
 // StatePicker retained as design QA override for the four mood variants.
 // Letter prefixes (A·/B·/C·/D·) are dev-tool affordances, not user-facing
-// copy — don't "fix" in a voice pass. Load-bearing in Maestro
-// 04-daily-note-tour.yaml sentinel.
+// copy — don't "fix" in a voice pass.
 //
 // Gated on __DEV__ — production builds must not let real users override
 // the displayed mood with contrived states. In production, moodOverride
