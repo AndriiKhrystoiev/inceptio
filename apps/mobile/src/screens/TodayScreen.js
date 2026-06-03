@@ -7,6 +7,10 @@
 // Letter prefixes (A·/B·/C·/D·) are dev-tool affordances, not user-facing
 // copy — don't "fix" in a voice pass. Load-bearing in Maestro
 // 04-daily-note-tour.yaml sentinel.
+//
+// Gated on __DEV__ — production builds must not let real users override
+// the displayed mood with contrived states. In production, moodOverride
+// stays null and renderedMood collapses to dailyNote.mood.
 
 import React, { useState } from 'react';
 import { View, ScrollView } from 'react-native';
@@ -36,16 +40,18 @@ export default function TodayScreen({ go }) {
         onInvitePress={() => go('picker')}
       />
 
-      <StatePicker
-        value={renderedMood}
-        onChange={setMoodOverride}
-        options={[
-          ['strong', 'A · strong'],
-          ['good',   'B · good'],
-          ['mixed',  'C · mixed'],
-          ['closed', 'D · closed'],
-        ]}
-      />
+      {__DEV__ && (
+        <StatePicker
+          value={renderedMood}
+          onChange={setMoodOverride}
+          options={[
+            ['strong', 'A · strong'],
+            ['good',   'B · good'],
+            ['mixed',  'C · mixed'],
+            ['closed', 'D · closed'],
+          ]}
+        />
+      )}
 
       <View className="px-6 mt-7">
         <PrimaryButton onPress={() => go('picker')}>Find a moment for…</PrimaryButton>
