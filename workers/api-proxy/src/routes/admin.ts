@@ -51,6 +51,10 @@ import type { Env } from '../env';
  */
 
 const DAYS = 14;
+// Number of distinct KV keys read per day. When adding a fourth counter,
+// update this AND the flatMap below in lockstep (the index math below uses
+// KEY_COUNT so the two stay coupled by a single source of truth).
+const KEY_COUNT = 3;
 
 function isoDate(d: Date): string {
   // Slicing the ISO string yields YYYY-MM-DD in UTC — matches the
@@ -108,9 +112,9 @@ export async function handleActivityMissingRate(
     // `reads` is constructed from a fixed-length flatMap so these
     // indices are guaranteed in range, but the index-access type
     // narrowing rule treats array reads as possibly undefined.
-    const total = reads[idx * 3] ?? 0;
-    const missing = reads[idx * 3 + 1] ?? 0;
-    const tzMismatch = reads[idx * 3 + 2] ?? 0;
+    const total = reads[idx * KEY_COUNT] ?? 0;
+    const missing = reads[idx * KEY_COUNT + 1] ?? 0;
+    const tzMismatch = reads[idx * KEY_COUNT + 2] ?? 0;
     // Zero-total days yield ratios of 0 rather than NaN (avoids
     // JSON-serialization-of-NaN garbage and keeps the CLI's
     // `missing_ratio < 0.005` comparison sane on uninstrumented days).
