@@ -11,6 +11,7 @@ import type {
   DailyNoteResponseShape,
 } from '../translations/types';
 import { handleSearch } from './search';
+import tzLookup from '@photostructure/tz-lookup';
 
 /**
  * GET /daily-note?lat=<n>&lng=<n>&tz=<iana>
@@ -79,6 +80,27 @@ async function bumpCounter(kv: KVNamespace, key: string): Promise<void> {
 }
 
 /**
+ * @photostructure/tz-lookup throws on out-of-bounds coordinates ('invalid
+ * coordinates', e.g. |lat| > 90). We additionally return null for polar-region
+ * coords (|lat| >= 89) where the library resolves to Antarctica/* or Etc/*
+ * zones that do not correspond to any user's practical local timezone. In
+ * those cases the client-supplied tz is more meaningful than the derived one.
+ *
+ * Spec §7 + EC-T1.
+ */
+function tryWorkerTzLookup(lat: number, lng: number): string | null {
+  // Polar regions: tz-lookup resolves to Antarctica/* / Etc/* which are
+  // geographically correct but not practical user timezones — treat as
+  // unresolvable and fall back to client tz.
+  if (Math.abs(lat) >= 89) return null;
+  try {
+    return tzLookup(lat, lng);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * No-op ExecutionContext fallback for legacy callers (sibling test files
  * that haven't been updated to pass ctx). In production the entry handler
  * in src/index.ts always passes the real ctx from the Worker runtime;
@@ -107,7 +129,9 @@ export async function handleDailyNote(
   const url = new URL(req.url);
   const latRaw = url.searchParams.get('lat');
   const lngRaw = url.searchParams.get('lng');
-  const tz = url.searchParams.get('tz') ?? 'UTC';
+  // Preserve raw client-supplied tz as null when absent — needed for mismatch
+  // detection below (a missing tz param is NOT a mismatch candidate).
+  const clientTz: string | null = url.searchParams.get('tz');
   const deviceId = req.headers.get('X-Device-Id');
 
   // Device id is required: /daily-note internally fans out to /electional/
@@ -141,6 +165,33 @@ export async function handleDailyNote(
       { status: 400 },
     );
   }
+
+  // ── Tz authority block (Spec §7 / Task 3.2) ────────────────────────────────
+  // The Worker is the canonical timezone source: derive from coordinates, fall
+  // back to client-supplied tz, fall back to UTC. All downstream logic uses
+  // effectiveTz, NOT the raw clientTz. This ensures even legacy mobile builds
+  // (or browser clients) that send a stale deviceTimezone get the correct
+  // local date for their actual location.
+  const derivedTz: string | null = tryWorkerTzLookup(lat, lng);
+  const effectiveTz: string = derivedTz ?? clientTz ?? 'UTC';
+
+  // Mismatch observability: when the Worker can resolve a tz from the
+  // coordinates AND the client supplied a different one, warn + bump counter.
+  // Fires on gradual-rollout drift detection; does NOT fire when client omitted
+  // tz entirely (clientTz === null) — that's the legacy no-tz-param path.
+  if (derivedTz !== null && clientTz !== null && clientTz !== derivedTz) {
+    const today = new Date().toISOString().slice(0, 10);
+    console.warn('[daily-note] tz_lat_lng_mismatch:', {
+      lat,
+      lng,
+      got: clientTz,
+      expected: derivedTz,
+      activity: url.searchParams.get('activity') ?? 'unknown',
+      date: today,
+    });
+    ctx.waitUntil(bumpCounter(env.CACHE, `metrics:dn-tz-mismatch:${today}`));
+  }
+  // ────────────────────────────────────────────────────────────────────────────
 
   // Activity selection (Phase A). See route docstring for full rationale.
   //   - Present + valid  → use it
@@ -234,7 +285,7 @@ export async function handleDailyNote(
     }
     dateIso = dateOverride;
   } else {
-    dateIso = formatDateInTz(now, tz);
+    dateIso = formatDateInTz(now, effectiveTz);
   }
 
   // Activity is part of the cache key (Task 2.3) so cross-activity requests
@@ -273,7 +324,7 @@ export async function handleDailyNote(
       lng,
       start: dateIso,
       end: dateIso,
-      timezone: tz,
+      timezone: effectiveTz,
       city: 'unknown',
     };
     const internalReq = new Request('https://internal/electional/search', {
