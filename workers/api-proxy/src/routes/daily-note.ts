@@ -80,19 +80,13 @@ async function bumpCounter(kv: KVNamespace, key: string): Promise<void> {
 }
 
 /**
- * @photostructure/tz-lookup throws on out-of-bounds coordinates ('invalid
- * coordinates', e.g. |lat| > 90). We additionally return null for polar-region
- * coords (|lat| >= 89) where the library resolves to Antarctica/* or Etc/*
- * zones that do not correspond to any user's practical local timezone. In
- * those cases the client-supplied tz is more meaningful than the derived one.
+ * @photostructure/tz-lookup throws on invalid coords ('invalid coordinates').
+ * Wrap defensively so the authority logic can null-coalesce to client tz on
+ * unresolvable coordinates (truly invalid lat/lng).
  *
  * Spec §7 + EC-T1.
  */
 function tryWorkerTzLookup(lat: number, lng: number): string | null {
-  // Polar regions: tz-lookup resolves to Antarctica/* / Etc/* which are
-  // geographically correct but not practical user timezones — treat as
-  // unresolvable and fall back to client tz.
-  if (Math.abs(lat) >= 89) return null;
   try {
     return tzLookup(lat, lng);
   } catch {

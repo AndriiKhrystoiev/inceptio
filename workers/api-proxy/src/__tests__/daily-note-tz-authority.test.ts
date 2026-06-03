@@ -193,17 +193,18 @@ describe('Worker tz authority', () => {
     warn.mockRestore();
   });
 
-  // Test 4 — polar coords (lat=-89.99, lng=0) where tz-lookup throws / returns
-  // null. The Worker must fall back to the client-supplied tz gracefully and
-  // NOT warn about a mismatch — the derivation simply failed, which is expected
-  // at the poles. The critical assertion is that the request succeeds (no 500).
-  it('falls back to client tz when tzLookup throws (extreme polar coords)', async () => {
+  // Test 4 — invalid coords (lat=91, lng=0) that make @photostructure/tz-lookup
+  // throw 'invalid coordinates'. The wrapper must return null and the Worker must
+  // fall back to the client-supplied tz gracefully without warning about a
+  // mismatch — the derivation simply failed. The critical assertion is that the
+  // request succeeds (no 500).
+  it('falls back to client tz when tzLookup throws (invalid out-of-range coords)', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { env } = makeEnv();
     const ctx = makeCtx();
 
     const res = await handleDailyNote(
-      makeRequest('lat=-89.99&lng=0&tz=Europe/Berlin&activity=wedding'),
+      makeRequest('lat=91&lng=0&tz=Europe/Berlin&activity=wedding'),
       env,
       ctx,
     );
