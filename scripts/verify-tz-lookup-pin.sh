@@ -11,8 +11,8 @@
 
 set -euo pipefail
 
-MOBILE_VER=$(grep -o '"@photostructure/tz-lookup": "[^"]*"' apps/mobile/package.json | sed 's/.*": "//;s/"$//')
-WORKER_VER=$(grep -o '"@photostructure/tz-lookup": "[^"]*"' workers/api-proxy/package.json | sed 's/.*": "//;s/"$//')
+MOBILE_VER=$(grep -om 1 '"@photostructure/tz-lookup": "[^"]*"' apps/mobile/package.json | sed 's/.*": "//;s/"$//')
+WORKER_VER=$(grep -om 1 '"@photostructure/tz-lookup": "[^"]*"' workers/api-proxy/package.json | sed 's/.*": "//;s/"$//')
 
 if [ "$MOBILE_VER" != "$WORKER_VER" ]; then
   echo "ERROR: @photostructure/tz-lookup version mismatch"
