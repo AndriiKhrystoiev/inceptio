@@ -1517,51 +1517,83 @@ Expected: `OK: @photostructure/tz-lookup pinned at ^11.0.0 on both sides`.
 
 ---
 
-## 🛑 Checkpoint B — Worker staging deploy verification
+## 🛑 Checkpoint B — Worker verification (executed 2026-06-03)
 
-**Stop here. Do not deploy to production until staging verifies the tz authority + counter.**
+**Stop here. Do not deploy to production until Worker tz authority + counter + alias behavior is verified outside the unit-test environment.**
+
+### Plan amendment (post-execution)
+
+The original CP-B plan said `wrangler deploy --env staging`. **There is no `[env.staging]` block in `workers/api-proxy/wrangler.toml`** — only the top-level default (ENV=development, for `wrangler dev` per the file's comment) and `[env.production]`. The plan's "staging deploy" was a planning gap.
+
+CP-B was executed via **local `wrangler dev`** (isolated Miniflare KV namespace + real upstream `astrology-api.io` calls) rather than a remote deploy. This validates the same surface — Worker code paths exercise identically; the only difference is KV is Miniflare-local and the response time excludes the colo-network hop. Sufficient for verifying mismatch / alias / upstream-acceptance behavior; insufficient only for global edge propagation, which production deploy will surface separately.
 
 ### Surface to the user:
 
-1. Phase 3 commits (5 commits — Tasks 3.1–3.4 commit, Task 3.5 verification only).
-2. Suggested staging deploy command:
+1. Phase 3 commits (5 commits — Tasks 3.1–3.4 commit, Task 3.5 verification only) + alias-aware amendment commits (`c1ab318`, `588ee69`, `edd24c2`).
+2. Start the local Worker (no remote auth needed beyond the upstream API key in `.dev.vars`):
    ```bash
-   cd workers/api-proxy && npx wrangler deploy --env staging
+   cd workers/api-proxy && npx wrangler dev
    ```
-3. Suggested smoke tests against staging:
+   Wrangler prints `Ready on http://localhost:8787` (or similar). Use that as `$WORKER_URL` for the smokes below.
+3. Run the 7 smokes against the local Worker.
 
 #### CP-B smoke commands (manual)
 
-After staging deploy, run these against the staging URL:
-
 ```bash
-# (a) Synthetic mismatch — Tokyo coords + Berlin tz → expect warn + counter bump
-curl 'https://<staging-worker-url>/daily-note?lat=35.68&lng=139.69&tz=Europe/Berlin&activity=wedding'
+WORKER_URL=http://localhost:8787
 
-# (b) Same-tz — Tokyo coords + Tokyo tz → expect 200 + no warn
-curl 'https://<staging-worker-url>/daily-note?lat=35.68&lng=139.69&tz=Asia/Tokyo&activity=wedding'
+# (1) Genuine mismatch — Tokyo coords + Berlin tz → expect 200 + warn + counter bump
+curl "$WORKER_URL/daily-note?lat=35.68&lng=139.69&tz=Europe/Berlin&activity=wedding" \
+  -H "X-Device-Id: cp-b-1"
 
-# (c) Query the admin counter to verify the mismatch from (a) was recorded
-WORKER_URL=https://<staging-worker-url> \
-  ADMIN_TOKEN=<staging-admin-token> \
+# (2) Same-tz — Tokyo coords + Tokyo tz → expect 200 + silent
+curl "$WORKER_URL/daily-note?lat=35.68&lng=139.69&tz=Asia/Tokyo&activity=wedding" \
+  -H "X-Device-Id: cp-b-2"
+
+# (3) Admin counter check — verify (1) bumped the mismatch counter
+WORKER_URL="$WORKER_URL" \
+  ADMIN_TOKEN=<from-.dev.vars> \
   npx tsx workers/api-proxy/scripts/query-correctness-metrics.ts
+
+# (4) Sentinel implicit in (3) — today's tz_mismatch ≥ 1, tzmm% > 0
+# (combined with (1) tail showing the warn, this confirms the counter-bump path)
+
+# (5) Alias-class no-warn — Kharkiv coords + legacy 'Europe/Kiev' → expect 200 + silent
+curl "$WORKER_URL/daily-note?lat=49.83&lng=36.38&tz=Europe/Kiev&activity=wedding" \
+  -H "X-Device-Id: cp-b-5"
+
+# (6) Upstream accepts canonical — Tokyo coords + Berlin tz; smoke ends if upstream
+#     rejects 'Asia/Tokyo' from the Worker's authority block (would 5xx)
+curl "$WORKER_URL/daily-note?lat=35.68&lng=139.69&tz=Europe/Berlin&activity=wedding" \
+  -H "X-Device-Id: cp-b-6"
+
+# (7) Upstream accepts the *renamed* canonical (added during CP-B execution) —
+#     Kharkiv coords + non-alias mismatch (Asia/Tokyo) → Worker derives Europe/Kyiv;
+#     smoke expects HTTP 200, NOT a 5xx tz-rejected. Proves upstream's tzdata
+#     accepts 'Europe/Kyiv' (the renamed canonical post-2022b), so the planned
+#     canonical→legacy upstream-fallback contingency is NOT needed.
+curl "$WORKER_URL/daily-note?lat=49.83&lng=36.38&tz=Asia/Tokyo&activity=wedding" \
+  -H "X-Device-Id: cp-b-7"
 ```
 
-Expected: in (c)'s output, `tz_mismatch` count for today is ≥ 1 (from request a). `missing` count is ≥ 0 (separate metric).
-
-Also tail logs to verify the warn fires for (a) and NOT for (b):
+Tail logs in a second terminal to observe the warns:
 ```bash
-cd workers/api-proxy && npx wrangler tail --env staging --format=pretty
-# In another terminal, repeat curl (a) → expect '[daily-note] tz_lat_lng_mismatch:' warn
-# Then curl (b) → expect NO such warn
+cd workers/api-proxy && npx wrangler dev
+# (the dev process IS the tail — warns print to its stdout as they fire)
 ```
 
-### Checkpoint B sign-off
+### Checkpoint B sign-off — VERIFIED 2026-06-03
 
-User reviews:
-- Staging smoke (a) shows warn fired + counter bumped
-- Staging smoke (b) shows no warn + no spurious counter bump
-- Admin endpoint reflects the staged mismatch correctly
+7/7 smokes green:
+
+| # | Case | Expected | Observed |
+|---|---|---|---|
+| 1 | Tokyo coord + Berlin tz | 200 + mismatch warn + counter bump | ✓ |
+| 2 | Tokyo coord + Tokyo tz | 200 + silent | ✓ |
+| 3 | Admin counter | tz_mismatch ≥ 1, auth + dual-signal hints correct | ✓ |
+| 5 | Kharkiv coord + Europe/Kiev | 200 + silent (alias-equivalent) | ✓ — alias fix confirmed live |
+| 6 | Tokyo coord + Berlin tz (canonical to upstream) | 200 (upstream accepts Asia/Tokyo) | ✓ |
+| 7 | Kharkiv coord + Asia/Tokyo (non-alias mismatch) | 200 (upstream accepts renamed canonical Europe/Kyiv) | ✓ — **renamed canonical accepted; canonical→legacy fallback contingency NOT needed** |
 
 **Then user explicitly approves Phase 4 production deploy.**
 
