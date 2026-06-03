@@ -62,7 +62,14 @@ function todayIso(): string {
 
 // ─── Tests ───
 
-type DayRow = { date: string; total: number; missing: number; ratio: number };
+type DayRow = {
+  date: string;
+  total: number;
+  missing: number;
+  tz_mismatch: number;
+  missing_ratio: number;
+  tz_mismatch_ratio: number;
+};
 
 describe('GET /admin/activity-missing-rate', () => {
   it('401 when x-admin-token header is missing', async () => {
@@ -87,7 +94,9 @@ describe('GET /admin/activity-missing-rate', () => {
     body.days.forEach((d) => {
       expect(d.total).toBe(0);
       expect(d.missing).toBe(0);
-      expect(d.ratio).toBe(0);
+      expect(d.tz_mismatch).toBe(0);
+      expect(d.missing_ratio).toBe(0);
+      expect(d.tz_mismatch_ratio).toBe(0);
       expect(d.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
   });
@@ -105,7 +114,7 @@ describe('GET /admin/activity-missing-rate', () => {
     expect(todayEntry).toBeDefined();
     expect(todayEntry!.total).toBe(1000);
     expect(todayEntry!.missing).toBe(3);
-    expect(todayEntry!.ratio).toBe(0.003);
+    expect(todayEntry!.missing_ratio).toBe(0.003);
   });
 
   it('200 with corrupted KV value → treats as 0 (NaN guard)', async () => {
@@ -122,7 +131,7 @@ describe('GET /admin/activity-missing-rate', () => {
     const body = (await res.json()) as { days: DayRow[] };
     const todayEntry = body.days.find((d) => d.date === today);
     expect(todayEntry!.total).toBe(0);
-    expect(todayEntry!.ratio).toBe(0);
+    expect(todayEntry!.missing_ratio).toBe(0);
   });
 
   it('days are returned newest first (today at index 0)', async () => {
@@ -135,5 +144,21 @@ describe('GET /admin/activity-missing-rate', () => {
     const thirteenDaysAgo = new Date();
     thirteenDaysAgo.setUTCDate(thirteenDaysAgo.getUTCDate() - 13);
     expect(body.days[13]?.date).toBe(thirteenDaysAgo.toISOString().slice(0, 10));
+  });
+
+  it('surfaces tz_mismatch counter alongside missing counter', async () => {
+    const { env } = makeAdminEnv();
+    const today = todayIso();
+    await env.CACHE.put(`metrics:dn-total:${today}`, '1000');
+    await env.CACHE.put(`metrics:dn-activity-missing:${today}`, '3');
+    await env.CACHE.put(`metrics:dn-tz-mismatch:${today}`, '12');
+    const res = await handleActivityMissingRate(makeReq('test-secret-token'), env);
+    const body = (await res.json()) as { days: DayRow[] };
+    const todayEntry = body.days.find((d) => d.date === today);
+    expect(todayEntry!.total).toBe(1000);
+    expect(todayEntry!.missing).toBe(3);
+    expect(todayEntry!.tz_mismatch).toBe(12);
+    expect(todayEntry!.missing_ratio).toBeCloseTo(0.003, 6);
+    expect(todayEntry!.tz_mismatch_ratio).toBeCloseTo(0.012, 6);
   });
 });
