@@ -12,6 +12,7 @@ import type {
 } from '../translations/types';
 import { handleSearch } from './search';
 import tzLookup from '@photostructure/tz-lookup';
+import { tzEquivalent } from '../lib/tz-aliases';
 
 /**
  * GET /daily-note?lat=<n>&lng=<n>&tz=<iana>
@@ -181,7 +182,7 @@ export async function handleDailyNote(
   // coordinates AND the client supplied a different one, warn + bump counter.
   // Fires on gradual-rollout drift detection; does NOT fire when client omitted
   // tz entirely (clientTz === null) — that's the legacy no-tz-param path.
-  if (derivedTz !== null && clientTz !== null && clientTz !== derivedTz) {
+  if (derivedTz !== null && clientTz !== null && !tzEquivalent(clientTz, derivedTz)) {
     console.warn('[daily-note] tz_lat_lng_mismatch:', {
       lat,
       lng,
@@ -318,13 +319,24 @@ export async function handleDailyNote(
     // `city` is required by the schema but the daily-note's location-
     // agnostic fan-out has no meaningful city label. Placeholder is fine:
     // city is a display label, never used for chart math.
+    // Prefer clientTz for upstream when alias-equivalent — guards against the
+    // upstream having older tzdata that doesn't recognize canonical names
+    // (e.g. some libraries pre-2023a still error on 'Europe/Kyiv'). In a
+    // genuine mismatch case, send the canonical derivedTz so the upstream
+    // gets the correct sky for the coordinates. Cache key continues to use
+    // effectiveTz which is canonical via the existing derivedTz ?? clientTz ?? 'UTC'
+    // chain — no fragmentation risk.
+    const upstreamTz: string =
+      clientTz !== null && derivedTz !== null && tzEquivalent(clientTz, derivedTz)
+        ? clientTz
+        : effectiveTz;
     const searchBody = {
       activity,
       lat,
       lng,
       start: dateIso,
       end: dateIso,
-      timezone: effectiveTz,
+      timezone: upstreamTz,
       city: 'unknown',
     };
     const internalReq = new Request('https://internal/electional/search', {
