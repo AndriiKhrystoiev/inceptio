@@ -14,6 +14,7 @@
     "@expo-google-fonts/inter": "^0.2.3",
     "@expo-google-fonts/jetbrains-mono": "^0.2.3",
     "@inceptio/shared-types": "file:../../packages/shared-types",
+    "@photostructure/tz-lookup": "^11.5.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.6.0",
     "@tanstack/react-query": "^5.100.14",
