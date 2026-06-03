@@ -82,7 +82,20 @@ export function locationToRequestFields(loc: {
   };
 }
 
-/** Device timezone via Intl. Pure helper used when persisting Nominatim picks. */
+/**
+ * Device IANA timezone via Intl. Last-resort fallback when tzLookup cannot
+ * resolve coordinates (truly invalid lat/lng — out-of-range, NaN, etc.).
+ * For all valid land coordinates, pickToSavedLocation derives tz from
+ * lat/lng via tz-lookup and skips this helper.
+ *
+ * Also used by `migrateLocationTimezones_v1` (Phase 2 / Task 2.2) as the
+ * fallback when migrating an entry whose coords don't resolve via tzLookup
+ * (rare; existing tz left in place instead).
+ *
+ * @deprecated as the primary timezone source. Kept as last-resort fallback.
+ *   New code should call `pickToSavedLocation(pick)` instead, which threads
+ *   the fallback automatically.
+ */
 export function deviceTimezone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
