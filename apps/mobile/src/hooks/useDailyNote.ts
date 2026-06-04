@@ -1,16 +1,11 @@
 import { useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { getDailyNote, type DailyNoteResult } from '../lib/api';
-import { getLastLocation } from '../lib/location-storage';
 import { storage } from '../lib/storage';
 import { useActivityPreference } from '../lib/activity-preference';
+import { useLocationPreference } from '../lib/location-preference';
+import { useEffectiveLocation } from './useEffectiveLocation';
 import { __computeQueryKey, __computeEnabled } from './useDailyNote.helpers';
-
-const FALLBACK_LOCATION = {
-  lat: 50.4501,
-  lng: 30.5234,
-  timezone: 'Europe/Kyiv',
-} as const;
 
 const KEY_LIBRARY_VERSION = 'inceptio.daily_note_library_version';
 
@@ -34,25 +29,21 @@ function round2(n: number): number {
 }
 
 /**
- * The Today screen's data source per design memo Layer 1.
+ * Today screen's data source.
  *
- * Hook shape mirrors useElectionalSearch.ts (queryKey + queryFn + enabled).
- * Cache policy DIVERGES from query-client.ts defaults: staleTime is
- * Infinity (queryKey embeds todayIsoDate, so day rollover triggers a fresh
- * fetch automatically — no spontaneous refetches within a day) and gcTime
- * is 24h (release memory by the next day at latest).
+ * Location reads via useEffectiveLocation (default ?? mount-frozen lastSeed ?? null).
+ * The Kyiv FALLBACK_LOCATION + empty-deps useMemo from prior versions are
+ * RETIRED — the query is gated by __computeEnabled when effectiveLocation
+ * is null, and TodayScreen renders EmptyStateHero in that path (D27).
+ * Spec §4.6.
  *
- * Activity reactivity:
- *   useActivityPreference() subscribes to the activity external store via
- *   useSyncExternalStore. When setDefaultActivity() fires, the hook
- *   re-renders with a new `activity` value. __computeQueryKey places activity
- *   at position 5 of the queryKey array. TanStack Query detects the content
- *   change via deep equality and issues a fresh fetch automatically — no
- *   explicit invalidateQueries call needed.
+ * Activity reactivity unchanged: useActivityPreference subscribes via
+ * useSyncExternalStore; setDefaultActivity triggers a refetch through
+ * queryKey content change.
  *
- *   The query is gated by __computeEnabled: it does not fire while the store
- *   is hydrating ("loading") or when no preference has been set ("unset").
- *   The Today screen should handle those states with its own loading/prompt UI.
+ * Cache policy: staleTime is Infinity (queryKey embeds todayIsoDate, so day
+ * rollover triggers a fresh fetch automatically — no spontaneous refetches
+ * within a day) and gcTime is 24h (release memory by the next day at latest).
  *
  * Library-version invalidation (PICKER-CONTRACT §6, design memo §3):
  *   On every successful fetch, compare response.library_version against
@@ -67,17 +58,16 @@ function round2(n: number): number {
  */
 export function useDailyNote(): UseQueryResult<DailyNoteResult, Error> {
   const queryClient = useQueryClient();
-  const { hydrationStatus, activity } = useActivityPreference();
+  const { hydrationStatus: activityHydrationStatus, activity } = useActivityPreference();
+  const { hydrationStatus: locationHydrationStatus } = useLocationPreference();
+  const effectiveLocation = useEffectiveLocation();
 
-  const { lat, lng, tz } = useMemo(() => {
-    const loc = getLastLocation();
-    if (loc) return { lat: round2(loc.lat), lng: round2(loc.lng), tz: loc.timezone };
-    return {
-      lat: round2(FALLBACK_LOCATION.lat),
-      lng: round2(FALLBACK_LOCATION.lng),
-      tz: FALLBACK_LOCATION.timezone,
-    };
-  }, []);
+  // Sentinel values are NEVER sent — __computeEnabled gates the query when
+  // effectiveLocation is null. They exist so the query-key types stay
+  // consistent during the disabled window.
+  const lat = effectiveLocation !== null ? round2(effectiveLocation.lat) : 0;
+  const lng = effectiveLocation !== null ? round2(effectiveLocation.lng) : 0;
+  const tz  = effectiveLocation !== null ? effectiveLocation.timezone : 'UTC';
 
   const todayIsoDate = useMemo(() => isoTodayInTz(tz), [tz]);
 
@@ -86,7 +76,12 @@ export function useDailyNote(): UseQueryResult<DailyNoteResult, Error> {
     queryFn: () => getDailyNote({ lat, lng, tz, activity: activity! }),
     staleTime: Infinity,
     gcTime: 1000 * 60 * 60 * 24,
-    enabled: __computeEnabled({ hydrationStatus, activity }),
+    enabled: __computeEnabled({
+      activityHydrationStatus,
+      locationHydrationStatus,
+      activity,
+      effectiveLocation,
+    }),
   });
 
   // Silent library-version invalidation. Runs after every successful fetch.
