@@ -1867,39 +1867,36 @@ After store approval + rollout begins:
 
 ---
 
-## 🛑 Checkpoint C — Unpark gate (default-location resumption)
+## ~~🛑 Checkpoint C~~ — REFRAMED 2026-06-04: default-location unparked, telemetry decoupled
 
-**Stop here. The default-location brainstorm artifact (D1–D24 + EC-1..22, preserved in conversation context) does not resume until both signals satisfied.**
+**REFRAMING (post-CP-B, user decision 2026-06-04):** CP-C was originally a hard gate in front of the default-location brainstorm — both `tz_mismatch_ratio < 0.5% × 7d` AND astrologer pack sign-off had to land before the picker work could resume. That sequencing assumed EC-19 (tz load-bearing) might NOT be resolved by the tz-fix shipment, so the picker had to wait on telemetry to confirm Worker correction was active in the wild.
 
-### Surface to the user:
+The tz-fix actually closes EC-19 architecturally: the default location, when saved, routes through `pickToSavedLocation` which derives canonical tz from coordinates via `tryTzLookup`. The picker INHERITS coord-derived tz as a structural property of the codebase — there's no Worker-correction dependency for default-location's correctness anymore. CP-B verification (commit `be116f8`) confirmed Worker behaviour live; the canonical→legacy upstream fallback contingency was proven unneeded by smoke #7.
 
-The unpark gate requires BOTH conditions, simultaneously, in writing:
+So CP-C is **decoupled into two independent tracks**:
 
-**(a) Mismatch decay signal:**
-```bash
-WORKER_URL=https://<production-worker-url> \
-  ADMIN_TOKEN=<production-admin-token> \
-  npx tsx workers/api-proxy/scripts/query-correctness-metrics.ts
-```
-Output shows: `✓ Last 7 days all under 0.5% tz_mismatch — DEFAULT-LOCATION UNPARK signal (a) MET`.
+### Track 1 — Default-location feature (no longer gated)
 
-If still showing `⏳`, wait. Expected trajectory: 14-21 days from mobile rollout start.
+- Picker resumption is unblocked NOW on top of the shipped Phase 1+2 mobile tz-fix
+- Resurface the parked brainstorm (D1–D24 + EC-1..22 from conversation memory), reconcile against the tz-fix (EC-19 closed; useDailyNote useMemo lockup status is the one genuinely-open knot), settle MVP scope, write the spec
+- Spec → plan → implement → ship via mobile release. Same review chain (spec + code reviewer per task) as Phase 1+2.
 
-**(b) Astrologer sign-off:**
-- Path A + Path B output from Task 4.2 Step 2 reviewed by project astrologer
-- Astrologer's written approval that:
-  - Worker correction behavior matches doctrinal expectation (Case B per EC-19 audit)
-  - Test pack methodology + results are sound
-  - No correctness concerns block default-location resumption
+### Track 2 — Worker prod deploy + telemetry bake (independent timing)
 
-### Checkpoint C sign-off
+- Worker prod deploy + 14–21 day bake of `tz_mismatch_ratio` happens whenever convenient for the operator
+- Resolve the wrangler.toml KV-placeholder mechanism (memory `tz-fix-active-gates.md` documents the diagnostic commands)
+- Run `tz-correctness-test-pack.ts` against production once deployed
+- Astrologer reviews Path A + Path B output
 
-User reviews both signals AND explicitly approves default-location brainstorm resumption.
+### Deny rules unchanged
 
-After approval:
-- Reopen the parked default-location brainstorm artifact (D1–D24 + EC-1..22 from conversation)
-- EC-19 flips from "BLOCKING-pre-launch" to "inherited-correct via this prior tz-correctness fix"
-- `/plan-and-implement` on the default-location spec proceeds normally
+- Worker-prod deploy denies (10 patterns) still active — gate the moment-of-deploy, not the picker work
+- Push-main denies (12 patterns) still active — gate the merge to main, not the branch's feature progress
+- Picker work happens on this branch (`feature/set-default-location`) or a successor branch; no push-to-main required to ship via mobile release
+
+### Astrologer review — still happens, just not as a gate
+
+The Path A + Path B test pack output still goes to the astrologer for sign-off on Worker correction doctrine. That's a quality gate for the Worker correctness story, not a blocker for the picker. If the astrologer surfaces a doctrinal concern post-bake, it's addressed via a Worker amendment (small) not a picker hold.
 
 ---
 
