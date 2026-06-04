@@ -1,25 +1,33 @@
-// Generalized set-default-location flow used by 3 entry points (D22):
+// Generalized set-default-location flow (D22) — used by 3 entry points:
 //   1. Onboarding interceptor (dismissLabel="Skip for now", onDismissStatus="skipped")
 //   2. YouScreen Settings row (dismissLabel="Cancel", onDismissStatus={null})
 //   3. Today empty-state CTA (dismissLabel="Cancel", onDismissStatus={null} per D31)
 //
-// Renders LocationPickerScreen embedded=true as a child and supplies its
-// own header chrome (soft-anchor heading + dismiss button). Full impl lands
-// in Phase 5 / Task 5.1.
+// Renders LocationPickerScreen embedded=true as a child; supplies header
+// chrome (soft-anchor heading + dismiss button); wires onConfirm to write
+// default_location + (conditionally) mark onboarding status.
 
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import HeroGradient from '../components/HeroGradient';
+import Starfield from '../components/Starfield';
 import LocationPickerScreen from './LocationPickerScreen';
-import { setDefaultLocation, markOnboardingLocationStatus } from '../lib/location-preference';
+import {
+  setDefaultLocation,
+  markOnboardingLocationStatus,
+} from '../lib/location-preference';
 
-export default function SetDefaultLocationScreen({ go, dismissLabel = 'Cancel', onDismissStatus = null }) {
+export default function SetDefaultLocationScreen({
+  go,
+  dismissLabel = 'Cancel',
+  onDismissStatus = null,
+}) {
   const handleConfirm = (loc) => {
     setDefaultLocation(loc);
-    // Onboarding entry passes onDismissStatus='skipped' but confirms write 'completed'.
-    // Settings + empty-state entries pass null and don't touch the flag on confirm
-    // unless onboarding-status is still 'pending' (covered by interceptor; can't
-    // happen from those entry points).
+    // Onboarding entry (onDismissStatus='skipped') wants 'completed' on confirm.
+    // Settings + empty-state entries pass null — they don't write on confirm
+    // because the status is already terminal (by interceptor invariant).
     if (onDismissStatus !== null) {
       markOnboardingLocationStatus('completed');
     }
@@ -27,6 +35,9 @@ export default function SetDefaultLocationScreen({ go, dismissLabel = 'Cancel', 
   };
 
   const handleDismiss = () => {
+    // D31: empty-state CTA Cancel writes NOTHING (null sentinel).
+    // Settings Cancel: same — null preserves whatever terminal status was set.
+    // Onboarding Skip: writes 'skipped' to mark the user's choice.
     if (onDismissStatus !== null) {
       markOnboardingLocationStatus(onDismissStatus);
     }
@@ -35,17 +46,23 @@ export default function SetDefaultLocationScreen({ go, dismissLabel = 'Cancel', 
 
   return (
     <View className="flex-1 bg-base">
+      <HeroGradient height={500}/>
+      <Starfield density="light"/>
       <SafeAreaView className="flex-1">
         <View className="flex-row justify-between items-center px-6 py-4">
-          <Text className="font-display-reg text-[20px] text-cream">
+          <Text className="font-display-reg text-[20px] leading-[28px] text-cream max-w-[240px]">
             Where do you usually start from?
           </Text>
-          <Text className="font-ui text-base text-muted" onPress={handleDismiss}>
-            {dismissLabel}
-          </Text>
+          <Pressable onPress={handleDismiss} hitSlop={12}>
+            <Text className="font-ui text-base text-muted">{dismissLabel}</Text>
+          </Pressable>
         </View>
         <View className="flex-1">
-          <LocationPickerScreen go={go} onConfirm={handleConfirm} embedded={true}/>
+          <LocationPickerScreen
+            go={go}
+            onConfirm={handleConfirm}
+            embedded={true}
+          />
         </View>
       </SafeAreaView>
     </View>
