@@ -9,6 +9,7 @@
  * Do not import these from product code outside useDailyNote.ts.
  */
 import type { Activity } from '@inceptio/shared-types';
+import type { SavedLocation } from '../lib/location-storage';
 
 type HydrationStatus = 'loading' | 'unset' | 'set';
 
@@ -42,25 +43,32 @@ export function __computeQueryKey(
   ] as const;
 }
 
-export interface ComputeEnabledArgs {
-  hydrationStatus: HydrationStatus;
+export type ComputeEnabledArgs = {
+  activityHydrationStatus: HydrationStatus;
+  locationHydrationStatus: HydrationStatus;
   activity: Activity | undefined;
-}
+  effectiveLocation: SavedLocation | null;
+};
 
 /**
  * Determines whether the /daily-note query should fire.
  *
- * Rules (in priority order):
- *   1. If hydration hasn't resolved yet ("loading"), never fire — we don't
- *      know whether the user has a preference or not.
- *   2. If hydration resolved but no preference was found ("unset"), never fire
- *      — the Today screen will prompt the user to pick an activity first.
- *   3. If hydration resolved and an activity is set, fire only when activity
- *      is non-undefined (the type already enforces this, but the explicit
- *      !== undefined check makes the intent legible).
+ * Rules (all four gates must be green):
+ *   1. activityHydrationStatus must be 'set' — we know the user's stored
+ *      activity preference (or confirmed there isn't one).
+ *   2. locationHydrationStatus must be 'set' — we know the user's stored
+ *      location preference (or confirmed there isn't one).
+ *   3. activity is non-undefined — the user has actually chosen an activity.
+ *   4. effectiveLocation is non-null — there is a usable location to query
+ *      against (either stored default or confirmed device location).
+ *
+ * Spec §4.6 + §8.4.
  *
  * @internal
  */
 export function __computeEnabled(args: ComputeEnabledArgs): boolean {
-  return args.hydrationStatus === 'set' && args.activity !== undefined;
+  return args.activityHydrationStatus === 'set'
+    && args.locationHydrationStatus === 'set'
+    && args.activity !== undefined
+    && args.effectiveLocation !== null;
 }
