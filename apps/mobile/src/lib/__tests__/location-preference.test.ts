@@ -231,4 +231,62 @@ describe('location-preference', () => {
       expect(second).toBe(first);
     });
   });
+
+  describe('useLocationPreference (external store contract)', () => {
+    beforeEach(() => {
+      mockActivityStatus = 'set';
+      initLocationPreference();
+    });
+
+    it('subscribe receives notify on setDefaultLocation', () => {
+      const { subscribe } = __getSubscribeAndSnapshot();
+      const cb = vi.fn();
+      const unsubscribe = subscribe(cb);
+      setDefaultLocation(SAMPLE_LOC);
+      expect(cb).toHaveBeenCalledTimes(1);
+      unsubscribe();
+    });
+
+    it('subscribe receives notify on markOnboardingLocationStatus', () => {
+      const { subscribe } = __getSubscribeAndSnapshot();
+      const cb = vi.fn();
+      const unsubscribe = subscribe(cb);
+      markOnboardingLocationStatus('skipped');
+      expect(cb).toHaveBeenCalledTimes(1);
+      unsubscribe();
+    });
+
+    it('subscribe receives notify on clearDefaultLocation', () => {
+      setDefaultLocation(SAMPLE_LOC);
+      const { subscribe } = __getSubscribeAndSnapshot();
+      const cb = vi.fn();
+      const unsubscribe = subscribe(cb);
+      clearDefaultLocation();
+      expect(cb).toHaveBeenCalledTimes(1);
+      unsubscribe();
+    });
+
+    it('unsubscribe removes the listener', () => {
+      const { subscribe } = __getSubscribeAndSnapshot();
+      const cb = vi.fn();
+      const unsubscribe = subscribe(cb);
+      unsubscribe();
+      setDefaultLocation(SAMPLE_LOC);
+      expect(cb).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('useLocationPreference type', () => {
+    it('snapshot shape matches consumer destructure', () => {
+      mockActivityStatus = 'set';
+      initLocationPreference();
+      const { getSnapshot } = __getSubscribeAndSnapshot();
+      const snap = getSnapshot();
+      // Type-level check: destructure must work without runtime error.
+      const { hydrationStatus, defaultLocation, onboardingLocationStatus } = snap;
+      expect(hydrationStatus).toBe('set');
+      expect(defaultLocation).toBeNull();
+      expect(onboardingLocationStatus).toBe('completed');
+    });
+  });
 });
