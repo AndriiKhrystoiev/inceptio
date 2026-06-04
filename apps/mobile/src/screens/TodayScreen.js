@@ -21,7 +21,6 @@ import { LoadingHero, ErrorHero } from '../components/daily-note/DailyHero';
 import EmptyStateHero from '../components/daily-note/EmptyStateHero';
 import StatePicker from '../components/StatePicker';
 import PrimaryButton from '../components/PrimaryButton';
-import { getSavedMoments } from '../lib/draft-store';
 
 export default function TodayScreen({ go }) {
   const { hydrationStatus: locationHydrationStatus } = useLocationPreference();
@@ -49,14 +48,11 @@ export default function TodayScreen({ go }) {
 
   const dailyNote = data.response.daily_note;
   const renderedMood = moodOverride ?? dailyNote.mood;
-  const savedMomentsCount = getSavedMoments().length;
 
   return (
     <ScrollView className="flex-1 bg-base" contentContainerStyle={{ paddingBottom: 120 }}>
       <DailyNoteSection
         dailyNote={{ ...dailyNote, mood: renderedMood }}
-        savedMomentsCount={savedMomentsCount}
-        onInvitePress={() => go('picker')}
       />
 
       {__DEV__ && (

@@ -1,5 +1,7 @@
 # Default-Location Picker Implementation Plan
 
+> **SUPERSEDED NOTICE (2026-06-04):** The `TodayScreen` sketches in this plan show `savedMomentsCount` / `onInvitePress` props passed to `DailyNoteSection` for the now-**REMOVED** `EmptyInvite` ("Choose a moment of your own") invite — see the §8 reversal in `docs/superpowers/specs/2026-05-29-mobile-integration-design.md`. The live `DailyNoteSection` takes only `{ dailyNote }`. This plan's own contribution to `TodayScreen` (the `EmptyStateHero` `effectiveLocation === null` guard) is unaffected and remains live.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let the user set a persistent default location the app reads on every boot, so Today shows daily timing for *their* place — set via onboarding (NEW interceptor), YouScreen Settings (NEW row), or Today empty-state CTA (NEW). The Kyiv `FALLBACK_LOCATION` in `useDailyNote.ts` retires; the empty-deps `useMemo` lockup retires with it.

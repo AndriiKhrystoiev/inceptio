@@ -1,5 +1,5 @@
 // DailyNoteSection — the screen-level composer used by TodayScreen.
-// Combines DailyHero + DailyNoteBody + (EmptyInvite when applicable).
+// Combines DailyHero + DailyNoteBody.
 //
 // Loading/error states are handled at the screen level via the LoadingHero
 // and ErrorHero named exports of DailyHero — this component is rendered
@@ -20,7 +20,6 @@
 import React, { useState, useCallback } from 'react';
 import DailyHero from './DailyHero';
 import DailyNoteBody from './DailyNoteBody';
-import EmptyInvite from './EmptyInvite';
 import { ActivityLine } from '../ActivityLine';
 import { ActivityChangeSheet } from '../ActivityChangeSheet';
 import { useActivityPreference, setDefaultActivity } from '../../lib/activity-preference';
@@ -30,11 +29,8 @@ import { useActivityPreference, setDefaultActivity } from '../../lib/activity-pr
  *   dailyNote          — { mood, moon_phase, date, headline, supporting } from
  *                        the response's daily_note field. mood may be
  *                        overridden by the screen's StatePicker (design QA).
- *   savedMomentsCount  — getSavedMoments().length; controls EmptyInvite render
- *   onInvitePress      — callback for the EmptyInvite tap (typically
- *                        go('picker'))
  */
-export default function DailyNoteSection({ dailyNote, savedMomentsCount, onInvitePress }) {
+export default function DailyNoteSection({ dailyNote }) {
   const { hydrationStatus, activity } = useActivityPreference();
   const [changeOpen, setChangeOpen] = useState(false);
 
@@ -65,7 +61,6 @@ export default function DailyNoteSection({ dailyNote, savedMomentsCount, onInvit
           activitySlot={activitySlot}
         />
       </DailyHero>
-      {savedMomentsCount === 0 && <EmptyInvite onPress={onInvitePress}/>}
       {/* ActivityChangeSheet is rendered outside DailyHero so the Modal is not
           nested inside any scroll or backdrop context. It is always mounted
           (not gated on activity) because it self-gates via `open={changeOpen}`;

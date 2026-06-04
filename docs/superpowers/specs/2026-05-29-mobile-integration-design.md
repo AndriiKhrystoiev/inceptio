@@ -144,14 +144,15 @@ The decision is structural (feature is growing into a cluster), not stylistic. S
 
 ```
 src/components/daily-note/
-  DailyNoteSection.js    — screen-level section composing Hero + Body + (EmptyInvite when applicable)
+  DailyNoteSection.js    — screen-level section composing Hero + Body
+                           (EmptyInvite removed 2026-06-04 — see §8)
   DailyHero.js           — radial gradient + starfield + moon-with-halo (default export)
                            plus named exports LoadingHero + ErrorHero — same backdrop
                            shape, different middle content (centered Pulse + text /
                            friendlyMessage + retry pressable). Same file so the three
                            variants share the gradient + starfield primitives.
   DailyNoteBody.js       — mood dot + date eyebrow + headline + supporting
-  EmptyInvite.js         — "Choose a moment of your own →" chip card
+  EmptyInvite.js         — REMOVED 2026-06-04 (was: "Choose a moment of your own →" chip card; see §8 reversal)
   mood-tokens.js         — MOOD palette (dot color, halo color, dim flag)
   scaffold/              — built-but-not-wired components for future SavedSearch
     SavedRow.js
@@ -608,17 +609,15 @@ Target: ~40 LOC (down from ~320).
 
 ### EmptyInvite + PrimaryButton coexistence
 
-**Both stay.** They serve distinct roles:
+**DECISION REVERSED 2026-06-04: EmptyInvite removed. Only the persistent PrimaryButton "Find a moment for…" remains.** The original "Both stay" ruling and the counter-rationale that overturned it are both recorded below so the reversal is auditable.
 
-- **EmptyInvite** (chip card, voice-warm): rendered as text `"Choose a moment of your own"` + a separate `<ChevronRight>` icon component (not as a literal `→` glyph in the string). The voice spec §6.2 literal `"Choose a moment of your own →"` is shorthand for "text-with-affordance"; the chevron icon carries the affordance signal per the design-pass render (`DailyNote.jsx:105` pattern). Standard RN separation of concerns.
+**Original ruling (superseded) — "Both stay":** the two CTAs served distinct roles — EmptyInvite as a warm zero-saved-moments on-ramp chip rendered below the hero (gated `getSavedMoments().length === 0`), and PrimaryButton as the always-present persistent action at the bottom. The stated worry was that *hiding the PrimaryButton* on the empty state would strand a new user who looks at the invite, decides to "look around first," returns, and can't find how to start. **Both pointed at the same destination (`go('picker')`).**
 
-  Rendered below the daily-note hero, **only when `getSavedMoments().length === 0`**. The on-ramp moment.
+**Counter-rationale (why it was reversed):** the original worry was specifically about removing the *PrimaryButton*, not the *invite*. Two same-destination CTAs stacked on the zero-saved-moments **first impression** read as redundant — a duplicated call to the identical flow. The persistent PrimaryButton already *is* the new-user fallback, so removing the invite does **not** reintroduce the strand-a-new-user risk the original ruling guarded against: the user still has an always-present, obvious entry point. The invite's separate "choose your own" framing also implied a distinct destination it never had (it routed to the same window-search picker), so removing it eliminates a false affordance rather than a real capability.
 
-- **PrimaryButton "Find a moment for…"** (full-width purple action): bottom of screen, **always present**. Persistent screen action.
+**Net:** remove the EmptyInvite render + its `getSavedMoments().length === 0` gating + dead plumbing (`onInvitePress`, `savedMomentsCount`, the `EmptyInvite.js` component). PrimaryButton unchanged. Empty-state new-user flow is unaffected — PrimaryButton covers it.
 
-Hiding PrimaryButton on empty state would leave a new user without a fallback CTA if they look at the invite and decide to "look around first" — they return, can't find how to start, feels stuck. Both stay. Same destination (`go('picker')`).
-
-**Gating-rationale caveat (read before changing this in a future PR).** The voice spec §6.2 + §8.1 gate EmptyInvite on `saved_searches.length === 0`. This spec gates on `getSavedMoments().length === 0` because mobile doesn't have a `SavedSearch` concept yet (see Finding A). The two gates happen to produce identical user-facing behavior in MVP — `saved_searches` is always `[]` (Worker stubs it), so EmptyInvite shows whenever there are no SavedMoments. **Don't silently flip the gate to `saved_searches` when SavedSearch lands later** — the SavedSearch wire-in needs to consciously decide whether EmptyInvite's trigger evolves with it (gate on `saved_searches.length`) or stays a "no SavedMoments" affordance (gate stays on `getSavedMoments()`). Surface this decision in the SavedSearch brainstorm. // TODO(SavedSearch): EmptyInvite gating evolution.
+**SavedSearch note (the old gating-rationale caveat, now retired).** The prior version of this section carried a `// TODO(SavedSearch): EmptyInvite gating evolution` — it asked a future SavedSearch wire-in to decide whether EmptyInvite's trigger should evolve from `getSavedMoments().length` to `saved_searches.length`. **That TODO is retired: there is no longer an EmptyInvite to gate.** If SavedSearch later wants a zero-state invite affordance, that is a fresh design decision to make in the SavedSearch brainstorm — not a revival of this removed component by default.
 
 ### Loading state
 

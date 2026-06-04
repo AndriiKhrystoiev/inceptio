@@ -1,5 +1,7 @@
 # Mobile Integration Implementation Plan
 
+> **SUPERSEDED NOTICE (2026-06-04):** The `EmptyInvite` ("Choose a moment of your own") component built in Task 8, and all `EmptyInvite` / `savedMomentsCount` / `onInvitePress` wiring shown in the `DailyNoteSection` and `TodayScreen` sketches below, were **REMOVED** — see the §8 reversal in `docs/superpowers/specs/2026-05-29-mobile-integration-design.md`. The live `DailyNoteSection` takes only `{ dailyNote }`; the persistent `PrimaryButton` ("Find a moment for…") is the sole Today CTA. The sketches below reflect the pre-removal shape and are kept for historical fidelity.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Wire the Worker-side daily-note feature (already shipped at commit `03b1324`, frozen until astrologer ruling) into the mobile app's Today screen, retiring the prototype `CardA/B/C` hero and laying scaffold for a future SavedSearch concept.
