@@ -172,6 +172,34 @@ export default function App() {
     );
   }
 
+  // Second-launch location gate (NEW). Fires when activity onboarding is
+  // already done (interceptor sequencing per D13: activity → location → Today)
+  // AND the location-preference hydrated AND the user hasn't completed OR
+  // skipped the location onboarding step. Spec §7.3.
+  if (
+    hydrationStatus === 'set' &&
+    locationHydrationStatus === 'set' &&
+    onboardingLocationStatus === 'pending' &&
+    screen !== 'set-default-location'
+  ) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider>
+          <View style={styles.root} onLayout={onLayoutRoot}>
+            <StatusBar style="light"/>
+            <View style={styles.content}>
+              <SetDefaultLocationScreen
+                go={go}
+                dismissLabel="Skip for now"
+                onDismissStatus="skipped"
+              />
+            </View>
+          </View>
+        </SafeAreaProvider>
+      </QueryClientProvider>
+    );
+  }
+
   const Screen = SCREENS[screen] || SCREENS.today;
   const showTabBar = !MODAL_SCREENS.has(screen);
 
