@@ -51,19 +51,21 @@ From spec §14:
 
 ---
 
-## Phase map (7 phases, ~30 tasks, no parallel internal tasks)
+## Phase map (7 phases, 31 tasks, no parallel internal tasks)
 
 | # | Phase | Tasks | Description |
 |---|---|---|---|
 | 0 | Foundational | 5 | Skeletons + the new `__readActivityHydrationStatusSync` Activity export (D28) |
 | 1 | Storage primitives | 3 | Failing tests, implement init+setters, wire into App.js boot |
 | 2 | Hooks | 4 | `useLocationPreference` + `useEffectiveLocation` TDD pairs |
-| 3 | useDailyNote integration + FALLBACK removal | 4 | `__computeEnabled` extension, body change, full suite verify |
+| 3 | useDailyNote integration + FALLBACK removal + TodayScreen guard | 5 | `__computeEnabled` extension, useDailyNote body change, **TodayScreen no-location guard with PROVISIONAL CTA target (`go('you')`)** so Phase 3 doesn't leave TodayScreen crashable for no-location devices, full suite verify |
 | 4 | LocationPickerScreen contract extension | 4 | `onConfirm` + `embedded`, D30 one-line update, Maestro 04 regression |
-| 5 | SetDefaultLocationScreen + entry-point wiring | 6 | Screen impl, App.js interceptor, EmptyStateHero, TodayScreen guard, YouScreen row |
-| 6 | Verification + Maestro | 4 | New Maestro flow, full vitest, tsc clean, manual sim smoke |
+| 5 | SetDefaultLocationScreen + entry-point wiring | 6 | Screen impl, App.js interceptor, EmptyStateHero polish, TodayScreen empty-state CTA target FINALIZATION (from `go('you')` to `go('set-default-location')`), YouScreen row |
+| 6 | Verification + Maestro | 4 | New Maestro flow, full vitest, tsc gate (tolerant of pre-existing cluster-windows error), manual sim smoke (4 flows incl. D14/D32 upgrade acceptance) |
 
-**Total: 30 tasks.**
+**Total: 31 tasks.**
+
+**Correctness-ordering note (the reason Phase 3 has 5 tasks not 4):** the Kyiv `FALLBACK_LOCATION` removal + the 4-gate `__computeEnabled` (Phase 3) and the TodayScreen no-location guard (D27) are two halves of ONE invariant. After Phase 3's useDailyNote change, the hook is disabled when `effectiveLocation === null` → `data === undefined`. TodayScreen's existing `isLoading`/`isError` guards both read `false` in the disabled state, so without the D27 guard it falls through to `data.response.daily_note` and CRASHES on any no-location device. The guard MUST land alongside the consumer-disabling change, NOT defer to Phase 5. The empty-state CTA's final target (`SetDefaultLocationScreen`) doesn't exist until Phase 5 → in Phase 3 the CTA points at a non-crashing target (`go('you')`); Phase 5 / Task 5.5 finalizes it to `go('set-default-location')`. EmptyStateHero is already skeleton-ready from Task 0.3 + polished in Task 5.4.
 
 ---
 
@@ -1578,7 +1580,126 @@ substitution bug + the useMemo([]) lockup retire together. Spec §4.6."
 
 ---
 
-### Task 3.4: Full suite verification — Phase 3 gate
+### Task 3.4: TodayScreen no-location guard (PROVISIONAL CTA — finalized in Phase 5)
+
+**Spec:** §4.7, §5.4, D26, D27. **Correctness-paired with Task 3.3** — after 3.3, `useDailyNote` returns `data === undefined` when `effectiveLocation === null`, and TodayScreen's existing `isLoading`/`isError` checks both read false in that disabled state. Without this guard, TodayScreen falls through to `data.response.daily_note` and **crashes** on any no-location device. This task closes that window the moment data can be absent.
+
+**Why provisional CTA:** `SetDefaultLocationScreen` is not registered yet (lands in Phase 5 Task 5.2), so `go('set-default-location')` would crash. In the interim, the CTA points at `go('you')` — YouScreen exists today, the route is non-crashing, and from YouScreen the user can (in Phase 5 onward) reach the Default-location row. Task 5.5 finalizes the CTA target to `go('set-default-location')`.
+
+**Files:**
+- Modify: `apps/mobile/src/screens/TodayScreen.js`
+
+- [ ] **Step 1: Read current shape**
+
+```bash
+cat /Users/user/Projects/inceptio/apps/mobile/src/screens/TodayScreen.js
+```
+
+- [ ] **Step 2: Modify**
+
+Replace the imports block to include EmptyStateHero + location hooks:
+
+```js
+import React, { useState } from 'react';
+import { View, ScrollView } from 'react-native';
+import { useDailyNote } from '../hooks/useDailyNote';
+import { useLocationPreference } from '../lib/location-preference';
+import { useEffectiveLocation } from '../hooks/useEffectiveLocation';
+import DailyNoteSection from '../components/daily-note/DailyNoteSection';
+import { LoadingHero, ErrorHero } from '../components/daily-note/DailyHero';
+import EmptyStateHero from '../components/daily-note/EmptyStateHero';
+import StatePicker from '../components/StatePicker';
+import PrimaryButton from '../components/PrimaryButton';
+import { getSavedMoments } from '../lib/draft-store';
+```
+
+Modify the component body — add the location hooks at top and prepend the empty-state guard:
+
+```js
+export default function TodayScreen({ go }) {
+  const { hydrationStatus: locationHydrationStatus } = useLocationPreference();
+  const effectiveLocation = useEffectiveLocation();
+  const { data, isLoading, isError, error, refetch } = useDailyNote();
+  const [moodOverride, setMoodOverride] = useState(null);
+
+  // Empty-state guard FIRST — fires when location hydration is done AND no
+  // effective location resolves. Must come before isLoading/isError because
+  // when useDailyNote is enabled=false, isLoading is false too, and the next
+  // check would fall through to `data.response.daily_note` on undefined data
+  // → crash. D27.
+  //
+  // PROVISIONAL CTA target: go('you'). SetDefaultLocationScreen isn't
+  // registered yet (Phase 5 Task 5.2); routing there would crash. YouScreen
+  // exists today and is a non-crashing landing. Task 5.5 finalizes the
+  // target to go('set-default-location') once the screen is registered.
+  if (locationHydrationStatus === 'set' && effectiveLocation === null) {
+    return <EmptyStateHero onSetLocation={() => go('you')}/>;
+  }
+
+  if (isLoading) return <LoadingHero/>;
+  if (isError) return <ErrorHero error={error} onRetry={refetch}/>;
+
+  const dailyNote = data.response.daily_note;
+  const renderedMood = moodOverride ?? dailyNote.mood;
+  const savedMomentsCount = getSavedMoments().length;
+
+  return (
+    <ScrollView className="flex-1 bg-base" contentContainerStyle={{ paddingBottom: 120 }}>
+      <DailyNoteSection
+        dailyNote={{ ...dailyNote, mood: renderedMood }}
+        savedMomentsCount={savedMomentsCount}
+        onInvitePress={() => go('picker')}
+      />
+
+      {__DEV__ && (
+        <StatePicker
+          value={renderedMood}
+          onChange={setMoodOverride}
+          options={[
+            ['strong', 'A · strong'],
+            ['good',   'B · good'],
+            ['mixed',  'C · mixed'],
+            ['closed', 'D · closed'],
+          ]}
+        />
+      )}
+
+      <View className="px-6 mt-7">
+        <PrimaryButton onPress={() => go('picker')}>Find a moment for…</PrimaryButton>
+      </View>
+    </ScrollView>
+  );
+}
+```
+
+- [ ] **Step 3: tsc + suite**
+
+```bash
+cd /Users/user/Projects/inceptio/apps/mobile && npx tsc --noEmit 2>&1 | head -10
+cd /Users/user/Projects/inceptio/apps/mobile && npx vitest run 2>&1 | tail -6
+```
+Expected: tsc only pre-existing `cluster-windows.ts(108,35)` error; suite passes (existing TodayScreen consumers either don't have unit tests or use mocked queries that bypass the empty-state path; if any test breaks because it didn't supply `locationHydrationStatus`, update that mock setup).
+
+- [ ] **Step 4: Commit**
+
+```bash
+cd /Users/user/Projects/inceptio && git add apps/mobile/src/screens/TodayScreen.js && git commit -m "feat(TodayScreen): no-location guard (provisional CTA target — Phase 3)
+
+Pair with Task 3.3 — after the useDailyNote 4-gate change, data is
+undefined when effectiveLocation is null. The existing isLoading/isError
+guards both read false in that disabled state, so without this guard
+TodayScreen falls through to data.response.daily_note and crashes on
+any no-location device. The D27 two-part check fires the EmptyStateHero
+the moment the consumer can be data-less.
+
+CTA target is PROVISIONAL: go('you') is non-crashing today; Task 5.5
+finalizes it to go('set-default-location') once the screen is registered
+in Phase 5 Task 5.2. Spec §4.7 + §5.4 + D27."
+```
+
+---
+
+### Task 3.5: Full suite verification — Phase 3 gate
 
 **Spec:** §9.8.
 
@@ -1589,16 +1710,25 @@ cd /Users/user/Projects/inceptio/apps/mobile && npx vitest run 2>&1 | tail -6
 ```
 Expected: count reflects Phase 0-3 additions cleanly. If any test breaks because it depended on `FALLBACK_LOCATION`, that test needs its expectation updated — the failure is correct (the bug is gone); the test is stale. Update individual tests if needed; do NOT re-introduce the fallback.
 
-- [ ] **Step 2: tsc**
+- [ ] **Step 2: tsc — no NEW errors**
 
 ```bash
 cd /Users/user/Projects/inceptio/apps/mobile && npx tsc --noEmit 2>&1 | head -10
 ```
-Expected: only pre-existing `cluster-windows.ts(108,35)` error.
+Expected: ONLY the known pre-existing `cluster-windows.ts(108,35): error TS2345` (EC-13 / memo `tz-fix-pre-existing-debt`; predates branch; not introduced by this work). Any OTHER error is a real regression — fix before declaring Phase 3 complete. Do NOT count the cluster-windows error as a failure.
 
-- [ ] **Step 3: No commit if everything green**
+- [ ] **Step 3: TodayScreen non-crashability gate (NEW)**
 
-If suite + tsc clean, this is a verification gate, no commit. If a stale test had to be updated, commit:
+This is the Phase 3 checkpoint the user verifies. Confirm the change in Task 3.4 means a no-location device DOES NOT crash TodayScreen:
+
+```bash
+grep -n "EmptyStateHero\|locationHydrationStatus === 'set' && effectiveLocation === null" /Users/user/Projects/inceptio/apps/mobile/src/screens/TodayScreen.js
+```
+Expected: the import line + the guard line both present, BEFORE the `isLoading`/`isError` checks.
+
+- [ ] **Step 4: No commit if everything green**
+
+If suite + tsc + grep clean, no commit. If a stale test had to be updated, commit:
 
 ```bash
 cd /Users/user/Projects/inceptio && git add <touched test files> && git commit -m "test: update stale tests after FALLBACK_LOCATION removal"
@@ -2202,89 +2332,48 @@ subject to final review pass; structural contract pinned. Spec §4.7+§5.3."
 
 ---
 
-### Task 5.5: TodayScreen empty-state guard + integration
+### Task 5.5: TodayScreen empty-state CTA — finalize target (provisional → real)
 
-**Spec:** §4.7, §5.4, D26, D27.
+**Spec:** §4.7, §5.4, D22, D27. **Pair with Phase 3 Task 3.4** which landed the guard with a provisional CTA target. Now that `'set-default-location'` is registered in App.js (Task 5.2), update the CTA target to its final value.
 
 **Files:**
 - Modify: `apps/mobile/src/screens/TodayScreen.js`
 
-- [ ] **Step 1: Read current shape**
+- [ ] **Step 1: Verify the provisional target is in place**
 
 ```bash
-cat /Users/user/Projects/inceptio/apps/mobile/src/screens/TodayScreen.js
+grep -n "EmptyStateHero\|onSetLocation" /Users/user/Projects/inceptio/apps/mobile/src/screens/TodayScreen.js
+```
+Expected: the guard from Task 3.4 with `onSetLocation={() => go('you')}` present.
+
+If absent, Phase 3 didn't land cleanly — STOP and investigate before continuing.
+
+- [ ] **Step 2: Swap the target**
+
+Find:
+```js
+return <EmptyStateHero onSetLocation={() => go('you')}/>;
 ```
 
-- [ ] **Step 2: Modify**
-
-Replace the import block to include EmptyStateHero + location hooks:
-
+Replace with:
 ```js
-import React, { useState } from 'react';
-import { View, ScrollView } from 'react-native';
-import { useDailyNote } from '../hooks/useDailyNote';
-import { useLocationPreference } from '../lib/location-preference';
-import { useEffectiveLocation } from '../hooks/useEffectiveLocation';
-import DailyNoteSection from '../components/daily-note/DailyNoteSection';
-import { LoadingHero, ErrorHero } from '../components/daily-note/DailyHero';
-import EmptyStateHero from '../components/daily-note/EmptyStateHero';
-import StatePicker from '../components/StatePicker';
-import PrimaryButton from '../components/PrimaryButton';
-import { getSavedMoments } from '../lib/draft-store';
+return <EmptyStateHero onSetLocation={() => go('set-default-location')}/>;
 ```
 
-Modify the component body — add the location hooks at top and prepend the empty-state guard:
-
+Also strip the Phase-3 "PROVISIONAL CTA target" comment block in the guard's preamble — it's no longer accurate. Replace:
 ```js
-export default function TodayScreen({ go }) {
-  const { hydrationStatus: locationHydrationStatus } = useLocationPreference();
-  const effectiveLocation = useEffectiveLocation();
-  const { data, isLoading, isError, error, refetch } = useDailyNote();
-  const [moodOverride, setMoodOverride] = useState(null);
+  // PROVISIONAL CTA target: go('you'). SetDefaultLocationScreen isn't
+  // registered yet (Phase 5 Task 5.2); routing there would crash. YouScreen
+  // exists today and is a non-crashing landing. Task 5.5 finalizes the
+  // target to go('set-default-location') once the screen is registered.
+```
 
-  // Empty-state guard FIRST — fires when location hydration is done AND no
-  // effective location resolves. Must come before isLoading/isError because
-  // when useDailyNote is enabled=false, isLoading is false too, and the next
-  // check would fall through to `data.response.daily_note` on undefined data
-  // → crash. D27.
-  if (locationHydrationStatus === 'set' && effectiveLocation === null) {
-    return <EmptyStateHero onSetLocation={() => go('set-default-location')}/>;
-  }
-
-  if (isLoading) return <LoadingHero/>;
-  if (isError) return <ErrorHero error={error} onRetry={refetch}/>;
-
-  const dailyNote = data.response.daily_note;
-  const renderedMood = moodOverride ?? dailyNote.mood;
-  const savedMomentsCount = getSavedMoments().length;
-
-  return (
-    <ScrollView className="flex-1 bg-base" contentContainerStyle={{ paddingBottom: 120 }}>
-      <DailyNoteSection
-        dailyNote={{ ...dailyNote, mood: renderedMood }}
-        savedMomentsCount={savedMomentsCount}
-        onInvitePress={() => go('picker')}
-      />
-
-      {__DEV__ && (
-        <StatePicker
-          value={renderedMood}
-          onChange={setMoodOverride}
-          options={[
-            ['strong', 'A · strong'],
-            ['good',   'B · good'],
-            ['mixed',  'C · mixed'],
-            ['closed', 'D · closed'],
-          ]}
-        />
-      )}
-
-      <View className="px-6 mt-7">
-        <PrimaryButton onPress={() => go('picker')}>Find a moment for…</PrimaryButton>
-      </View>
-    </ScrollView>
-  );
-}
+With:
+```js
+  // CTA target opens SetDefaultLocationScreen DIRECTLY per D22 (no Settings hop).
+  // The screen is registered as a modal in App.js SCREENS map + MODAL_SCREENS set
+  // (Task 5.2) and routes the user through the same generalized flow used by
+  // the onboarding interceptor + YouScreen Settings row.
 ```
 
 - [ ] **Step 3: tsc + suite**
@@ -2293,18 +2382,17 @@ export default function TodayScreen({ go }) {
 cd /Users/user/Projects/inceptio/apps/mobile && npx tsc --noEmit 2>&1 | head -10
 cd /Users/user/Projects/inceptio/apps/mobile && npx vitest run 2>&1 | tail -6
 ```
-Expected: tsc only pre-existing; suite passes (existing TodayScreen consumers either don't have unit tests or use mocked queries that bypass the empty-state path; if any test breaks because it didn't supply locationHydrationStatus, update that mock setup).
+Expected: tsc only pre-existing cluster-windows error; suite passes.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-cd /Users/user/Projects/inceptio && git add apps/mobile/src/screens/TodayScreen.js && git commit -m "feat(TodayScreen): empty-state guard + integration (D26, D27)
+cd /Users/user/Projects/inceptio && git add apps/mobile/src/screens/TodayScreen.js && git commit -m "feat(TodayScreen): finalize empty-state CTA target (D22)
 
-Prepends the D27 two-part guard (locationHydrationStatus === 'set' &&
-effectiveLocation === null) BEFORE isLoading/isError. Without the
-two-part check, the hydration window would flash EmptyStateHero before
-the real location loads. Empty-state CTA routes to go('set-default-location').
-Existing daily-note render path unchanged. Spec §4.7 + §5.4."
+Swap from the provisional Phase-3 go('you') to the final go('set-default-location').
+SetDefaultLocationScreen was registered as a modal in Task 5.2; CTA now
+opens the generalized flow DIRECTLY per D22 (no Settings hop). Spec §4.7
++ §5.4 + D22."
 ```
 
 ---
@@ -2536,7 +2624,7 @@ If no fixups needed, no commit.
 
 ---
 
-### Task 6.3: Mobile tsc gate
+### Task 6.3: Mobile tsc gate — no NEW errors
 
 - [ ] **Step 1: Run tsc**
 
@@ -2544,23 +2632,30 @@ If no fixups needed, no commit.
 cd /Users/user/Projects/inceptio/apps/mobile && npx tsc --noEmit 2>&1 | head -20
 ```
 
-Expected: EXACTLY ONE error — `cluster-windows.ts(108,35): error TS2345`. This is pre-existing (memo `tz-fix-pre-existing-debt`; predates branch; not introduced by this work).
+**Acceptance: NO NEW tsc errors beyond the known pre-existing one.** Specifically:
+- `cluster-windows.ts(108,35): error TS2345` IS allowed (EC-13 / memo `tz-fix-pre-existing-debt`; predates branch; not introduced by this work)
+- ANY other error is a real regression — fix before declaring Phase 6 complete
 
-Any OTHER error means a real regression. Fix before declaring Phase 6 complete.
+Concretely, count errors after grep-filtering:
+
+```bash
+cd /Users/user/Projects/inceptio/apps/mobile && npx tsc --noEmit 2>&1 | grep -v "cluster-windows.ts(108,35)" | grep "error TS" | head
+```
+Expected: empty output. If anything appears, that's a NEW error to investigate.
 
 - [ ] **Step 2: No commit unless fixups landed**
 
 ---
 
-### Task 6.4: Manual simulator smoke
+### Task 6.4: Manual simulator smoke (4 flows)
 
-**Spec:** §12 Phase 6 acceptance criterion.
+**Spec:** §12 Phase 6 acceptance criterion + Ruling 14 (D14) + D32 upgrade acceptance.
 
-- [ ] **Step 1: Cold install on iOS simulator**
+- [ ] **Step 1: Cold install on iOS simulator (Flows A, B, D)**
 
 Boot iOS simulator. Either delete the app via Settings → General → Reset → Erase All Content + Settings, OR via the simulator: long-press app icon → Remove → Delete App. Then re-launch Expo Go (or build a new dev client) and open Inceptio.
 
-- [ ] **Step 2: Verify Flow A (set during onboarding)**
+- [ ] **Step 2: Verify Flow A (fresh install, set during onboarding)**
 
 1. Welcome screen displays
 2. Tap "Find your moment" → activity picker
@@ -2569,7 +2664,7 @@ Boot iOS simulator. Either delete the app via Settings → General → Reset →
 5. Tap the first Tokyo result → tap Continue / Find moments
 6. Today screen renders with a daily-note for Tokyo (NOT for Kyiv — the FALLBACK is gone)
 
-- [ ] **Step 3: Verify Flow B (skip during onboarding)**
+- [ ] **Step 3: Verify Flow B (fresh install, skip during onboarding)**
 
 1. Delete app + re-install (cold install)
 2. Welcome → Find your moment → Activity picker → pick → Continue
@@ -2579,9 +2674,37 @@ Boot iOS simulator. Either delete the app via Settings → General → Reset →
 6. Pick a city (e.g. "Berlin") → Continue
 7. Today re-renders with a daily-note for Berlin
 
-- [ ] **Step 4: Verify Flow C (Settings entry)**
+- [ ] **Step 4: Verify Flow C — UPGRADE SCENARIO (D14 + D32 KEY ACCEPTANCE)**
 
-1. From Today, tap the "You" tab
+This is the load-bearing acceptance check that an existing user with the activity-preference work already shipped is NOT bounced into the new location interceptor (D14) AND that the defensive `initActivityPreference()` call in `initLocationPreference()` (D32) holds.
+
+**Seed the existing-install state manually** before launching:
+
+1. Delete app + cold install. Boot once and complete activity onboarding so `inceptio.default_activity` is 'set'. Do NOT enter the location step yet (this is hard since the interceptor fires; alternative: on a build with this plan, after the activity step the location step auto-fires — TO SIMULATE the existing-install scenario, you instead need to seed MMKV before the location-pref init runs).
+
+2. **Seeding approach: dev-only React Native debugger.** With the app in dev mode, open the React Native debugger or the Expo Dev Tools console and run:
+   ```js
+   // Via @react-native-async-storage/async-storage or the mmkv inspector,
+   // depending on which side of the storage wrapper:
+   //   1. SET 'inceptio.default_activity' to 'wedding' (or any valid Activity)
+   //   2. SET 'inceptio.last_location' to a valid SavedLocation JSON for e.g. Kyiv
+   //   3. DELETE 'inceptio.onboarding_location_step_v1' (the new key MUST be absent)
+   //   4. DELETE 'inceptio.default_location' (also absent)
+   ```
+   (If the dev console isn't accessible, an alternative is to bake a `__DEV__`-only seed button into `OnboardingScreen` for the smoke; remove before merge.)
+
+3. **Force a cold boot** (kill the app process in the simulator, then re-launch).
+
+4. **Verify:**
+   - **(a)** Welcome screen displays briefly (no interceptor flash). The location interceptor MUST NOT fire — the user goes straight from Welcome to Today.
+   - **(b)** Inspect MMKV: `inceptio.onboarding_location_step_v1` MUST now be `'completed'` (auto-init per D14 because activity status was 'set' at first read).
+   - **(c)** Today renders the daily-note for Kyiv (the seeded `last_location`'s value) — NOT the Kyiv `FALLBACK_LOCATION` (which is gone), NOT EmptyStateHero (because `lastSeed` is non-null), and NOT crashing.
+
+**This is the canary that the entire D14/D32 upgrade-safety story holds.** If any of (a)/(b)/(c) fails, STOP and investigate before declaring Phase 6 complete.
+
+- [ ] **Step 5: Verify Flow D (Settings entry — also covers Clear copy)**
+
+1. From Today (already onboarded from any prior flow), tap the "You" tab
 2. Find "Default location" row
 3. Tap the row → SetDefaultLocationScreen opens
 4. Pick a different city → Continue → return to YouScreen
@@ -2589,11 +2712,11 @@ Boot iOS simulator. Either delete the app via Settings → General → Reset →
 6. Tap "Clear — your recent locations are still available"
 7. Return to Today — Today shows the lastSeed (the previous city) NOT empty-state (because lastSeed exists from the per-search history)
 
-- [ ] **Step 5: Note any UX issues**
+- [ ] **Step 6: Note any UX issues**
 
 Any visual hiccups, copy issues, or interaction bugs found during the smoke are TBD-during-implementation UX fixes; the spec's contract has held if the flow shapes work. Voice-copy polish for "Add a location" / Clear copy / empty-state heading lands at this stage if not already settled.
 
-- [ ] **Step 6: No commit (operational verification)**
+- [ ] **Step 7: No commit (operational verification)**
 
 ---
 
