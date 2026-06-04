@@ -14,15 +14,34 @@
 import React, { useState } from 'react';
 import { View, ScrollView } from 'react-native';
 import { useDailyNote } from '../hooks/useDailyNote';
+import { useLocationPreference } from '../lib/location-preference';
+import { useEffectiveLocation } from '../hooks/useEffectiveLocation';
 import DailyNoteSection from '../components/daily-note/DailyNoteSection';
 import { LoadingHero, ErrorHero } from '../components/daily-note/DailyHero';
+import EmptyStateHero from '../components/daily-note/EmptyStateHero';
 import StatePicker from '../components/StatePicker';
 import PrimaryButton from '../components/PrimaryButton';
 import { getSavedMoments } from '../lib/draft-store';
 
 export default function TodayScreen({ go }) {
+  const { hydrationStatus: locationHydrationStatus } = useLocationPreference();
+  const effectiveLocation = useEffectiveLocation();
   const { data, isLoading, isError, error, refetch } = useDailyNote();
   const [moodOverride, setMoodOverride] = useState(null);
+
+  // Empty-state guard FIRST — fires when location hydration is done AND no
+  // effective location resolves. Must come before isLoading/isError because
+  // when useDailyNote is enabled=false, isLoading is false too, and the next
+  // check would fall through to `data.response.daily_note` on undefined data
+  // → crash. D27.
+  //
+  // PROVISIONAL CTA target: go('you'). SetDefaultLocationScreen isn't
+  // registered yet (Phase 5 Task 5.2); routing there would crash. YouScreen
+  // exists today and is a non-crashing landing. Task 5.5 finalizes the
+  // target to go('set-default-location') once the screen is registered.
+  if (locationHydrationStatus === 'set' && effectiveLocation === null) {
+    return <EmptyStateHero onSetLocation={() => go('you')}/>;
+  }
 
   if (isLoading) return <LoadingHero/>;
   if (isError) return <ErrorHero error={error} onRetry={refetch}/>;
