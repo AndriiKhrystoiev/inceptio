@@ -35,12 +35,13 @@ export default function TodayScreen({ go }) {
   // check would fall through to `data.response.daily_note` on undefined data
   // → crash. D27.
   //
-  // PROVISIONAL CTA target: go('you'). SetDefaultLocationScreen isn't
-  // registered yet (Phase 5 Task 5.2); routing there would crash. YouScreen
-  // exists today and is a non-crashing landing. Task 5.5 finalizes the
-  // target to go('set-default-location') once the screen is registered.
+  //
+  // CTA target opens SetDefaultLocationScreen DIRECTLY per D22 (no Settings hop).
+  // The screen is registered as a modal in App.js SCREENS map + MODAL_SCREENS set
+  // (Task 5.2) and routes the user through the same generalized flow used by
+  // the onboarding interceptor + YouScreen Settings row.
   if (locationHydrationStatus === 'set' && effectiveLocation === null) {
-    return <EmptyStateHero onSetLocation={() => go('you')}/>;
+    return <EmptyStateHero onSetLocation={() => go('set-default-location')}/>;
   }
 
   if (isLoading) return <LoadingHero/>;
