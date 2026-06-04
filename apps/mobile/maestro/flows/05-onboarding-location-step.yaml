@@ -1,0 +1,189 @@
+appId: host.exp.Exponent
+name: "Onboarding location step — pick city + skip paths (post D22 SetDefaultLocationScreen)"
+---
+# Phase 6 / Task 6.1
+#
+# DO NOT EXECUTE in dev env without resolving the simulator keyboard locale
+# issue (see Task 4.4 BLOCKED note). Maestro 04 hit the same env issue —
+# inputText is unreliable when the simulator keyboard locale is set to a
+# non-US layout, causing text entry to produce garbled or empty strings.
+# This file is captured as the ARTIFACT for future CI execution.
+# The Phase 6 Task 6.4 manual sim smoke covers the acceptance gate for this
+# branch before merge.
+#
+# Two flows in this file (separated by stopApp + clearState relaunch):
+#
+# Flow A — fresh install → activity picker → location interceptor →
+#           type "Berlin" → pick Berlin → Find moments → Today renders.
+#           Verifies the onboarding location-pick happy path introduced by
+#           the feature/set-default-location branch (D22).
+#
+# Flow B — fresh install → activity picker → location interceptor →
+#           tap "Skip for now" → Today empty-state renders →
+#           tap "Add a location" → SetDefaultLocationScreen opens.
+#           Verifies the skip path and the D22 empty-state CTA direct-open
+#           contract (D31). Sentinel: "Where do you usually start from?"
+#           must be visible after tapping "Add a location", confirming
+#           SetDefaultLocationScreen mounted correctly.
+#
+# Sentinel strings verified against source on 2026-06-04:
+#   SetDefaultLocationScreen.js:54  → "Where do you usually start from?"
+#   SetDefaultLocationScreen.js:2   → dismissLabel "Skip for now" (onboarding entry)
+#   LocationPickerScreen.js:215     → placeholder "Search city"
+#   LocationPickerScreen.js:292     → "Find moments"
+#   EmptyStateHero.js:38            → "Add a location"
+#
+# Conventions mirrored from 04-location-picker-regression.yaml (Phase-3-aware):
+#   - appId: host.exp.Exponent
+#   - clearState: true for fresh-install state
+#   - Expo Go "Recently opened" runFlow guard
+#   - accessibilityLabel-based taps (ActivityPickerScreen uses accessibilityLabel={c.title})
+#   - cache-hit-safe notVisible sentinel rather than waiting for a specific
+#     next-screen element (a warm KV cache hit can skip LoadingScreen entirely)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FLOW A — pick a city during onboarding
+# ─────────────────────────────────────────────────────────────────────────────
+
+- launchApp:
+    clearState: true
+
+# JS bundle load. Expo Go takes ~2-6s to mount the React tree after the
+# native shell appears; 8s is the safe ceiling on a cold simulator boot.
+- waitForAnimationToEnd:
+    timeout: 8000
+
+# Fallback: if Expo Go shows its project list instead of our app
+# (happens after a clearState wipe or fresh install), tap the Inceptio entry.
+- runFlow:
+    when:
+      visible: "Recently opened"
+    commands:
+      - tapOn: "Inceptio"
+      - waitForAnimationToEnd:
+          timeout: 8000
+
+# Welcome / OnboardingScreen — tap the single CTA.
+# Sentinel: "Find your moment" (OnboardingScreen.js:47, PrimaryButton label).
+- tapOn: "Find your moment"
+- waitForAnimationToEnd
+
+# Activity picker — tap Wedding via accessibilityLabel.
+# ActivityPickerScreen sets accessibilityLabel={c.title} on each card (line 78).
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "Wedding"
+- waitForAnimationToEnd
+
+# Date range — accept the default 30-day suggestion.
+- tapOn: "Continue"
+- waitForAnimationToEnd
+
+# Location interceptor (NEW — feature/set-default-location branch).
+# After the date range step the onboarding router inserts SetDefaultLocationScreen
+# before the search flow. Confirm the heading is visible to assert intercept fired.
+- extendedWaitUntil:
+    visible: "Where do you usually start from?"
+    timeout: 5000
+
+# Location search — type "Berlin".
+# tapOn focuses the TextInput; eraseText clears any pre-filled MMKV value
+# before inputText appends our query. Same pattern used in Flow 04.
+#
+# NOTE: inputText is the step most likely to fail in a non-US-locale simulator
+# environment (see Task 4.4). If CI fails here, verify simulator locale = English (US).
+- tapOn: "Search city"
+- eraseText: 50
+- inputText: "Berlin"
+
+# Wait for Nominatim results to populate, then tap the first Berlin result.
+- extendedWaitUntil:
+    visible: "Berlin"
+    timeout: 8000
+- tapOn:
+    text: "Berlin"
+    index: 0
+
+# "Find moments" becomes enabled once a location row is selected.
+- extendedWaitUntil:
+    visible: "Find moments"
+    timeout: 5000
+- tapOn: "Find moments"
+
+# Cache-hit-safe sentinel: assert the SetDefaultLocationScreen heading is
+# GONE once we leave it. A cold-cache call will show LoadingScreen; a warm
+# KV-cache hit jumps straight to CalendarScreen. Both are correct navigation
+# outcomes — the key assertion is that we left SetDefaultLocationScreen.
+# extendedWaitUntil notVisible polls until the element disappears (5s ceiling).
+- extendedWaitUntil:
+    notVisible: "Where do you usually start from?"
+    timeout: 5000
+
+# ─────────────────────────────────────────────────────────────────────────────
+# FLOW B — skip location during onboarding, then re-open via empty-state CTA
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Reset to clean state so Flow B starts identical to a fresh install.
+- stopApp
+- launchApp:
+    clearState: true
+
+- waitForAnimationToEnd:
+    timeout: 8000
+
+# Expo Go project list guard (same as Flow A).
+- runFlow:
+    when:
+      visible: "Recently opened"
+    commands:
+      - tapOn: "Inceptio"
+      - waitForAnimationToEnd:
+          timeout: 8000
+
+# Welcome screen.
+- tapOn: "Find your moment"
+- waitForAnimationToEnd
+
+# Activity picker — Wedding (same as Flow A).
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    id: "Wedding"
+- waitForAnimationToEnd
+
+# Date range — accept default.
+- tapOn: "Continue"
+- waitForAnimationToEnd
+
+# Location interceptor — confirm it appeared, then SKIP.
+# "Skip for now" is the dismissLabel passed to SetDefaultLocationScreen when
+# called from the onboarding router (SetDefaultLocationScreen.js:2).
+- extendedWaitUntil:
+    visible: "Where do you usually start from?"
+    timeout: 5000
+- tapOn: "Skip for now"
+- waitForAnimationToEnd
+
+# After skipping, the router calls go('today') which should land on TodayScreen.
+# With no default location written, TodayScreen should render EmptyStateHero
+# (locationHydrationStatus='set', effectiveLocation=null branch — Phase 3/Task 3.4).
+# Assert the empty-state CTA is visible.
+# Sentinel: "Add a location" (EmptyStateHero.js:38, PrimaryButton label).
+- extendedWaitUntil:
+    visible: "Add a location"
+    timeout: 5000
+
+# Tap the empty-state CTA — this should open SetDefaultLocationScreen directly
+# (D22 + D31: Today empty-state entry passes dismissLabel="Cancel",
+# onDismissStatus=null, go=navigation handler in TodayScreen).
+- tapOn: "Add a location"
+- waitForAnimationToEnd
+
+# Confirm SetDefaultLocationScreen opened correctly by asserting its heading
+# is now visible. This is the D22 direct-CTA contract: the empty-state CTA
+# must route to SetDefaultLocationScreen, not to the full onboarding flow.
+# Sentinel: "Where do you usually start from?" (SetDefaultLocationScreen.js:54).
+- extendedWaitUntil:
+    visible: "Where do you usually start from?"
+    timeout: 5000
