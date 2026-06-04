@@ -133,3 +133,14 @@ export function __resetForTests(): void {
 export function __getSubscribeAndSnapshot() {
   return { subscribe, getSnapshot };
 }
+
+/**
+ * @internal Sync read of the hydration status without triggering a
+ * subscription. Used by location-preference.ts initLocationPreference()
+ * to decide the upgrade-path branch (D14) — fresh install vs existing
+ * user with activity already 'set'. Returns the in-memory hydrationStatus;
+ * does NOT re-read storage (initActivityPreference does that). D28.
+ */
+export function __readActivityHydrationStatusSync(): { hydrationStatus: HydrationStatus } {
+  return { hydrationStatus };
+}

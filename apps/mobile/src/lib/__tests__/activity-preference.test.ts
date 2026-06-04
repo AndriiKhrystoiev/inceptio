@@ -7,7 +7,7 @@
 // of those two functions directly — if subscribe fires on change and
 // getSnapshot returns the right shape, the hook is correct.
 
-import { describe, test, expect, beforeEach, vi } from 'vitest';
+import { describe, test, it, expect, beforeEach, vi } from 'vitest';
 
 const memory = new Map<string, string>();
 
@@ -33,6 +33,7 @@ import {
   getDefaultActivitySync,
   __resetForTests,
   __getSubscribeAndSnapshot,
+  __readActivityHydrationStatusSync,
   migrateOrInvalid,
   ACTIVITY_MIGRATIONS,
 } from '../activity-preference';
@@ -152,5 +153,16 @@ describe('activity-preference', () => {
     // raw ('wedding') === migrated ('wedding'), so no rewrite should occur.
     expect(setSpy).not.toHaveBeenCalled();
     setSpy.mockRestore();
+  });
+
+  // --- D28: __readActivityHydrationStatusSync (added for location-preference) ---
+
+  it('__readActivityHydrationStatusSync returns hydration status without subscribing', () => {
+    initActivityPreference();
+    expect(__readActivityHydrationStatusSync()).toEqual({ hydrationStatus: 'unset' });
+    memory.set(KEY, 'wedding');
+    __resetForTests();
+    initActivityPreference();
+    expect(__readActivityHydrationStatusSync()).toEqual({ hydrationStatus: 'set' });
   });
 });
