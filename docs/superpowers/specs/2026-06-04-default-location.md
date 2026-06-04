@@ -313,9 +313,22 @@ let currentDefault: SavedLocation | null = null;
 let onboardingStatus: OnboardingLocationStatus = 'pending';
 const listeners = new Set<() => void>();
 
-/** Idempotent. Called from App.js boot AFTER initActivityPreference(). */
+/**
+ * Idempotent. Called from App.js boot AFTER initActivityPreference() — but
+ * we ALSO call initActivityPreference() defensively at the top below, so a
+ * future boot-effect reorder cannot silently break D14's upgrade-path
+ * guarantee. The activity init's own idempotency guard makes the call a
+ * no-op if it already ran. D32.
+ */
 export function initLocationPreference(): void {
   if (hydrationStatus !== 'loading') return;
+
+  // 0. Defensive: ensure activity-preference is hydrated before we read its
+  //    status for the D14 upgrade-path branch below. App.js calls
+  //    initActivityPreference() first; this is belt-and-suspenders against a
+  //    future reorder. initActivityPreference() is idempotent (early-return
+  //    if not 'loading'). D32.
+  initActivityPreference();
 
   // 1. Default location primitive
   const rawDefault = storage.getString(KEY_DEFAULT_LOCATION);
@@ -453,6 +466,8 @@ Mirror of `useActivityPreference()` exactly.
 
 **On confirm:** `setDefaultLocation(loc)` only (don't touch onboarding status). Then close → return to YouScreen → row re-renders with the new value via `useLocationPreference()`.
 
+**Clear affordance copy (Ruling 5):** when `defaultLocation !== null`, the Settings row exposes a "Clear" action. Because clearing falls THROUGH to `lastSeed` via `useEffectiveLocation()` (§6.2), Today will keep working with the user's most recent location — a bare "Clear" would look broken if the user expects the slot to empty entirely. The affordance copy must communicate the fall-through. Suggested: *"Clear — your recent locations are still available"* or equivalent. Exact wording at voice review during implementation; the principle is pinned here so the implementer doesn't ship a bare "Clear" button.
+
 ### 5.3 Today empty-state
 
 Fires when `locationHydrationStatus === 'set' && effectiveLocation === null` (D27).
@@ -460,9 +475,9 @@ Fires when `locationHydrationStatus === 'set' && effectiveLocation === null` (D2
 `EmptyStateHero` props:
 - `onSetLocation: () => void` — wired to `go('set-default-location')`
 
-The Today screen passes `go('set-default-location')` (a new screen state in App.js's `SCREENS` map). When user taps the CTA, App.js routes to `SetDefaultLocationScreen` with `dismissLabel="Cancel" onDismissStatus="completed"` (because the user is explicitly engaging with the prompt — Cancel means "I don't want to set right now; remember I'm aware of it" → status='completed', NOT 'skipped').
+The Today screen passes `go('set-default-location')` (a new screen state in App.js's `SCREENS` map). When user taps the CTA, App.js routes to `SetDefaultLocationScreen` with `dismissLabel="Cancel" onDismissStatus={null}` — Cancel from the empty-state CTA does NOT write to the onboarding-status flag (D31, simplified).
 
-Setting `onDismissStatus="completed"` even on Cancel from the empty-state CTA prevents the empty-state CTA from re-firing the location interceptor (which would be weird UX: tap CTA, cancel, get bounced back into the modal). The interceptor only watches `pending`; `completed` and `skipped` both terminal.
+**Why no write is needed (D31 simplified rationale):** the empty-state renders only when Today renders, and Today renders only when `onboardingLocationStatus` is already TERMINAL (the location interceptor preempts on `'pending'` per §7.3). So the status is already terminal (`'completed'` or `'skipped'`) at the moment the empty-state CTA is reachable. No status write is needed to prevent re-firing; writing `'completed'` would also overwrite an existing `'skipped'` value, contradicting D19's "preserve the distinction for future." Letting the existing terminal status stand keeps the flag's history intact for any future re-prompt feature.
 
 ### 5.4 TodayScreen integration
 
@@ -784,7 +799,7 @@ Sentinel strings determined at implementation time by grep against the live scre
 | EC-13 | `cluster-windows.ts:108` pre-existing TS error | Out of scope (memo `tz-fix-pre-existing-debt`; predates branch; not introduced by this work). |
 | EC-14 | Race: `setDefaultLocation` called twice in quick succession | External store last-write-wins; both `notify()` calls fire; subscribers get the latest snapshot. Standard useSyncExternalStore semantics. |
 | EC-15 | User explicitly sets default via Settings while NOT logged into onboarding step (i.e., already past it) | Settings entry uses `onDismissStatus={null}` → no onboarding-status mutation. Default-location is set; onboarding-status stays whatever it was (probably 'completed' from auto-init or actual completion). |
-| EC-16 | Empty-state CTA → Cancel from SetDefaultLocationScreen | Cancel sets status to 'completed' (NOT 'skipped') so the empty-state CTA doesn't trigger the location interceptor on next render. Status was likely already 'completed' or 'skipped'; either way, ends terminal. |
+| EC-16 | Empty-state CTA → Cancel from SetDefaultLocationScreen | Cancel writes NOTHING to the onboarding-status flag (D31 simplified). The empty-state is only reachable when status is already terminal (`'completed'` or `'skipped'`) because the location interceptor preempts on `'pending'`. Existing terminal value stands; D19's skipped-vs-completed distinction preserved for future. |
 | EC-17 | LocationPickerScreen rendered embedded but with no parent providing header | Currently impossible (only `SetDefaultLocationScreen` uses `embedded={true}`). If some future caller misuses, picker has no Back/Close affordance and user can only Continue or use the device back button. Acceptable failure mode; not a correctness concern for MVP. |
 | EC-18 | TypeScript strictness for `useLocationPreference` return type when consumers destructure | Standard TS inferred type. Test consumers explicitly to ensure no `any` leaks. |
 
@@ -820,7 +835,8 @@ D-numbering preserves the rulings 1–27 from the user's brainstorm review. Deci
 | D28 | `__readActivityHydrationStatusSync()` helper exported from `activity-preference.ts` for `initLocationPreference()` to read activity status without triggering subscription. Tiny addition; mirrors `getDefaultActivitySync()` pattern. | Spec-writing |
 | D29 | `EmptyStateHero` is a new component file at `apps/mobile/src/components/daily-note/EmptyStateHero.js`. Naming + location mirror `LoadingHero` / `ErrorHero` precedent at `DailyHero.js`. | Spec-writing |
 | D30 | Per-search caller (the existing place rendering `<LocationPickerScreen go={go}/>`) gets ONE-LINE change: add `onConfirm={() => go('loading')}`. No `embedded`. No other props. Byte-identical to today. | Spec-writing |
-| D31 | TodayScreen empty-state CTA passes `'completed'` (not `'skipped'`) when user Cancels from empty-state entry to SetDefaultLocationScreen — prevents the empty-state CTA from triggering the location interceptor on next render. | Spec-writing (EC-16) |
+| D31 | TodayScreen empty-state CTA passes `onDismissStatus={null}` to `SetDefaultLocationScreen` — Cancel does NOT mutate the onboarding-status flag. The empty-state is only reachable when status is already terminal (`'completed'` or `'skipped'`), so no write is needed to prevent re-firing; not writing preserves the D19 skipped-vs-completed distinction. | Spec-writing (EC-16); refined per Ruling-B fold-in 2026-06-04 |
+| D32 | `initLocationPreference()` defensively calls the idempotent `initActivityPreference()` at its top, then proceeds. Belt-and-suspenders against a future App.js boot-effect reorder that runs location-init before activity-init — if such a reorder happened without this guard, `__readActivityHydrationStatusSync()` would return `'loading'`, the upgrade-path branch would mis-evaluate, and existing upgraders would be initialized to `'pending'` (interceptor re-fires retroactively — the exact failure mode D14 prevents). The defensive call is a no-op if activity-init already ran (idempotent guard mirrors activity's pattern). Keep the App.js "after activity" order too. | Spec-writing (Ruling-C fold-in 2026-06-04) |
 
 ---
 
