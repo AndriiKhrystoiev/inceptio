@@ -42,7 +42,7 @@ function errorMessage(err) {
   return "Couldn't reach the maps. Check your connection.";
 }
 
-export default function LocationPickerScreen({ go }) {
+export default function LocationPickerScreen({ go, onConfirm, embedded = false }) {
   // Pre-fill the search query from the user's last saved city as a typing
   // shortcut. Selection is intentionally NOT restored — the "Find moments"
   // button stays disabled until the user explicitly taps a result row in
@@ -146,7 +146,12 @@ export default function LocationPickerScreen({ go }) {
     const loc = pickToSavedLocation(pick);
     saveLocation(loc);
     patchDraft({ lat: loc.lat, lng: loc.lng, timezone: loc.timezone, city: loc.city });
-    go('loading');
+    if (onConfirm) {
+      onConfirm(loc);
+    } else {
+      // legacy fallback for any caller that doesn't pass onConfirm
+      go('loading');
+    }
   }
 
   const showHelper = query.trim().length < 2 && results.length === 0 && !error;
@@ -162,17 +167,19 @@ export default function LocationPickerScreen({ go }) {
         <HeroGradient height={300} />
         <Starfield density="heavy" />
         <SafeAreaView edges={['top']}>
-          <View className="px-4 pt-2 flex-row items-center justify-between">
-            <IconBtn onPress={() => go('date')} label="Back">
-              <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5} />
-            </IconBtn>
-            <Text className="font-display text-[18px] text-cream tracking-[-0.2px]" style={{ textTransform: 'capitalize' }}>
-              {actLabel} · where
-            </Text>
-            <IconBtn onPress={() => go('today')} label="Close">
-              <X color="#F5EFE4" size={22} strokeWidth={1.5} />
-            </IconBtn>
-          </View>
+          {!embedded && (
+            <View className="px-4 pt-2 flex-row items-center justify-between">
+              <IconBtn onPress={() => go('date')} label="Back">
+                <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5} />
+              </IconBtn>
+              <Text className="font-display text-[18px] text-cream tracking-[-0.2px]" style={{ textTransform: 'capitalize' }}>
+                {actLabel} · where
+              </Text>
+              <IconBtn onPress={() => go('today')} label="Close">
+                <X color="#F5EFE4" size={22} strokeWidth={1.5} />
+              </IconBtn>
+            </View>
+          )}
           <View className="px-6 pt-6 pb-9">
             <Text className="font-display text-[32px] leading-[38px] tracking-[-0.3px] text-cream">
               Where will it happen?
