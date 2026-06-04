@@ -312,6 +312,8 @@ function Result({ r, isLast, selected, onPress }) {
   return (
     <Pressable
       onPress={onPress}
+      accessibilityLabel={primary}
+      accessibilityRole="button"
       className="flex-row items-center gap-3 py-[14px] pl-3 pr-[14px]"
       style={{
         borderBottomColor: isLast ? 'transparent' : '#2A2247',

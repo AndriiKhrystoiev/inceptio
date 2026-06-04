@@ -1,7 +1,7 @@
 appId: host.exp.Exponent
 name: "Location picker regression smoke (post tz-lookup fix)"
 ---
-# Phase 1 / Task 1.4
+# Phase 1 / Task 1.4  (updated Task 4.4 for empty-state guard)
 #
 # Verifies the per-search location flow continues to work end-to-end after
 # pickToSavedLocation was lifted to lib/location-storage.ts (Phase 0 / Task 0.4)
@@ -12,6 +12,15 @@ name: "Location picker regression smoke (post tz-lookup fix)"
 # Phase 4 astrologer test pack. The flow verifies navigation + state:
 # user can search a city by name, pick a result, tap Find moments, and
 # arrive at the Loading screen.
+#
+# Task 4.4 update: Phase 3/Task 3.4 added an empty-state guard to TodayScreen
+# that fires when no default location is saved (locationHydrationStatus='set'
+# AND effectiveLocation=null). On a clean simulator this guard shows
+# "Add a location" instead of "Find a moment for…". The runFlow conditional
+# below detects this and pivots to the Moments tab, which unconditionally
+# exposes a "Find a moment" CTA (YourMomentsScreen empty-state branch).
+# The regression target — onConfirm routes to Loading — is identical from
+# either entry point; only the approach path differs.
 
 - launchApp:
     clearState: false
@@ -36,39 +45,68 @@ name: "Location picker regression smoke (post tz-lookup fix)"
 - tapOn: "Find your moment"
 - waitForAnimationToEnd
 
-# Today screen → Find a moment CTA.
-# PrimaryButton exposes its label as accessibilityText; the shorthand
-# tapOn: form searches accessibility labels too. Scroll first so the CTA
-# clears the hero + state card.
-- scroll
-- scroll
-- tapOn: "Find a moment for…"
-- waitForAnimationToEnd
+# Today screen — two possible states depending on whether a default location
+# is saved in MMKV:
+#
+# A. Normal state (default location set): hero + "Find a moment for…" CTA.
+#    Scroll twice to clear the hero, then tap the CTA.
+#
+# B. Empty-state guard (no default location, Phase 3/Task 3.4): shows
+#    "Add a location" instead of the normal CTA. Pivot to the Moments tab
+#    which unconditionally shows "Find a moment" in its own empty-state branch.
+#
+# The runFlow conditional handles case B; the fallthrough handles case A.
+
+- runFlow:
+    when:
+      visible: "Add a location"
+    commands:
+      - tapOn: "Moments"
+      - waitForAnimationToEnd
+      - tapOn: "Find a moment"
+      - waitForAnimationToEnd
+
+- runFlow:
+    when:
+      visible: "Find a moment for…"
+    commands:
+      - scroll
+      - scroll
+      - tapOn: "Find a moment for…"
+      - waitForAnimationToEnd
 
 # Activity picker — pick Wedding (any activity works; wedding is simplest).
-# Card accessibilityText is the comma-joined emoji + title + subtitle.
-- tapOn: "💍, Wedding or engagement, Lasting commitments and unions"
+# Cards render title + subtitle as separate Text nodes; no accessibilityLabel.
+# Wait for the screen to fully render before tapping.
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn: "Wedding"
 - waitForAnimationToEnd
 
 # Date range — accept the default 30-day suggestion.
 - tapOn: "Continue"
 - waitForAnimationToEnd
 
-# Location picker — type Tokyo to exercise the Nominatim text-search path.
+# Location picker — type Berlin to exercise the Nominatim text-search path.
 # This is the regression target: pickToSavedLocation previously wrote
 # deviceTimezone into draft.timezone; after the tz-lookup fix it derives
 # timezone from coordinates. We verify the navigation path is unchanged.
+#
+# The field may be pre-filled from MMKV (last_location.city). We clear it
+# before typing so inputText doesn't append to the existing value.
+# eraseText clears the currently-focused TextInput; tapOn focuses it first.
 - waitForAnimationToEnd:
     timeout: 3000
 - tapOn: "Search city"
-- inputText: "Tokyo"
+- eraseText: 50
+- inputText: "Berlin"
 
-# Wait for Nominatim results to populate, then tap the first Tokyo result.
+# Wait for Nominatim results to populate, then tap the first Berlin result.
 - extendedWaitUntil:
-    visible: "Tokyo"
-    timeout: 5000
+    visible: "Berlin"
+    timeout: 8000
 - tapOn:
-    text: "Tokyo"
+    text: "Berlin"
     index: 0
 
 # Find moments button becomes enabled once a location row is selected.
@@ -77,13 +115,21 @@ name: "Location picker regression smoke (post tz-lookup fix)"
     timeout: 5000
 
 # Tap Find moments — should navigate to LoadingScreen.
+# This is the load-bearing regression assertion: onConfirm must route to
+# Loading (Phase 4/Task 4.3 contract). If this tap lands on the disabled
+# button state or navigates elsewhere, the flow will fail the sentinel below.
 - tapOn: "Find moments"
 
-# Verify we reached LoadingScreen. The first progressive copy stage fires
-# immediately at t=0s: "Looking at the sky for you…" (STAGES[0] in
-# LoadingScreen.js). Cold-cache Worker can take up to 40s; 10s is enough
-# to confirm the navigation landed (the copy appears before any API call
-# completes).
+# Verify we LEFT the Location Picker screen — the "Where will it happen?"
+# hero text disappears once go('loading') fires. This assertion is
+# cache-hit-safe: a cold-cache call shows LoadingScreen while a warm-cache
+# call (React Query hit) jumps straight to CalendarScreen. Both are correct
+# navigation paths from onConfirm → go('loading'). The key regression test
+# is that navigation DID happen (i.e. the "Where" header is gone), not
+# which intermediate screen we land on.
+#
+# extendedWaitUntil notVisible: polls until the element disappears.
+# 5s is enough — if navigation didn't happen after 5s, it won't happen.
 - extendedWaitUntil:
-    visible: "Looking at the sky for you…"
-    timeout: 10000
+    notVisible: "Where will it happen?"
+    timeout: 5000

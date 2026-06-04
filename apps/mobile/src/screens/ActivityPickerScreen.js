@@ -72,7 +72,11 @@ export default function ActivityPickerScreen({ go }) {
 
 function Card({ c, onPress }) {
   return (
-    <Pressable onPress={onPress} className="active:opacity-[0.92]">
+    <Pressable
+      onPress={onPress}
+      className="active:opacity-[0.92]"
+      accessibilityLabel={c.title}
+      accessibilityRole="button">
       <LinearGradient
         colors={['#1F1838', '#2A2247']}
         style={{
