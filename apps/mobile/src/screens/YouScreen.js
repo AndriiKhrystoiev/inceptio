@@ -16,11 +16,11 @@ import { useActivityPreference, setDefaultActivity } from '../lib/activity-prefe
 import { getActivityLabel } from '../lib/activities';
 import { ActivityChangeSheet } from '../components/ActivityChangeSheet';
 import { clearSavedMoments } from '../lib/draft-store';
-import { getLastLocation } from '../lib/location-storage';
+import { useLocationPreference, clearDefaultLocation } from '../lib/location-preference';
 import { getDeviceId, clearDeviceId } from '../lib/device-id';
 
 
-export default function YouScreen() {
+export default function YouScreen({ go }) {
   // Toast state — mirrors the pattern from MomentDetailScreen.
   const [toast, setToast] = useState(null);
   const showToast = useCallback((message, tone = 'neutral') => {
@@ -51,7 +51,10 @@ export default function YouScreen() {
       : hydrationStatus === 'unset'
       ? 'Not set'
       : '...'; // 'loading' — Phase 6 gate makes this unreachable in practice
-  const lastLocation = getLastLocation();
+  // Subscribe to the default location so the row value + Clear affordance
+  // stay in sync with any write (SetDefaultLocationScreen, onboarding, etc.)
+  // without requiring a screen remount.
+  const { defaultLocation } = useLocationPreference();
 
   // Change-sheet state for the Default activity Row.
   const [changeSheetOpen, setChangeSheetOpen] = useState(false);
@@ -130,7 +133,6 @@ export default function YouScreen() {
     );
   }
 
-  const locationLabel = lastLocation?.city ?? 'Not set';
   const truncatedDeviceId = deviceId
     ? deviceId.length > 16
       ? `${deviceId.slice(0, 16)}…`
@@ -159,7 +161,26 @@ export default function YouScreen() {
 
         <Section title="Your preferences" />
         <Row label="Default activity" detail={activityDetail} onPress={openActivityChangeSheet} />
-        <Row label="Default location" detail={locationLabel} onPress={comingSoon} />
+        <Row
+          label="Default location"
+          detail={defaultLocation?.city ?? 'Not set'}
+          onPress={() => go('set-default-location')}
+        />
+        {/* Clear affordance: only visible when a default is set.
+            Copy intentionally communicates fall-through to last_location
+            so the user understands Today stays populated after clearing
+            (Ruling 5 — bare "Clear" would imply Today goes quiet). */}
+        {defaultLocation !== null && (
+          <Pressable
+            onPress={() => clearDefaultLocation()}
+            className="px-6 py-3 active:bg-surface/[0.35]"
+            hitSlop={20}
+            style={{ minHeight: 44, justifyContent: 'center' }}>
+            <Text className="font-ui text-[13px] text-muted">
+              Clear — your recent locations are still available
+            </Text>
+          </Pressable>
+        )}
 
         {/* Long-press the About header for 3s to reveal the Debug section
             below. In production builds (__DEV__ === false), the long-press
