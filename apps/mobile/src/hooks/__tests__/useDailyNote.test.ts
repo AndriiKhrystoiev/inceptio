@@ -16,6 +16,10 @@
 import { describe, it, expect } from 'vitest';
 import { __computeQueryKey, __computeEnabled } from '../useDailyNote.helpers';
 
+// Minimal SavedLocation stub used by __computeEnabled 4-gate tests.
+// Fields match the SavedLocation shape from location-storage.ts.
+const STUB_LOC = { lat: 1, lng: 1, city: 'X', country: 'Y', timezone: 'UTC', selected_at: 0 };
+
 describe('__computeQueryKey', () => {
   it('returns a 6-element tuple with the expected shape', () => {
     const key = __computeQueryKey({
@@ -62,36 +66,65 @@ describe('__computeQueryKey', () => {
 });
 
 describe('__computeEnabled', () => {
-  it('returns false when hydrationStatus is "loading"', () => {
+  it('returns false when activityHydrationStatus is "loading"', () => {
     expect(
-      __computeEnabled({ hydrationStatus: 'loading', activity: undefined }),
+      __computeEnabled({ activityHydrationStatus: 'loading', activity: undefined, locationHydrationStatus: 'set', effectiveLocation: STUB_LOC }),
     ).toBe(false);
   });
 
-  it('returns false when hydrationStatus is "unset"', () => {
+  it('returns false when activityHydrationStatus is "unset"', () => {
     expect(
-      __computeEnabled({ hydrationStatus: 'unset', activity: undefined }),
+      __computeEnabled({ activityHydrationStatus: 'unset', activity: undefined, locationHydrationStatus: 'set', effectiveLocation: STUB_LOC }),
     ).toBe(false);
   });
 
-  it('returns false when hydrationStatus is "set" but activity is undefined', () => {
+  it('returns false when activityHydrationStatus is "set" but activity is undefined', () => {
     expect(
-      __computeEnabled({ hydrationStatus: 'set', activity: undefined }),
+      __computeEnabled({ activityHydrationStatus: 'set', activity: undefined, locationHydrationStatus: 'set', effectiveLocation: STUB_LOC }),
     ).toBe(false);
   });
 
-  it('returns true when hydrationStatus is "set" and activity is defined', () => {
+  it('returns true when activityHydrationStatus is "set" and activity is defined', () => {
     expect(
-      __computeEnabled({ hydrationStatus: 'set', activity: 'wedding' }),
+      __computeEnabled({ activityHydrationStatus: 'set', activity: 'wedding', locationHydrationStatus: 'set', effectiveLocation: STUB_LOC }),
     ).toBe(true);
     expect(
-      __computeEnabled({ hydrationStatus: 'set', activity: 'contracts' }),
+      __computeEnabled({ activityHydrationStatus: 'set', activity: 'contracts', locationHydrationStatus: 'set', effectiveLocation: STUB_LOC }),
     ).toBe(true);
     expect(
-      __computeEnabled({ hydrationStatus: 'set', activity: 'business_launch' }),
+      __computeEnabled({ activityHydrationStatus: 'set', activity: 'business_launch', locationHydrationStatus: 'set', effectiveLocation: STUB_LOC }),
     ).toBe(true);
     expect(
-      __computeEnabled({ hydrationStatus: 'set', activity: 'travel' }),
+      __computeEnabled({ activityHydrationStatus: 'set', activity: 'travel', locationHydrationStatus: 'set', effectiveLocation: STUB_LOC }),
     ).toBe(true);
+  });
+
+  // --- Phase 3 / Task 3.1: 4-gate extension for location dimension ---
+
+  it('returns false when locationHydrationStatus is "loading"', () => {
+    expect(__computeEnabled({
+      activityHydrationStatus: 'set',
+      locationHydrationStatus: 'loading',
+      activity: 'wedding',
+      effectiveLocation: { lat: 1, lng: 1, city: 'X', country: 'Y', timezone: 'UTC', selected_at: 0 },
+    })).toBe(false);
+  });
+
+  it('returns false when effectiveLocation is null', () => {
+    expect(__computeEnabled({
+      activityHydrationStatus: 'set',
+      locationHydrationStatus: 'set',
+      activity: 'wedding',
+      effectiveLocation: null,
+    })).toBe(false);
+  });
+
+  it('returns true when all four gates green', () => {
+    expect(__computeEnabled({
+      activityHydrationStatus: 'set',
+      locationHydrationStatus: 'set',
+      activity: 'wedding',
+      effectiveLocation: { lat: 35.68, lng: 139.69, city: 'Tokyo', country: 'Japan', timezone: 'Asia/Tokyo', selected_at: 0 },
+    })).toBe(true);
   });
 });
