@@ -43,7 +43,7 @@ const SCREENS = {
   today:      TodayScreen,
   picker:     ActivityPickerScreen,
   date:       DatePickerScreen,
-  location:   LocationPickerScreen,
+  location:   (props) => <LocationPickerScreen {...props} onConfirm={() => props.go('loading')}/>,
   loading:    LoadingScreen,
   calendar:   CalendarScreen,
   noviable:   NoViableScreen,
