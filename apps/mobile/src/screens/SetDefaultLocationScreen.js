@@ -53,13 +53,26 @@ export default function SetDefaultLocationScreen({
           <Text className="font-display-reg text-[20px] leading-[28px] text-cream max-w-[240px]">
             Where do you usually start from?
           </Text>
-          <Pressable onPress={handleDismiss} hitSlop={12}>
+          <Pressable
+            onPress={handleDismiss}
+            hitSlop={20}
+            style={{ minHeight: 44, justifyContent: 'center' }}
+          >
             <Text className="font-ui text-base text-muted">{dismissLabel}</Text>
           </Pressable>
         </View>
         <View className="flex-1">
           <LocationPickerScreen
-            go={go}
+            // Embedded contract: parent owns ALL navigation. Passing a no-op
+            // go to the picker explicitly so any internal go() call from the
+            // picker (current or future) cannot bypass handleConfirm /
+            // handleDismiss. Current picker uses go in two places: (1) the
+            // Back/Close header which is JSX-gated by !embedded and won't
+            // render here, (2) the handleContinue legacy fallback when
+            // onConfirm is missing — which never fires because we pass
+            // onConfirm. The no-op is belt-and-suspenders against a future
+            // refactor that adds an internal go() outside those guards.
+            go={() => {}}
             onConfirm={handleConfirm}
             embedded={true}
           />
