@@ -7,6 +7,7 @@ export default defineConfig({
     include: [
       'src/lib/__tests__/**/*.test.ts',
       'src/hooks/__tests__/**/*.test.ts',
+      'src/screens/__tests__/**/*.test.{ts,js}',
     ],
     environment: 'node',
   },
