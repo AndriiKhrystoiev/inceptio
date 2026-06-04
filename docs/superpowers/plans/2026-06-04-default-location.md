@@ -2647,9 +2647,11 @@ Expected: empty output. If anything appears, that's a NEW error to investigate.
 
 ---
 
-### Task 6.4: Manual simulator smoke (4 flows)
+### Task 6.4: Manual simulator smoke — 5 flows (load-bearing acceptance)
 
-**Spec:** §12 Phase 6 acceptance criterion + Ruling 14 (D14) + D32 upgrade acceptance.
+**Spec:** §12 Phase 6 acceptance criterion + Ruling 14 (D14) + D32 upgrade acceptance + D11 mount-frozen invariant + Ruling 11 GPS-in-embedded + closure of the Phase-4 Maestro-04 analytical fallback.
+
+**This task is the load-bearing manual acceptance** — DO NOT re-attempt Maestro 04 or refight the simulator keyboard. The 5 flows below cover the full functional surface this branch ships AND serve as the backstop for the analytical-coverage fallback that closed Phase 4.
 
 - [ ] **Step 1: Cold install on iOS simulator (Flows A, B, D)**
 
@@ -2702,21 +2704,65 @@ This is the load-bearing acceptance check that an existing user with the activit
 
 **This is the canary that the entire D14/D32 upgrade-safety story holds.** If any of (a)/(b)/(c) fails, STOP and investigate before declaring Phase 6 complete.
 
-- [ ] **Step 5: Verify Flow D (Settings entry — also covers Clear copy)**
+- [ ] **Step 5: Verify Flow D — D11 anti-leak + per-search navigation (DOUBLE PURPOSE)**
 
-1. From Today (already onboarded from any prior flow), tap the "You" tab
-2. Find "Default location" row
-3. Tap the row → SetDefaultLocationScreen opens
-4. Pick a different city → Continue → return to YouScreen
-5. The row shows the new city name
-6. Tap "Clear — your recent locations are still available"
-7. Return to Today — Today shows the lastSeed (the previous city) NOT empty-state (because lastSeed exists from the per-search history)
+This is the load-bearing flow for two acceptance items:
+- D11 mount-frozen lastSeed invariant (per-search edits must NOT poison Today)
+- Per-search picker → Loading → Results navigation (closes the Maestro-04 analytical-fallback question)
 
-- [ ] **Step 6: Note any UX issues**
+1. Start on Today with a default location set (e.g., Berlin from Flow A or D earlier). Today shows the Berlin daily-note.
+2. Tap "Find a moment for…" → activity picker
+3. Pick any activity → Continue
+4. Date picker → Continue
+5. Location picker (per-search context, NOT embedded) → search a DIFFERENT city (e.g. "Tokyo") → tap Tokyo result → tap "Find moments"
+6. **PER-SEARCH NAVIGATION CHECKPOINT:** screen MUST advance to Loading → eventually to Results / Calendar (NOT stuck on the picker). If navigation does NOT fire, that's a real Phase 4 contract regression — STOP and surface immediately.
+7. After Results/Calendar renders, navigate back to Today (tap Today tab or back-arrow)
+8. **D11 ANTI-LEAK CHECKPOINT:** Today MUST still show the DEFAULT (Berlin) daily-note, NOT the per-search Tokyo. If Today shows Tokyo's sky, D11 mount-frozen lastSeed is broken — the per-search edit leaked into Today's effective location.
+
+If either checkpoint fails, that's a real regression — surface to user before declaring Phase 6 complete.
+
+- [ ] **Step 6: Verify Flow E — "Use current location" works in BOTH contexts (Ruling 11)**
+
+The Phase 5 Task 5.1 code-quality fix passed `go={() => {}}` to the embedded picker (anti-escape-hatch). Verify the GPS button still functions in BOTH per-search (non-embedded) and onboarding/Settings (embedded) contexts.
+
+**Per-search context:**
+1. Today → Find a moment for → activity → date → location picker
+2. Tap "Use current location" → GPS permission prompt (allow if needed)
+3. After GPS resolves: city name appears in search field; "Find moments" enables
+4. Tap "Find moments" → navigates to Loading → Results
+
+**Embedded context (via SetDefaultLocationScreen):**
+1. Today → "You" tab → "Default location" row → SetDefaultLocationScreen opens
+2. Tap "Use current location" → GPS resolves (no permission re-prompt if granted)
+3. After GPS resolves: city name appears; "Find moments" enables
+4. Tap "Find moments" → SetDefaultLocationScreen's handleConfirm fires → writes default_location + go('today')
+5. Return to Today → Today shows the GPS-resolved city's daily-note
+6. (No regression: the no-op `go` did NOT kill the GPS button)
+
+If GPS works per-search but NOT embedded, that's a regression of Ruling 11 — surface and fix.
+
+- [ ] **Step 7: Verify Flow F — Settings clear with fall-through (Ruling 5)**
+
+1. From Today (with a default location set), tap "You" tab
+2. "Default location" row shows the current city
+3. Tap "Clear — your recent locations are still available"
+4. Return to Today
+5. Today shows the lastSeed (the previous-search city if any), NOT empty-state (because lastSeed exists from per-search history)
+6. If lastSeed is also null (fresh-install user who only set default via onboarding without per-search history), Today shows EmptyStateHero — also correct
+
+- [ ] **Step 8: Note any UX issues**
 
 Any visual hiccups, copy issues, or interaction bugs found during the smoke are TBD-during-implementation UX fixes; the spec's contract has held if the flow shapes work. Voice-copy polish for "Add a location" / Clear copy / empty-state heading lands at this stage if not already settled.
 
-- [ ] **Step 7: No commit (operational verification)**
+- [ ] **Step 9: No commit (operational verification)**
+
+### Acceptance checkpoint (report to user)
+
+After running Flows A/B/C/D/E/F, surface to user:
+- Pass/fail per flow
+- Specifically call out: D11 anti-leak HELD (Today still showed default) + per-search NAVIGATION HELD (picker → Loading → Results) — these close the analytical-coverage gap from Phase 4's Maestro 04 fallback
+- Specifically call out: GPS WORKS embedded (closes the no-op-go Check #1 from Phase 5 review)
+- Specifically call out: D14/D32 upgrade HELD (existing user not interrupted, lastSeed shown not Kyiv)
 
 ---
 
