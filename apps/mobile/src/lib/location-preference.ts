@@ -18,34 +18,112 @@ let onboardingStatus: OnboardingLocationStatus = 'pending';
 const listeners = new Set<() => void>();
 
 /**
- * Defensive parser for stored default_location. Returns the parsed
- * SavedLocation if shape-valid, else undefined. Implementation lands in
- * Phase 1 / Task 1.2.
+ * Defensive parser for stored default_location. Validates shape (lat/lng
+ * numbers, city/country/timezone strings, selected_at number) before
+ * returning. Returns undefined on parse error or missing fields so the
+ * caller can clear corrupt storage. Mirrors getLastLocation's validation
+ * in location-storage.ts.
  */
-export function parseStoredLocation(_raw: string | undefined): SavedLocation | undefined {
-  throw new Error('not yet implemented — Phase 1 / Task 1.2');
+export function parseStoredLocation(raw: string | undefined): SavedLocation | undefined {
+  if (raw === undefined) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as Partial<SavedLocation>;
+    if (
+      typeof parsed.lat !== 'number' ||
+      typeof parsed.lng !== 'number' ||
+      typeof parsed.city !== 'string' ||
+      typeof parsed.country !== 'string' ||
+      typeof parsed.timezone !== 'string' ||
+      typeof parsed.selected_at !== 'number'
+    ) {
+      return undefined;
+    }
+    return {
+      lat: parsed.lat,
+      lng: parsed.lng,
+      city: parsed.city,
+      country: parsed.country,
+      timezone: parsed.timezone,
+      selected_at: parsed.selected_at,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 /**
  * Idempotent. Called from App.js boot AFTER initActivityPreference() — but
- * defensively also calls initActivityPreference() at the top below per D32 so a
+ * defensively also calls initActivityPreference() at the top per D32 so a
  * future reorder cannot silently break D14's upgrade-path guarantee.
- * Implementation lands in Phase 1 / Task 1.2.
+ * The activity init's own idempotency guard makes the call a no-op if
+ * activity-init already ran.
  */
 export function initLocationPreference(): void {
-  throw new Error('not yet implemented — Phase 1 / Task 1.2');
+  // 0. Defensive: ensure activity-preference is hydrated before we read its
+  //    status for the D14 upgrade-path branch below. App.js calls
+  //    initActivityPreference() first; this is belt-and-suspenders against a
+  //    future reorder. initActivityPreference() is idempotent. D32.
+  //    Must run BEFORE the idempotency guard so repeat calls don't skip it.
+  initActivityPreference();
+
+  if (hydrationStatus !== 'loading') return;
+
+  // 1. Default location primitive
+  const rawDefault = storage.getString(KEY_DEFAULT_LOCATION);
+  if (rawDefault) {
+    const parsed = parseStoredLocation(rawDefault);
+    if (parsed !== undefined) {
+      currentDefault = parsed;
+    } else {
+      console.warn('[location-pref] invalid stored default, clearing:', rawDefault);
+      storage.delete(KEY_DEFAULT_LOCATION);
+    }
+  }
+
+  // 2. Onboarding-status primitive
+  const rawStatus = storage.getString(KEY_ONBOARDING_LOCATION);
+  if (rawStatus === undefined) {
+    // First boot of this version. D14:
+    // - existing user (activity 'set') → init 'completed' (no retroactive interceptor)
+    // - fresh install (activity 'unset') → init 'pending' (interceptor fires after activity)
+    const { hydrationStatus: activityStatus } = __readActivityHydrationStatusSync();
+    const initStatus: OnboardingLocationStatus = activityStatus === 'set' ? 'completed' : 'pending';
+    onboardingStatus = initStatus;
+    storage.set(KEY_ONBOARDING_LOCATION, initStatus);
+  } else if (rawStatus === 'pending' || rawStatus === 'skipped' || rawStatus === 'completed') {
+    onboardingStatus = rawStatus;
+  } else {
+    console.warn('[location-pref] invalid onboarding status, resetting to completed:', rawStatus);
+    onboardingStatus = 'completed';
+    storage.set(KEY_ONBOARDING_LOCATION, 'completed');
+  }
+
+  hydrationStatus = 'set';
+  notify();
 }
 
-export function setDefaultLocation(_loc: SavedLocation): void {
-  throw new Error('not yet implemented — Phase 1 / Task 1.2');
+/**
+ * Same ordering as activity-preference: in-memory state updated BEFORE
+ * storage.set. AsyncStorage async-flush failures are swallowed at the
+ * storage-wrapper level; residual risk is documented and accepted (spec
+ * EC-8 / activity-preference EC-14).
+ */
+export function setDefaultLocation(loc: SavedLocation): void {
+  currentDefault = loc;
+  storage.set(KEY_DEFAULT_LOCATION, JSON.stringify(loc));
+  notify();
 }
 
 export function clearDefaultLocation(): void {
-  throw new Error('not yet implemented — Phase 1 / Task 1.2');
+  currentDefault = null;
+  storage.delete(KEY_DEFAULT_LOCATION);
+  notify();
 }
 
-export function markOnboardingLocationStatus(_s: OnboardingLocationStatus): void {
-  throw new Error('not yet implemented — Phase 1 / Task 1.2');
+export function markOnboardingLocationStatus(s: OnboardingLocationStatus): void {
+  onboardingStatus = s;
+  storage.set(KEY_ONBOARDING_LOCATION, s);
+  notify();
 }
 
 export function getDefaultLocationSync(): SavedLocation | null {
