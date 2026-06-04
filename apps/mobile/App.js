@@ -19,6 +19,7 @@ import { colors } from './src/theme';
 import { queryClient } from './src/lib/query-client';
 import { hydrateStorage, storage } from './src/lib/storage';
 import { initActivityPreference, useActivityPreference } from './src/lib/activity-preference';
+import { initLocationPreference, useLocationPreference } from './src/lib/location-preference';
 import { migrateLocationTimezones_v1 } from './src/lib/location-storage';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import TodayScreen from './src/screens/TodayScreen';
@@ -92,6 +93,9 @@ export default function App() {
       // hot reload. Spec §6 / Phase 2 / Task 2.2.
       migrateLocationTimezones_v1();
       initActivityPreference();
+      // NEW: location-preference init AFTER activity-init (D14 upgrade path reads activity status).
+      // Defensive D32 call inside initLocationPreference is belt-and-suspenders.
+      initLocationPreference();
       setStorageReady(true);
     });
   }, []);
@@ -119,6 +123,13 @@ export default function App() {
   // false to true. See activity-preference.ts: useActivityPreference wraps
   // useSyncExternalStore.
   const { hydrationStatus } = useActivityPreference();
+  // Subscribe to location-preference so the interceptor block in Phase 5
+  // (Task 5.3) re-renders on status change. Hook call site MUST be above
+  // the boot gate per Rules of Hooks (lesson from activity-pref Task 6.2).
+  const {
+    hydrationStatus: locationHydrationStatus,
+    onboardingLocationStatus,
+  } = useLocationPreference();
 
   if (!fontsLoaded || !storageReady) {
     return (
