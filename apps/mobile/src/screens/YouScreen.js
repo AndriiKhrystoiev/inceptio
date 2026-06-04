@@ -54,7 +54,16 @@ export default function YouScreen({ go }) {
   // Subscribe to the default location so the row value + Clear affordance
   // stay in sync with any write (SetDefaultLocationScreen, onboarding, etc.)
   // without requiring a screen remount.
-  const { defaultLocation } = useLocationPreference();
+  const { hydrationStatus: locationHydrationStatus, defaultLocation } =
+    useLocationPreference();
+  // Mirror the activity row's tri-state detail handling: 'loading' shows '...'
+  // to avoid a brief 'Not set' flash on slow first-mounts. The location-preference
+  // store transitions 'loading' → 'set' (never 'unset') per spec §8.1, so the
+  // 'set' branch is the steady state.
+  const locationDetail =
+    locationHydrationStatus === 'set'
+      ? defaultLocation?.city ?? 'Not set'
+      : '...';
 
   // Change-sheet state for the Default activity Row.
   const [changeSheetOpen, setChangeSheetOpen] = useState(false);
@@ -163,14 +172,14 @@ export default function YouScreen({ go }) {
         <Row label="Default activity" detail={activityDetail} onPress={openActivityChangeSheet} />
         <Row
           label="Default location"
-          detail={defaultLocation?.city ?? 'Not set'}
+          detail={locationDetail}
           onPress={() => go('set-default-location')}
         />
         {/* Clear affordance: only visible when a default is set.
             Copy intentionally communicates fall-through to last_location
             so the user understands Today stays populated after clearing
             (Ruling 5 — bare "Clear" would imply Today goes quiet). */}
-        {defaultLocation !== null && (
+        {locationHydrationStatus === 'set' && defaultLocation !== null && (
           <Pressable
             onPress={() => clearDefaultLocation()}
             className="px-6 py-3 active:bg-surface/[0.35]"
