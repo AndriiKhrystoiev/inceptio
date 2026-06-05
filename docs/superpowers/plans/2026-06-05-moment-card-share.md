@@ -302,9 +302,9 @@ describe('format-tz', () => {
   it('formats a 12-hour clock in the location zone', () => {
     expect(exactClock(ISO, TZ)).toBe('3:24 PM');
   });
-  it('derives a DST-correct tz abbreviation against the moment', () => {
-    // Kyiv is on EEST (summer) on 2026-06-20.
-    expect(tzAbbrev(ISO, TZ)).toBe('EEST');
+  it('is DST-AWARE — summer resolves EEST, winter resolves EET (wrong abbrev on a public card is real)', () => {
+    expect(tzAbbrev(ISO, TZ)).toBe('EEST');                          // 2026-06-20 summer
+    expect(tzAbbrev('2026-01-15T12:00:00+02:00', TZ)).toBe('EET');   // 2026-01-15 winter
   });
   it('falls back to an offset string when no short name is available', () => {
     // A zone whose short name resolves to a GMT offset stays usable.
@@ -378,8 +378,14 @@ describe('card-strings', () => {
   it('exposes a warm phrase for every mood key', () => {
     expect(Object.keys(TIER_PHRASES).sort()).toEqual(['closed', 'good', 'mixed', 'strong']);
   });
-  it('never prints the word "Fair" or any forbidden word', () => {
-    const all = [...Object.values(TIER_PHRASES), t('card.genericIntent')].join(' ').toLowerCase();
+  it('exposes a band word for every band key (band word is i18n chrome, not baked in time-of-day)', () => {
+    for (const b of ['morning', 'afternoon', 'evening', 'night']) {
+      expect(t(`card.band.${b}`)).toBe(b);
+    }
+  });
+  it('never prints the word "Fair" or any forbidden word (tier phrases, generic line, AND band words)', () => {
+    const bands = ['morning', 'afternoon', 'evening', 'night'].map((b) => t(`card.band.${b}`));
+    const all = [...Object.values(TIER_PHRASES), t('card.genericIntent'), ...bands].join(' ').toLowerCase();
     expect(all).not.toContain('fair');
     for (const w of FORBIDDEN) expect(all).not.toContain(w);
   });
@@ -426,6 +432,13 @@ export const TIER_PHRASES: Record<MoodKey, string> = {
 const STRINGS: Record<string, string> = {
   'card.genericIntent': 'A moment to begin',
   'card.watermark': 'Inceptio',
+  // Band words — i18n chrome rendered from the band KEY returned by
+  // time-of-day.timeOfDayBand (NOT baked into that helper). Per-locale band
+  // naturalness is deferred l10n content.
+  'card.band.morning': 'morning',
+  'card.band.afternoon': 'afternoon',
+  'card.band.evening': 'evening',
+  'card.band.night': 'night',
 };
 
 export function t(key: string): string {
@@ -542,7 +555,7 @@ import type { Activity } from '@inceptio/shared-types';
 import { gradeToMood, type MoodKey } from './grade-to-mood';
 import { TIER_PHRASES, t, SENSITIVE_ACTIVITIES } from './card-strings';
 import { ACTIVITY_LABELS } from '../activities';
-import { weekdayBand, monthDay, weekdayMonthDay } from './time-of-day';
+import { timeOfDayBand, weekday, monthDay, weekdayMonthDay } from './time-of-day';
 import { exactClock, tzAbbrev } from './format-tz';
 
 interface WindowLike {
@@ -590,9 +603,11 @@ export function buildCardViewModel(w: WindowLike, ctx: CardContext): CardViewMod
   const headline = w.displayable?.headline ?? w.rationale ?? 'A moment to consider.';
 
   const showExact = ctx.showLocation; // exact time + tz ride the location opt-in
+  // Default (soft) when-line: weekday from Intl + the band WORD from the strings
+  // module (i18n chrome), composed from the band KEY. Never a tz-less clock.
   const whenPrimary = showExact
-    ? `${exactClock(iso, tz)}`
-    : weekdayBand(iso, tz);
+    ? exactClock(iso, tz)
+    : `${weekday(iso, tz)} ${t('card.band.' + timeOfDayBand(iso, tz))}`;
   const whenSecondary = showExact ? weekdayMonthDay(iso, tz) : monthDay(iso, tz);
 
   return {
