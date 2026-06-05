@@ -1077,17 +1077,17 @@ const styles = StyleSheet.create({
   scroll: { padding: 20, gap: 14, alignItems: 'stretch' },
   cardWrap: { alignItems: 'center', marginBottom: 6 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
-  rowLabel: { fontFamily: fonts.body ?? 'Inter_500Medium', fontSize: 15, color: colors.text },
+  rowLabel: { fontFamily: fonts.uiMed, fontSize: 15, color: colors.text },
   aspectRow: { flexDirection: 'row', gap: 10, justifyContent: 'center' },
   chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.borderGlow },
   chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { fontFamily: fonts.body ?? 'Inter_500Medium', color: colors.textMuted },
+  chipText: { fontFamily: fonts.uiMed, color: colors.textMuted },
   chipTextOn: { color: colors.text },
   shareBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   shareBusy: { opacity: 0.5 },
-  shareText: { fontFamily: fonts.body ?? 'Inter_600SemiBold', fontSize: 16, color: colors.text },
+  shareText: { fontFamily: fonts.uiSemi, fontSize: 16, color: colors.text },
   cancel: { alignItems: 'center', paddingVertical: 8 },
-  cancelText: { fontFamily: fonts.body ?? 'Inter_400Regular', color: colors.textMuted },
+  cancelText: { fontFamily: fonts.ui, color: colors.textMuted },
 });
 ```
 
