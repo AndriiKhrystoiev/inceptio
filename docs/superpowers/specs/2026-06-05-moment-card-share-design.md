@@ -1,7 +1,7 @@
 # Shareable "Moment Card" + Native Share — Design Spec (Virality v1)
 
 **Date:** 2026-06-05
-**Status:** Brainstorm complete — build path decided (native, spike-gated). Three content decisions HELD pending the Phase 0 capture spike. Awaiting user review before writing-plans.
+**Status:** Brainstorm + Phase 0 capture spike complete (iOS-sim PASS, 2026-06-05). Build path: native `captureRef`, real-device gate deferred. Content decisions (§7c) RESOLVED. Proceeding to writing-plans.
 **Branch:** dedicated feature branch (e.g. `feat/moment-card-share`)
 **Pre-flight audits:** code-archaeology `docs/superpowers/expert/2026-06-05-…` · domain `docs/superpowers/expert/2026-06-05-moment-card-share-audit.md` · library `docs/superpowers/library-audit/2026-06-05-moment-card-share.md`
 
@@ -62,9 +62,9 @@ All fields derive from the in-scope window object `w`; no new API call.
 | Element | Source | Notes |
 |---|---|---|
 | Warm voice line (hero) | `w.displayable.headline` | Server-translated; fallback `headline ?? rationale ?? 'A moment to consider.'` (matches screen line ~125). |
-| Activity label | `ACTIVITY_LABELS` (`lib/activities.ts`) | Canonical label map — do NOT re-derive. Default per §7 intent rule. |
+| Activity label | `ACTIVITY_LABELS` (`lib/activities.ts`) | Canonical label map — do NOT re-derive. Default visibility per §7c-1 (generic for sensitive activities, shown for wedding). |
 | Tier phrase ("grade word") | **already-bucketed tier** → mood key → warm phrase | **No raw score number.** See §7. Consume the bucketed tier, **never the raw upstream `grade`** (enum drift could blank the phrase on a public PNG). |
-| Date / time | `w.start` via time helpers | Default vs opt-in per §7. **Note:** existing `formatWindowTime` is 24-hour; card needs its own 12-hour formatter if 12h is wanted. |
+| Date / time | `w.start` via time helpers | Default = **soft time-of-day band** (§7c-2, net-new `timeOfDayBand`); exact time + tz-abbrev only when location opted in. Existing `formatWindowTime` is 24-hour — the exact (opt-in) path can reuse or extend it; the default path does not show a clock. |
 | Coarse city (opt-in only) | location in scope (`getLastLocation().city`) | City name only — **never** coordinates. |
 | TZ abbreviation (opt-in only) | **net-new helper** | `Intl.DateTimeFormat(…, { timeZone, timeZoneName:'short' })` formatted against `w.start` (DST-correct). IANA id available; abbrev is not derived anywhere today. |
 | Watermark | static brand mark "Inceptio" | Image-only, no link. Must reinforce non-fortune-telling positioning (App-Store 4.3 risk — see §13). |
@@ -88,18 +88,18 @@ The daily-note halo is a **native shadow** in both `Moon.js` (~64–72) and `Dai
 - Reuse `MOOD_TOKENS` **colors** (rgb triplets) but **re-derive the alphas** — the recalibrated `0.95/0.75/0.55/0.35` values are tuned for native shadow *blur* and will over-saturate as gradient stops.
 - Capture requirements: `collapsable={false}` + **opaque background** on the card root (avoids transparency/text-border artifacts and the prior alpha-stripping bug).
 
-### 7c. HELD content decisions (resolve AFTER spike passes, with domain input)
-The domain pass challenged three of the brainstorm's earlier choices. Held until the build path is confirmed by the spike:
-1. **Intent default.** Earlier choice: activity shown by default + generic toggle. Domain rec: **default to generic for contracts/business_launch/travel** (commercially-sensitive timing; travel = "home is empty" burglary vector), activity shown by default only for **wedding**.
-2. **Default (no-location) time display.** Earlier choice: bare exact time, no zone. Domain rec: **soft time-of-day** ("Saturday afternoon") when no location (precise-minute-without-zone invites acting in the wrong tz; electional timing is to-the-minute); exact time + tz-abbrev only when location is opted in.
-3. **Aspect ratio in v1.** Earlier choice: 9:16 first, square fast-follow. Domain rec: **1:1 is effectively required** for WhatsApp in the Brazil/LatAm priority markets, not "someday." (Composition A is center-safe either way, so a second ratio is cheap.)
+### 7c. Content decisions — RESOLVED 2026-06-05 (post-spike, all domain-recommended)
+The domain pass challenged three brainstorm choices; resolved at the build gate:
+1. **Intent default → generic for sensitive intents.** Default to the neutral line for **contracts / business_launch / travel** (commercially-sensitive timing; travel = "home is empty"); show the activity by default **only for wedding**. Per-activity default; the toggle still lets any user reveal/hide. → `card-view-model` needs a per-activity `SENSITIVE_ACTIVITIES` set driving the default of the "show intent" option.
+2. **Default (no-location) time → soft time-of-day.** When location is NOT opted in, show an evocative **time-of-day band** ("Saturday afternoon"), no precise minute, no zone. Exact time + tz-abbrev appear **only** when location is opted in. Moment Detail stays the to-the-minute action surface. → net-new `timeOfDayBand(w.start)` helper (morning/afternoon/evening/night buckets) alongside the exact `format-tz` path.
+3. **Aspect ratio → ship 9:16 AND 1:1 in v1.** Both ratios at launch from the center-safe Composition A (1:1 effectively required for WhatsApp in Brazil/LatAm; 9:16 for Stories reach). → `MomentCard` takes an `aspect: '9:16' | '1:1'` prop; the Share Preview sheet offers a ratio choice; capture runs per selected ratio.
 
 ## 8. Privacy model (firm defaults; specifics in 7c)
 
 The card is a **public image**; it must not leak location or sensitive intent.
 - **Location:** none by default; opt-in coarse **city name** only (never coordinates).
-- **Time zone:** rides the location opt-in (tz-abbrev only when location shown). **Moment Detail remains the tz-authoritative action surface.**
-- **Intent:** generic-framing available; per-activity default is decision 7c-1.
+- **Time zone / time:** default shows a **soft time-of-day band** (no clock, no zone); exact time + tz-abbrev appear only when location is opted in (§7c-2). **Moment Detail remains the tz-authoritative action surface.**
+- **Intent:** **generic by default for sensitive activities** (contracts / business_launch / travel), activity shown by default for wedding (§7c-1); the toggle overrides either way.
 - Opt-ins live as toggles in the **Share Preview sheet** (per-share, not global).
 - **Platform safe zone:** design to the **union** safe area (≈ bottom 400px clear for WhatsApp Status / Stories UI), opaque `bg-deep` base (no transparent edges — view-shot edge-halo trap).
 
@@ -121,7 +121,7 @@ The card is a **public image**; it must not leak location or sensitive intent.
 
 ## 10. Composition
 
-**A — Centered Stack**, essential content (headline · tier phrase · time) constrained to a **center-safe** region so platform crops don't destroy meaning and a 1:1 export is cheap. (Rejected: B lower-third — not center-safe without rework; C framed-card — reads as an app screenshot, least viral.) 9:16 is the primary frame; the v1-vs-fast-follow status of 1:1 is decision 7c-3.
+**A — Centered Stack**, essential content (headline · tier phrase · time) constrained to a **center-safe** region so platform crops don't destroy meaning. (Rejected: B lower-third — not center-safe without rework; C framed-card — reads as an app screenshot, least viral.) Ships **both 9:16 AND 1:1 in v1** (§7c-3) via an `aspect: '9:16' | '1:1'` prop on `MomentCard`; the Share Preview sheet offers the ratio choice and capture runs per selection.
 
 ## 11. Testing & acceptance
 
