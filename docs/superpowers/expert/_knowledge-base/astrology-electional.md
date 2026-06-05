@@ -173,3 +173,56 @@ This invariant is testable client-side in `location-storage.ts` and assertable W
 - In-repo: `workers/api-proxy/src/upstream.ts:39-50` (upstream contract); `apps/mobile/src/lib/location-storage.ts:10` (pre-existing TODO); `apps/mobile/src/hooks/useDailyNote.ts:23-30` (current local-date-in-tz pattern)
 
 ---
+
+## Updated 2026-06-05 — Computed-moment as a PUBLIC keepsake artifact (Moment Card share audit)
+
+This pass generalizes findings from the shareable "Moment Card" feature. The reusable principle: there are two distinct classes of Inceptio surface, and they have **opposite** correctness regimes.
+
+### Surface-class distinction (reusable for any future feature)
+
+| Surface class | Examples | Correctness regime | Key constraint |
+|---|---|---|---|
+| **Election-computing surface** | search request, daily-note, Moment Detail (the action surface) | tz is a **load-bearing input** (see 2026-06-03 EC-19 pass) | tz MUST equal `tzLookup(lat,lng)`; wrong tz = garbage chart |
+| **Election-displaying artifact** | share card, exported keepsake, future "moment received" badge | chart already computed; tz is a **presentation choice** | tz may be omitted IF the artifact never positions itself as the action surface |
+
+The danger when these blur: an artifact that shows an **exact-to-the-minute** electional time **without a zone** invites the viewer (or the user weeks later, or a friend in another tz) to act on a time that is only correct in one timezone. Electional precision (planetary hours, Ascendant ~15°/hr, VoC flip) makes "precise-minute-without-zone" the worst display choice — precise enough to act on, ambiguous enough to act wrong. **Rule for displaying artifacts: either show time + zone, or soften to time-of-day ("Saturday afternoon," "at dusk"). Never precise-minute-without-zone.**
+
+### Public-artifact tone constraints (beyond the in-app voice rules)
+
+In-app, warm copy is disambiguated by surrounding UI and progressive disclosure. On a **context-free public image** (Stories/WhatsApp), those crutches are gone. Three *additional* leakage classes any public Inceptio artifact must block (golden-test the negative set):
+
+1. **Forbidden words** (CLAUDE.md locked list): magic, destiny, fortune, stars align, manifest, energy(noun), vibes, alignment(new-age), blessed. On a public card this also protects the App Store 4.3-spam appeal (the "not fortune-telling" positioning).
+2. **Grade words**: fair / good / caution / poor / any "score" / any "X/100." A grade word stripped of in-app calibration reads as a mediocre rating to a stranger. The 60–74 win-state framing (CLAUDE.md) collapses if "Good"/"Fair" prints publicly.
+3. **Internal token/mood-key names**: `strong`/`good`/`mixed`/`closed` are tokens, never display copy. Easy to leak via a careless `String(moodKey)`.
+
+### Activity sensitivity for PUBLIC broadcast (new matrix — 4 MVP activities)
+
+Distinct from the tradition-asymmetry matrix (2026-06-02). This is about *social* leak when a computed moment is broadcast, not about election method:
+
+| Activity | Safe to name publicly by default? | Leak vector | Recommended public default |
+|---|---|---|---|
+| **wedding** | Risky | activity + date + coarse city = venue/date triangulation; uninvited-guest control is an active wedding-community concern ([The Knot](https://www.theknot.com/content/wedding-social-media-dos-and-donts), [WeddingWire](https://www.weddingwire.com/wedding-forums/how-to-ask-people-not-to-post-pics-of-our-wedding-on-social-media-the-day-of/78afd3805e5f8cbf.html)) | warn on city opt-in; consider generic-intent default ON |
+| **contracts** | No | broadcasting deal *timing* is commercially sensitive | generic-intent default ON (or share-disabled) |
+| **business_launch** | No | broadcasting launch *timing* tips competitors | generic-intent default ON (or share-disabled) |
+| **travel** | Risky by existence | posting travel timing = "home is empty"; FBI-cited burglary vector ([Moneywise](https://moneywise.com/news/top-stories/burglaries-social-media-travis-kelce-joe-burrow-luka-doncic), [SavingAdvice](https://www.savingadvice.com/articles/2025/06/25/10159104_8-social-media-posts-that-tell-thieves-youre-not-home.html)) | generic-intent default ON; soften near-future date |
+
+**Generalized rule:** the privacy posture of a per-share-toggle feature ≈ its **defaults**, because most users never flip toggles. Activity-show-by-default is wrong for the three commercially/socially sensitive activities.
+
+### Distribution-domain constants (for any future share/export surface)
+
+- IG Stories & WhatsApp Status canvas: **1080×1920 (9:16)**. Safe-zone dead bands (2026): top **250px**; bottom **250px IG / ~400px WhatsApp Status** — design to the union (**400px bottom**); sides ≥60px (≥300px if stickers). ([Outfy](https://www.outfy.com/blog/instagram-safe-zone/), [Chatarmin](https://chatarmin.com/en/blog/whats-app-image-size-guide))
+- WhatsApp in-chat (not Status) renders images narrow → 9:16 becomes a thin thumbnail. **1:1 square is effectively required for LatAm/WhatsApp**, not optional.
+- WhatsApp recompresses "Photo" sends → subtle violet→gold gradients band; cannot force "send as Document" via OS share sheet. Card must read at moderate JPEG quality.
+- Direct IG Stories (branded sticker) requires **Meta App ID + finalized bundle/package ID + device testing** ([Meta docs](https://developers.facebook.com/docs/instagram/sharing-to-stories/)); plain OS share sheet (`expo-sharing`/RN `Share`) requires none — correct deferral.
+- App Store **Guideline 4.3 (spam)** rejects astrology apps absent a "unique, high-quality experience" ([iMore](https://www.imore.com/apple-rejects-developers-horoscope-app-says-app-store-has-enough), [molfar.io](https://www.molfar.io/blog/apple-review)). A share card MUST reinforce the non-fortune-telling positioning, never undermine it.
+- `react-native-view-shot` capture gotchas: opaque background required (transparent → text edge-halos); `collapsable={false}` on captured view + decorative sublayers; native shadows may not capture (use gradients); unsupported nested primitive can void the whole snapshot. ([RN view-shot](https://github.com/gre/react-native-view-shot), [Expo captureRef](https://docs.expo.dev/versions/latest/sdk/captureRef/))
+
+### Sources (this pass)
+
+- Wedding privacy: [The Knot](https://www.theknot.com/content/wedding-social-media-dos-and-donts), [WeddingWire](https://www.weddingwire.com/wedding-forums/how-to-ask-people-not-to-post-pics-of-our-wedding-on-social-media-the-day-of/78afd3805e5f8cbf.html), [Wedding Shoppe](https://www.weddingshoppeinc.com/blogs/weddings/wedding-etiquette-social-media-dos-and-donts)
+- Travel/burglary: [Moneywise (FBI-cited)](https://moneywise.com/news/top-stories/burglaries-social-media-travis-kelce-joe-burrow-luka-doncic), [SavingAdvice](https://www.savingadvice.com/articles/2025/06/25/10159104_8-social-media-posts-that-tell-thieves-youre-not-home.html)
+- Platform specs: [Outfy IG safe zone 2026](https://www.outfy.com/blog/instagram-safe-zone/), [Chatarmin WhatsApp 2026](https://chatarmin.com/en/blog/whats-app-image-size-guide)
+- Policy/capture: [Apple 4.3 (iMore)](https://www.imore.com/apple-rejects-developers-horoscope-app-says-app-store-has-enough), [molfar.io 4.3 guide](https://www.molfar.io/blog/apple-review), [Meta Sharing-to-Stories](https://developers.facebook.com/docs/instagram/sharing-to-stories/), [RN view-shot](https://github.com/gre/react-native-view-shot)
+- Co-Star loop (witty screenshot-bait, not watermark): [Newsweek](https://www.newsweek.com/co-star-astrology-app-instagram-1451220)
+
+---
