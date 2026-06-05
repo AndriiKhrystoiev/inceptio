@@ -5,7 +5,7 @@
 // MOOD_TOKENS colors, but the alphas are RE-DERIVED for a gradient (the
 // 0.95/0.75/0.55/0.35 shadow alphas over-saturate as gradient stops). DO NOT
 // edit Moon.js — it's shared and relies on its own shadow contract.
-import React from 'react';
+import React, { useId } from 'react';
 import { View } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
 
@@ -21,17 +21,23 @@ const MOON_FILL = '#FBF6E9';
 export default function CaptureSafeMoon({ mood = 'good', size = 96, haloScale = 2.6 }) {
   const h = HALO[mood] ?? HALO.good;
   const box = size * haloScale;
+  // Unique per-instance gradient id: react-native-svg can resolve `url(#id)`
+  // globally across <Svg> elements (version-dependent), so a static id risks a
+  // collision when two cards render at once (future side-by-side aspect preview
+  // / daily-note card list). Strip colons — useId() returns ":r0:" which is
+  // invalid inside url(#...).
+  const haloId = `csm-halo-${useId().replace(/:/g, '')}`;
   return (
     <View style={{ width: box, height: box, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={box} height={box} style={{ position: 'absolute' }} pointerEvents="none">
         <Defs>
-          <RadialGradient id="csm-halo" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+          <RadialGradient id={haloId} cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
             <Stop offset="0" stopColor={`rgb(${h.rgb})`} stopOpacity={String(h.a0)} />
             <Stop offset="0.55" stopColor={`rgb(${h.rgb})`} stopOpacity={String(h.a0 * 0.35)} />
             <Stop offset="1" stopColor={`rgb(${h.rgb})`} stopOpacity="0" />
           </RadialGradient>
         </Defs>
-        <Rect x="0" y="0" width={box} height={box} fill="url(#csm-halo)" />
+        <Rect x="0" y="0" width={box} height={box} fill={`url(#${haloId})`} />
       </Svg>
       <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: MOON_FILL }} />
     </View>
