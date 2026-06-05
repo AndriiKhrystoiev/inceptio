@@ -10,6 +10,9 @@ export const nativeShareProvider: ShareProvider = {
     let uri: string;
     try {
       // result:'tmpfile' → file:// URI expo-sharing consumes directly.
+      // `as never`: captureRef<T> defaults T to `any`, so RefObject<unknown>
+      // isn't assignable through the generic; `never` satisfies the overload
+      // without widening the call site to `any`. Intentional, not a smell.
       uri = await captureRef(cardRef as never, { format: 'png', result: 'tmpfile' });
     } catch (e) {
       return { ok: false, reason: 'capture-failed', message: (e as Error)?.message ?? String(e) };
