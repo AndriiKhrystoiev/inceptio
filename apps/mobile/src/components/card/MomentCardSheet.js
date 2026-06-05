@@ -13,8 +13,14 @@ import { colors, fonts } from '../../theme';
 export default function MomentCardSheet({ visible, onClose, window: w, activity, showToast }) {
   const location = useMemo(() => getLastLocation(), []);
   const [showLocation, setShowLocation] = useState(false);
+  // showIntent's default is the per-activity privacy default. The initializer
+  // runs once; `activity` is fixed for a screen's lifetime, so there's no stale
+  // value (and re-syncing would clobber a user's toggle).
   const [showIntent, setShowIntent] = useState(defaultShowIntent(activity));
   const [aspect, setAspect] = useState('9:16');
+  // Gate Share until the card has a committed native layout — captureRef on a
+  // not-yet-laid-out node can return a blank PNG (view-shot, New Arch).
+  const [cardMeasured, setCardMeasured] = useState(false);
   const cardRef = useRef(null);
   const { share, sharing } = useMomentCardShare(showToast);
 
@@ -35,7 +41,7 @@ export default function MomentCardSheet({ visible, onClose, window: w, activity,
       showToast("Couldn't prepare this moment to share.", 'warn');
       onClose();
     }
-  }, [visible, vm]);
+  }, [visible, vm, showToast, onClose]);
 
   const onShare = async () => {
     if (!vm) return;
@@ -48,7 +54,7 @@ export default function MomentCardSheet({ visible, onClose, window: w, activity,
       <View style={styles.backdrop}>
         <View style={styles.sheet}>
           <ScrollView contentContainerStyle={styles.scroll}>
-            <View style={styles.cardWrap}>
+            <View style={styles.cardWrap} onLayout={() => setCardMeasured(true)}>
               {vm && <MomentCard ref={cardRef} vm={vm} aspect={aspect} />}
             </View>
 
@@ -63,7 +69,7 @@ export default function MomentCardSheet({ visible, onClose, window: w, activity,
               ))}
             </View>
 
-            <Pressable onPress={onShare} disabled={sharing} style={[styles.shareBtn, sharing && styles.shareBusy]}>
+            <Pressable onPress={onShare} disabled={sharing || !cardMeasured} style={[styles.shareBtn, (sharing || !cardMeasured) && styles.shareBusy]}>
               <Text style={styles.shareText}>{sharing ? 'Preparing…' : 'Share'}</Text>
             </Pressable>
             <Pressable onPress={onClose} style={styles.cancel}><Text style={styles.cancelText}>Cancel</Text></Pressable>
