@@ -101,6 +101,7 @@ The card is a **public image**; it must not leak location or sensitive intent.
 - **Time zone / time:** default shows a **soft time-of-day band** (no clock, no zone); exact time + tz-abbrev appear only when location is opted in (§7c-2). **Moment Detail remains the tz-authoritative action surface.**
 - **Intent:** **generic by default for sensitive activities** (contracts / business_launch / travel), activity shown by default for wedding (§7c-1); the toggle overrides either way.
 - Opt-ins live as toggles in the **Share Preview sheet** (per-share, not global).
+- **Headline trust (source-side constraint).** The card renders `w.displayable.headline` **verbatim** — it bypasses BOTH the intent-toggle and the soft-time logic. The card's privacy protections therefore only hold if headlines are **activity-neutral and time-neutral**, especially for sensitive activities (a headline naming the activity or embedding a clock leaks past every toggle — worst for the travel safety case). A build-time forbidden-word scan can't cover per-request headline content; this MUST be guaranteed at the **source** (translation-layer headline synthesizer + per-activity overrides, design decisions #7/#8). Folded into the pending astrologer/voice review (§12). The card documents this trust explicitly in `card-view-model.ts`.
 - **Platform safe zone:** design to the **union** safe area (≈ bottom 400px clear for WhatsApp Status / Stories UI), opaque `bg-deep` base (no transparent edges — view-shot edge-halo trap).
 
 ## 9. Architecture (units & boundaries)
@@ -138,7 +139,7 @@ Browser mockups are layout sketches only — not acceptance. RN render ≠ brows
 - **Direct IG Stories provider** — blocked on Meta App ID + finalized bundle/package ID + device testing. Config-gated slot.
 - **Invite / get-the-app deep link** — blocked on a real landing domain. Watermark stays image-only.
 - **App-wide i18n library** — later; seam only now.
-- **Astrologer review** of the tier→phrase wordings before launch.
+- **Astrologer / voice review** before launch, covering BOTH: (a) the tier→phrase wordings, and (b) **headline neutrality** — confirm `displayable.headline` stays activity-neutral and time-neutral for sensitive activities (contracts/business_launch/travel), since the card renders it verbatim past every privacy toggle (§8 Headline trust).
 
 ## 13. Regulatory note
 

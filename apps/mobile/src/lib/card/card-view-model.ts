@@ -8,7 +8,7 @@ import { timeOfDayBand, weekday, monthDay, weekdayMonthDay } from './time-of-day
 import { exactClock, tzAbbrev } from './format-tz';
 
 interface WindowLike {
-  start?: string;
+  start: string; // REQUIRED — WindowSchema guarantees it. Absence is a contract violation (throw, never fabricate).
   grade?: string;
   displayable?: { headline?: string };
   rationale?: string;
@@ -45,8 +45,22 @@ export function defaultShowIntent(activity: Activity): boolean {
 }
 
 export function buildCardViewModel(w: WindowLike, ctx: CardContext): CardViewModel {
-  const iso = w.start ?? new Date(0).toISOString();
+  // Fail-LOUD on a missing start: the API contract guarantees it, so absence is
+  // a programming/contract error. Fabricating a date (e.g. 1970) would silently
+  // ship a wrong time onto a public PNG — the fabrication IS the bug. The share
+  // FLOW layer (sheet/hook) catches this and surfaces a graceful UI state.
+  if (!w.start) {
+    throw new Error('buildCardViewModel: window.start is required (contract violation).');
+  }
+  const iso = w.start;
   const moodKey = gradeToMood(w.grade);
+  // TRUST ASSUMPTION (explicit): the headline is rendered VERBATIM and bypasses
+  // BOTH the intent-toggle and the soft-time logic. If a server voice headline
+  // names the activity or embeds a precise clock, it leaks past the card's
+  // privacy protections (worst for the sensitive-activity / travel safety case).
+  // This MUST be guaranteed at the source: headlines stay activity-neutral and
+  // time-neutral, esp. for sensitive activities. Hung on the pending astrologer/
+  // voice ruling — see spec §5/§13 and translation-layer-design decisions #7/#8.
   const headline = w.displayable?.headline ?? w.rationale ?? 'A moment to consider.';
 
   const showExact = ctx.showLocation; // exact time + tz ride the location opt-in

@@ -58,4 +58,11 @@ describe('buildCardViewModel', () => {
     expect(vm.city).toBeNull();
     expect(vm.tzAbbrev).toBeNull();
   });
+
+  it('THROWS on a missing start (fail-loud contract violation — never fabricate a 1970 date)', () => {
+    const noStart = { grade: 'fair' } as unknown as Parameters<typeof buildCardViewModel>[0];
+    expect(() =>
+      buildCardViewModel(noStart, { activity: 'wedding', location: loc, showLocation: false, showIntent: true }),
+    ).toThrow(/start is required/);
+  });
 });

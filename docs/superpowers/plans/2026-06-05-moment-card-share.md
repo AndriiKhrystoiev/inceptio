@@ -986,7 +986,7 @@ git commit -m "feat(card): useMomentCardShare orchestration hook"
 // Share Preview sheet: hosts the LIVE MomentCard (its rendered output is the
 // capture source), the two privacy toggles + the aspect choice, and the Share
 // button. Toggles re-render the card live. Reuses the in-app Modal/sheet idiom.
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, View, Text, Pressable, Switch, StyleSheet, ScrollView } from 'react-native';
 import MomentCard from './MomentCard';
 import { buildCardViewModel, defaultShowIntent } from '../../lib/card/card-view-model';
@@ -1002,12 +1002,27 @@ export default function MomentCardSheet({ visible, onClose, window: w, activity,
   const cardRef = useRef(null);
   const { share, sharing } = useMomentCardShare(showToast);
 
-  const vm = useMemo(
-    () => buildCardViewModel(w, { activity, location, showLocation, showIntent }),
-    [w, activity, location, showLocation, showIntent],
-  );
+  // Graceful-catch (complements the mapper's fail-loud throw on a contract
+  // violation): never let a build error crash the sheet render. On error → null.
+  const vm = useMemo(() => {
+    try {
+      return buildCardViewModel(w, { activity, location, showLocation, showIntent });
+    } catch (e) {
+      return null;
+    }
+  }, [w, activity, location, showLocation, showIntent]);
+
+  // If the view model couldn't be built (contract violation), don't render a
+  // broken card — toast + close. Effect (not render-time) to avoid setState-in-render.
+  useEffect(() => {
+    if (visible && !vm) {
+      showToast('Couldn’t prepare this moment to share.', 'warn');
+      onClose();
+    }
+  }, [visible, vm]);
 
   const onShare = async () => {
+    if (!vm) return;
     const r = await share(cardRef);
     if (r.ok) onClose();
   };
@@ -1018,7 +1033,7 @@ export default function MomentCardSheet({ visible, onClose, window: w, activity,
         <View style={styles.sheet}>
           <ScrollView contentContainerStyle={styles.scroll}>
             <View style={styles.cardWrap}>
-              <MomentCard ref={cardRef} vm={vm} aspect={aspect} />
+              {vm && <MomentCard ref={cardRef} vm={vm} aspect={aspect} />}
             </View>
 
             <Row label="Show my city" value={showLocation} onChange={setShowLocation} />
