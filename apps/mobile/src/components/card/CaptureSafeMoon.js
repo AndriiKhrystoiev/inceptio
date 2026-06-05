@@ -1,13 +1,16 @@
 // apps/mobile/src/components/card/CaptureSafeMoon.js
 // Capture-safe moon for the Moment Card. The daily-note Moon/DailyHero halo is
 // a NATIVE SHADOW, which react-native-view-shot may drop from the exported PNG
-// (spec §7b). Here the halo is an SVG RadialGradient layer instead. Reuses the
-// MOOD_TOKENS colors, but the alphas are RE-DERIVED for a gradient (the
+// (spec §7b). Here the halo is an SVG RadialGradient layer instead. The moon
+// GLYPH itself reuses the shared <Moon> component (SVG, capture-safe) with
+// glow={false} so it renders the real PHASE — identical to the app's moon — and
+// not a plain disc. Reuses MOOD_TOKENS colors; gradient alphas RE-DERIVED (the
 // 0.95/0.75/0.55/0.35 shadow alphas over-saturate as gradient stops). DO NOT
 // edit Moon.js — it's shared and relies on its own shadow contract.
 import React, { useId } from 'react';
 import { View } from 'react-native';
 import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import Moon from '../Moon';
 
 // rgb triplets from MOOD_TOKENS (mood-tokens.js), gradient alphas re-derived.
 const HALO = {
@@ -16,16 +19,14 @@ const HALO = {
   mixed:  { rgb: '212,184,114', a0: 0.38 },
   closed: { rgb: '184,176,204', a0: 0.22 },
 };
-const MOON_FILL = '#FBF6E9';
 
-export default function CaptureSafeMoon({ mood = 'good', size = 96, haloScale = 2.6 }) {
+export default function CaptureSafeMoon({ mood = 'good', phase = 'full', size = 96, haloScale = 2.6 }) {
   const h = HALO[mood] ?? HALO.good;
   const box = size * haloScale;
   // Unique per-instance gradient id: react-native-svg can resolve `url(#id)`
   // globally across <Svg> elements (version-dependent), so a static id risks a
-  // collision when two cards render at once (future side-by-side aspect preview
-  // / daily-note card list). Strip colons — useId() returns ":r0:" which is
-  // invalid inside url(#...).
+  // collision when two cards render at once. Strip colons — useId() returns
+  // ":r0:" which is invalid inside url(#...).
   const haloId = `csm-halo-${useId().replace(/:/g, '')}`;
   return (
     <View style={{ width: box, height: box, alignItems: 'center', justifyContent: 'center' }}>
@@ -39,7 +40,7 @@ export default function CaptureSafeMoon({ mood = 'good', size = 96, haloScale = 
         </Defs>
         <Rect x="0" y="0" width={box} height={box} fill={`url(#${haloId})`} />
       </Svg>
-      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: MOON_FILL }} />
+      <Moon phase={phase} size={size} glow={false} />
     </View>
   );
 }

@@ -17,6 +17,7 @@ describe('buildCardViewModel', () => {
     const vm = buildCardViewModel(w, { activity: 'travel', location: loc, showLocation: false, showIntent: defaultShowIntent('travel') });
     expect(vm.headline).toBe('A tender day for beginnings.');
     expect(vm.moodKey).toBe('good');         // fair → win tier
+    expect(vm.moonPhase).toBe('waxing-crescent'); // computed from w.start (2026-06-20)
     expect(vm.tierPhrase).toBe('A tender moment');
     expect(vm.intentText).toBe('A moment to begin'); // travel is sensitive → generic by default
     expect(vm.whenPrimary).toBe('Saturday afternoon');

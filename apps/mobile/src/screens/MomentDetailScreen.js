@@ -24,6 +24,7 @@ import { locationToRequestFields } from '../lib/location-storage';
 import { friendlyMessage } from '../lib/error-messages';
 import { getSelectedWindow } from '../lib/nav-params';
 import { formatWindowTime, getDurationVariant, buildNarrative } from '../lib/format-window';
+import { moonPhaseForIso } from '../lib/card/moon-phase';
 import { addWindowToCalendar } from '../lib/calendar-export';
 
 const FALLBACK_LOCATION = {
@@ -225,7 +226,7 @@ export default function MomentDetailScreen({ go }) {
                   )}
                 </View>
               </View>
-              <Moon phase="waxing-crescent" size={64} />
+              <Moon phase={w?.start ? moonPhaseForIso(w.start) : 'waxing-crescent'} size={64} />
             </View>
           </View>
         </SafeAreaView>

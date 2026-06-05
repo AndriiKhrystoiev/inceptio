@@ -31,7 +31,7 @@ const MomentCard = forwardRef(function MomentCard({ vm, aspect = '9:16' }, ref) 
           the watermark sits BELOW it in normal flow — never overlapping. */}
       <View style={[styles.fg, { paddingVertical: L.padV }]}>
         <View style={[styles.content, { gap: L.gap }]}>
-          <CaptureSafeMoon mood={vm.moodKey} size={L.moon} haloScale={L.halo} />
+          <CaptureSafeMoon mood={vm.moodKey} phase={vm.moonPhase} size={L.moon} haloScale={L.halo} />
           <Text style={styles.intent}>{vm.intentText.toUpperCase()}</Text>
           <Text style={[styles.headline, { fontSize: L.headline, lineHeight: L.lineHeight }]}>{vm.headline}</Text>
           <View style={styles.phrasePill}>

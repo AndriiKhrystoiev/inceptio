@@ -1,11 +1,12 @@
 // Pure mapper: window `w` + privacy context → CardViewModel. No rendering, no
 // storage reads (caller passes activity/location). Golden-tested. Spec §4/§6/§7c.
-import type { Activity } from '@inceptio/shared-types';
+import type { Activity, MoonPhase } from '@inceptio/shared-types';
 import { gradeToMood, type MoodKey } from './grade-to-mood';
 import { TIER_PHRASES, t, SENSITIVE_ACTIVITIES } from './card-strings';
 import { ACTIVITY_LABELS } from '../activities';
 import { timeOfDayBand, weekday, monthDay, weekdayMonthDay } from './time-of-day';
 import { exactClock, tzAbbrev } from './format-tz';
+import { moonPhaseForIso } from './moon-phase';
 
 interface WindowLike {
   start: string; // REQUIRED — WindowSchema guarantees it. Absence is a contract violation (throw, never fabricate).
@@ -31,6 +32,7 @@ export interface CardContext {
 export interface CardViewModel {
   headline: string;
   moodKey: MoodKey;
+  moonPhase: MoonPhase;
   tierPhrase: string;
   intentText: string;
   whenPrimary: string;
@@ -75,6 +77,7 @@ export function buildCardViewModel(w: WindowLike, ctx: CardContext): CardViewMod
   return {
     headline,
     moodKey,
+    moonPhase: moonPhaseForIso(iso),
     tierPhrase: TIER_PHRASES[moodKey],
     intentText: ctx.showIntent ? ACTIVITY_LABELS[ctx.activity] : t('card.genericIntent'),
     whenPrimary,
