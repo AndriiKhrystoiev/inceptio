@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { timeOfDayBand, weekdayBand, monthDay, weekdayMonthDay } from '../time-of-day';
+import { timeOfDayBand, weekday, monthDay, weekdayMonthDay } from '../time-of-day';
 
 // 2026-06-20 is a Saturday. 15:24 in Europe/Kyiv (+03:00) = afternoon.
 const ISO = '2026-06-20T15:24:00+03:00';
@@ -12,8 +12,8 @@ describe('time-of-day', () => {
     expect(timeOfDayBand('2026-06-20T20:00:00+03:00', TZ)).toBe('evening');
     expect(timeOfDayBand('2026-06-20T02:00:00+03:00', TZ)).toBe('night');
   });
-  it('weekdayBand reads "Saturday afternoon"', () => {
-    expect(weekdayBand(ISO, TZ)).toBe('Saturday afternoon');
+  it('weekday reads "Saturday" in the location zone (band word comes from strings)', () => {
+    expect(weekday(ISO, TZ)).toBe('Saturday');
   });
   it('monthDay reads "June 20"', () => {
     expect(monthDay(ISO, TZ)).toBe('June 20');
