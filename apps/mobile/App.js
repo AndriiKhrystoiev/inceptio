@@ -35,6 +35,7 @@ import YouScreen from './src/screens/YouScreen';
 import PaywallScreen from './src/screens/PaywallScreen';
 import FirstLaunchActivityPicker from './src/screens/FirstLaunchActivityPicker';
 import SetDefaultLocationScreen from './src/screens/SetDefaultLocationScreen';
+import CaptureSpikeScreen from './src/screens/CaptureSpikeScreen'; // PHASE 0 spike — remove with the flag
 import TabBar from './src/components/TabBar';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -62,6 +63,13 @@ const MODAL_SCREENS = new Set(['onboarding', 'picker', 'date', 'location', 'load
 // Tab id (one of: today / calendar / moments / you) is independent
 // of screen id so a modal flow doesn't deactivate the tab below it.
 const TAB_FOR_SCREEN = { today: 'today', calendar: 'calendar', moments: 'moments', you: 'you' };
+
+// PHASE 0 capture spike (throwaway, see spec §4). When true, the app boots
+// straight into the view-shot probe instead of the normal screen tree. Flip
+// `&& true` → `&& false` to restore the app; remove this flag and
+// src/screens/CaptureSpikeScreen.js once the go/no-go result is recorded.
+// __DEV__-gated so it can never reach a production build.
+const SPIKE_CAPTURE = __DEV__ && true;
 
 export default function App() {
   const [fontsLoaded] = useFraunces({
@@ -138,6 +146,18 @@ export default function App() {
       <View style={styles.boot}>
         <ActivityIndicator color={colors.primaryGlow}/>
       </View>
+    );
+  }
+
+  // PHASE 0 capture spike — boot straight into the view-shot probe. Placed
+  // AFTER every hook call + the boot gate (fonts/storage ready) so Rules of
+  // Hooks hold and the probe's Fraunces text renders. Remove with SPIKE_CAPTURE.
+  if (SPIKE_CAPTURE) {
+    return (
+      <SafeAreaProvider>
+        <StatusBar style="light"/>
+        <CaptureSpikeScreen/>
+      </SafeAreaProvider>
     );
   }
 
