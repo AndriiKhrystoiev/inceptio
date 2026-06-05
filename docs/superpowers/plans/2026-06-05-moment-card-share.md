@@ -302,9 +302,16 @@ describe('format-tz', () => {
   it('formats a 12-hour clock in the location zone', () => {
     expect(exactClock(ISO, TZ)).toBe('3:24 PM');
   });
-  it('is DST-AWARE — summer resolves EEST, winter resolves EET (wrong abbrev on a public card is real)', () => {
-    expect(tzAbbrev(ISO, TZ)).toBe('EEST');                          // 2026-06-20 summer
-    expect(tzAbbrev('2026-01-15T12:00:00+02:00', TZ)).toBe('EET');   // 2026-01-15 winter
+  it('is DST-AWARE — the abbreviation CHANGES between summer and winter (wrong abbrev on a public card is real)', () => {
+    // NOTE: the runtime ICU may return letter abbrevs ("EEST"/"EET") OR GMT
+    // offsets ("GMT+3"/"GMT+2") depending on the engine (Node returns GMT+N).
+    // Assert the load-bearing property — the value DIFFERS across DST and shows
+    // the correct offset — rather than a fixed label that's engine-specific.
+    const summer = tzAbbrev(ISO, TZ);                          // 2026-06-20
+    const winter = tzAbbrev('2026-01-15T12:00:00+02:00', TZ);  // 2026-01-15
+    expect(summer).not.toBe(winter);             // DST-aware, not a fixed label
+    expect(summer).toMatch(/EEST|GMT\+3|UTC\+3/); // +3 in summer
+    expect(winter).toMatch(/EET|GMT\+2|UTC\+2/);  // +2 in winter
   });
   it('falls back to an offset string when no short name is available', () => {
     // A zone whose short name resolves to a GMT offset stays usable.
