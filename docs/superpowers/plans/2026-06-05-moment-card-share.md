@@ -17,8 +17,9 @@
 **Create:**
 - `apps/mobile/src/config/features.ts` — `FEATURES` flag registry (paywall flags + `MOMENT_CARD_SHARE_PROVIDER`). **Shared resource — create first.**
 - `apps/mobile/src/lib/card/grade-to-mood.ts` — `gradeToMood(grade) → MoodKey`
-- `apps/mobile/src/lib/card/time-of-day.ts` — `timeOfDayBand` + `weekdayMonthDay` helpers (location-tz aware)
-- `apps/mobile/src/lib/card/format-tz.ts` — `tzAbbrev(iso, timeZone)` + `exactClock(iso, timeZone)`
+- `apps/mobile/src/lib/card/iso-local.ts` — `parseLocalInstant(iso)` + `offsetLabel(min)` (Hermes-safe ISO offset-shift; built ✅)
+- `apps/mobile/src/lib/card/time-of-day.ts` — `timeOfDayBand(iso)` (band KEY) + `weekday/monthDay/weekdayMonthDay(iso)` (built ✅, offset-shift)
+- `apps/mobile/src/lib/card/format-tz.ts` — `exactClock(iso)` + `tzAbbrev(iso)` (offset-shift; Task 4)
 - `apps/mobile/src/lib/card/card-strings.ts` — seam-ready strings (`t()`-shape): tier→phrase, generic-intent line, `SENSITIVE_ACTIVITIES`
 - `apps/mobile/src/lib/card/card-view-model.ts` — `buildCardViewModel(w, ctx) → CardViewModel`
 - `apps/mobile/src/lib/card/__tests__/*.test.ts` — vitest specs
@@ -288,6 +289,8 @@ git commit -m "feat(card): location-tz-aware soft time-of-day + date helpers"
 - Create: `apps/mobile/src/lib/card/format-tz.ts`
 - Test: `apps/mobile/src/lib/card/__tests__/format-tz.test.ts`
 
+**Approach (Option 2 — Hermes-safe):** both helpers derive from the ISO's OWN local wall-clock + offset via `iso-local` (`parseLocalInstant`/`offsetLabel`) — NO IANA-timezone Intl. `exactClock` formats the local-as-UTC instant with `timeZone:'UTC'`; `tzAbbrev` is the API-authoritative offset → `"UTC+3"` (DST-correct by construction). Helpers take `(iso)` only — no `timeZone` param. **Direct verification** (tiny pure helper; DST + bare-UTC fallback test-asserted) — no formal subagent chain.
+
 - [ ] **Step 1: Write the failing test**
 
 ```ts
@@ -296,27 +299,19 @@ import { describe, it, expect } from 'vitest';
 import { exactClock, tzAbbrev } from '../format-tz';
 
 const ISO = '2026-06-20T15:24:00+03:00';
-const TZ = 'Europe/Kyiv';
 
 describe('format-tz', () => {
-  it('formats a 12-hour clock in the location zone', () => {
-    expect(exactClock(ISO, TZ)).toBe('3:24 PM');
+  it('formats a 12-hour clock from the ISO local wall-clock', () => {
+    expect(exactClock(ISO)).toBe('3:24 PM');
+    expect(exactClock('2026-06-20T00:05:00+03:00')).toBe('12:05 AM');
   });
-  it('is DST-AWARE — the abbreviation CHANGES between summer and winter (wrong abbrev on a public card is real)', () => {
-    // NOTE: the runtime ICU may return letter abbrevs ("EEST"/"EET") OR GMT
-    // offsets ("GMT+3"/"GMT+2") depending on the engine (Node returns GMT+N).
-    // Assert the load-bearing property — the value DIFFERS across DST and shows
-    // the correct offset — rather than a fixed label that's engine-specific.
-    const summer = tzAbbrev(ISO, TZ);                          // 2026-06-20
-    const winter = tzAbbrev('2026-01-15T12:00:00+02:00', TZ);  // 2026-01-15
-    expect(summer).not.toBe(winter);             // DST-aware, not a fixed label
-    expect(summer).toMatch(/EEST|GMT\+3|UTC\+3/); // +3 in summer
-    expect(winter).toMatch(/EET|GMT\+2|UTC\+2/);  // +2 in winter
+  it('is DST-AWARE by construction — tz label is the ISO offset, which differs across DST', () => {
+    expect(tzAbbrev('2026-06-20T15:24:00+03:00')).toBe('UTC+3'); // summer
+    expect(tzAbbrev('2026-01-15T12:00:00+02:00')).toBe('UTC+2'); // winter
   });
-  it('falls back to an offset string when no short name is available', () => {
-    // A zone whose short name resolves to a GMT offset stays usable.
-    const out = tzAbbrev(ISO, 'Etc/GMT-3');
-    expect(out).toMatch(/GMT|UTC|\+/);
+  it('FALLBACK: bare-UTC / offset-less ISO → "UTC"', () => {
+    expect(tzAbbrev('2026-06-21T11:32:00Z')).toBe('UTC');
+    expect(exactClock('2026-06-21T11:32:00Z')).toBe('11:32 AM');
   });
 });
 ```
@@ -331,24 +326,22 @@ Expected: FAIL — cannot find module `../format-tz`.
 ```ts
 // apps/mobile/src/lib/card/format-tz.ts
 // Exact-time path for the Moment Card (shown only when location is opted in,
-// spec §7c-2). 12-hour clock + a DST-correct tz abbreviation, both computed in
-// the location zone against the moment instant (NOT "now").
-export function exactClock(iso: string, timeZone: string): string {
+// spec §7c-2). Derived from the ISO's own local wall-clock + offset via
+// iso-local (Hermes-safe; NO IANA-timezone Intl). 12-hour clock from the
+// local-as-UTC instant; tz label is the API-authoritative offset → "UTC+3"
+// (DST-correct by construction — the API bakes the right offset per date).
+import { parseLocalInstant, offsetLabel } from './iso-local';
+
+export function exactClock(iso: string): string {
   return new Intl.DateTimeFormat('en-US', {
-    hour: 'numeric', minute: '2-digit', hour12: true, timeZone,
-  }).format(new Date(iso));
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC',
+  }).format(parseLocalInstant(iso).localAsUtc);
 }
 
-export function tzAbbrev(iso: string, timeZone: string): string {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone, timeZoneName: 'short',
-  }).formatToParts(new Date(iso));
-  const name = parts.find((p) => p.type === 'timeZoneName')?.value;
-  return name ?? '';
+export function tzAbbrev(iso: string): string {
+  return offsetLabel(parseLocalInstant(iso).offsetMinutes);
 }
 ```
-
-- [ ] **Step 2 note:** if `tzAbbrev` returns `"GMT+3"` for `Etc/GMT-3` on the test engine, the `toMatch(/GMT|UTC|\+/)` assertion still passes; the EEST assertion exercises a named zone.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -521,7 +514,7 @@ describe('buildCardViewModel', () => {
   it('location opt-in: exact clock + tz + city, full date', () => {
     const vm = buildCardViewModel(w, { activity: 'wedding', location: loc, showLocation: true, showIntent: true });
     expect(vm.whenPrimary).toBe('3:24 PM');
-    expect(vm.tzAbbrev).toBe('EEST');
+    expect(vm.tzAbbrev).toBe('UTC+3'); // offset-derived (Option 2), DST-correct by construction
     expect(vm.city).toBe('Kyiv');
     expect(vm.whenSecondary).toBe('Saturday, June 20');
   });
@@ -539,10 +532,11 @@ describe('buildCardViewModel', () => {
     expect(vm.whenPrimary).toBe('Saturday afternoon');
   });
 
-  it('missing location falls back to device tz without throwing', () => {
+  it('missing location: time STILL derives from the ISO (deterministic), only city/tz are null', () => {
     const vm = buildCardViewModel(w, { activity: 'wedding', location: null, showLocation: false, showIntent: true });
-    expect(vm.whenPrimary).toMatch(/morning|afternoon|evening|night/);
+    expect(vm.whenPrimary).toBe('Saturday afternoon'); // from the ISO offset, not device tz
     expect(vm.city).toBeNull();
+    expect(vm.tzAbbrev).toBeNull();
   });
 });
 ```
@@ -575,7 +569,8 @@ interface WindowLike {
 
 interface LocationLike {
   city: string;
-  timezone: string;
+  // timezone NOT needed: all time derives from the window ISO's own offset
+  // (Hermes-safe, Option 2). location is only consulted for the city label.
 }
 
 export interface CardContext {
@@ -596,26 +591,24 @@ export interface CardViewModel {
   tzAbbrev: string | null;
 }
 
-const DEVICE_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-
 // Default visibility of the activity label, per activity (spec §7c-1).
 export function defaultShowIntent(activity: Activity): boolean {
   return !SENSITIVE_ACTIVITIES.has(activity);
 }
 
 export function buildCardViewModel(w: WindowLike, ctx: CardContext): CardViewModel {
-  const tz = ctx.location?.timezone ?? DEVICE_TZ;
   const iso = w.start ?? new Date(0).toISOString();
   const moodKey = gradeToMood(w.grade);
   const headline = w.displayable?.headline ?? w.rationale ?? 'A moment to consider.';
 
   const showExact = ctx.showLocation; // exact time + tz ride the location opt-in
-  // Default (soft) when-line: weekday from Intl + the band WORD from the strings
-  // module (i18n chrome), composed from the band KEY. Never a tz-less clock.
+  // Default (soft) when-line: weekday + the band WORD from the strings module
+  // (i18n chrome), composed from the band KEY. Never a tz-less clock. ALL time
+  // derives from the ISO's own offset (Hermes-safe) — no location.timezone.
   const whenPrimary = showExact
-    ? exactClock(iso, tz)
-    : `${weekday(iso, tz)} ${t('card.band.' + timeOfDayBand(iso, tz))}`;
-  const whenSecondary = showExact ? weekdayMonthDay(iso, tz) : monthDay(iso, tz);
+    ? exactClock(iso)
+    : `${weekday(iso)} ${t('card.band.' + timeOfDayBand(iso))}`;
+  const whenSecondary = showExact ? weekdayMonthDay(iso) : monthDay(iso);
 
   return {
     headline,
@@ -625,7 +618,7 @@ export function buildCardViewModel(w: WindowLike, ctx: CardContext): CardViewMod
     whenPrimary,
     whenSecondary,
     city: ctx.showLocation ? (ctx.location?.city ?? null) : null,
-    tzAbbrev: ctx.showLocation && ctx.location ? (tzAbbrev(iso, tz) || null) : null,
+    tzAbbrev: ctx.showLocation ? tzAbbrev(iso) : null,
   };
 }
 ```
