@@ -4,7 +4,7 @@
 // nav-params.ts, set by CalendarScreen before calling go('detail').
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, Pressable, Share } from 'react-native';
+import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Share2, ChevronRight, Bookmark } from 'lucide-react-native';
 import HeroGradient from '../components/HeroGradient';
@@ -17,12 +17,14 @@ import SecondaryButton from '../components/SecondaryButton';
 import StatusLine from '../components/StatusLine';
 import Pulse from '../components/Pulse';
 import Toast from '../components/Toast';
+import MomentCardSheet from '../components/card/MomentCardSheet';
 import { useElectionalSearch } from '../hooks/useElectionalSearch';
 import { getLastActivity, getLastLocation, saveMoment } from '../lib/draft-store';
 import { locationToRequestFields } from '../lib/location-storage';
 import { friendlyMessage } from '../lib/error-messages';
 import { getSelectedWindow } from '../lib/nav-params';
 import { formatWindowTime, getDurationVariant, buildNarrative } from '../lib/format-window';
+import { moonPhaseForIso } from '../lib/card/moon-phase';
 import { addWindowToCalendar } from '../lib/calendar-export';
 
 const FALLBACK_LOCATION = {
@@ -70,6 +72,7 @@ function gradeToScorePill(grade) {
 
 export default function MomentDetailScreen({ go }) {
   const [showTechnical, setShowTechnical] = useState(false);
+  const [cardOpen, setCardOpen] = useState(false);
 
   // The window the user tapped on Today/Calendar — set via nav-params before
   // navigation. Captured once at mount so this screen renders the same window
@@ -185,26 +188,7 @@ export default function MomentDetailScreen({ go }) {
     }
   }
 
-  async function handleShare() {
-    if (!w) return;
-    const startDate = new Date(w.start);
-    const dateStr = new Intl.DateTimeFormat('en-US', {
-      weekday: 'long',
-      month: 'long',
-      day: 'numeric',
-    }).format(startDate);
-    const message =
-      `${headline}\n\n` +
-      `${dateStr} · ${city}\n` +
-      `Score: ${w.score} / 100\n\n` +
-      `Found via Inceptio.`;
-    try {
-      await Share.share({ message });
-      // Share sheet itself confirms success; no toast on the happy path.
-    } catch (err) {
-      showToast("Couldn't open the share sheet.", 'warn');
-    }
-  }
+  const handleShare = () => setCardOpen(true);
 
   return (
     // Wrap in a flex View so the Toast can be a sibling of the ScrollView —
@@ -221,9 +205,8 @@ export default function MomentDetailScreen({ go }) {
             <IconBtn onPress={() => go('calendar')} label="Back">
               <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5} />
             </IconBtn>
-            <IconBtn label="Share">
-              <Share2 color="#F5EFE4" size={20} strokeWidth={1.5} />
-            </IconBtn>
+            {/* Single share affordance: the footer Save/Share action row (below).
+                The header keeps just Back; the inert top-right share icon is gone. */}
           </View>
 
           <View className="px-6 pt-6 pb-9">
@@ -242,7 +225,7 @@ export default function MomentDetailScreen({ go }) {
                   )}
                 </View>
               </View>
-              <Moon phase="waxing-crescent" size={64} />
+              <Moon phase={w?.start ? moonPhaseForIso(w.start) : 'waxing-crescent'} size={64} />
             </View>
           </View>
         </SafeAreaView>
@@ -361,6 +344,13 @@ export default function MomentDetailScreen({ go }) {
         onDismiss={dismissToast}
       />
     )}
+    <MomentCardSheet
+      visible={cardOpen}
+      onClose={() => setCardOpen(false)}
+      window={w}
+      activity={activity}
+      showToast={showToast}
+    />
     </View>
   );
 }

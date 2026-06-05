@@ -59,6 +59,8 @@ export const fonts = {
   display:      'Fraunces_500Medium',
   displayReg:   'Fraunces_400Regular',
   displaySemi:  'Fraunces_600SemiBold',
+  displayItalic:'Fraunces_500Medium_Italic', // Moment Card headline — loaded in App.js
+
   ui:           'Inter_400Regular',
   uiMed:        'Inter_500Medium',
   uiSemi:       'Inter_600SemiBold',

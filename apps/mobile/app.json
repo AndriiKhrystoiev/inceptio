@@ -2,6 +2,7 @@
   "expo": {
     "name": "Inceptio",
     "slug": "inceptio",
+    "scheme": "inceptio",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
@@ -39,7 +40,8 @@
         {
           "locationWhenInUsePermission": "Inceptio uses your location to find astrologically favorable moments for events near you."
         }
-      ]
+      ],
+      "expo-sharing"
     ]
   }
 }
