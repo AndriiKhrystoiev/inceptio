@@ -887,25 +887,29 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 36, gap: 16, // center-safe: content stays central
   },
-  intent: { fontFamily: fonts.body ?? 'Inter_500Medium', fontSize: 12, letterSpacing: 2.5, color: colors.gold },
-  headline: { fontFamily: fonts.displayItalic ?? 'Fraunces_500Medium', fontStyle: 'italic', fontSize: 26, lineHeight: 32, color: colors.text, textAlign: 'center' },
+  // Font keys are the REAL theme.js keys (resolved): Fraunces italic =
+  // fonts.displayItalic (Fraunces_500Medium_Italic, loaded in App.js); Inter =
+  // fonts.ui/uiMed/uiSemi; watermark display = fonts.display. NO fontStyle:'italic'
+  // — the italic family is explicit (faux-italic won't rasterize in capture).
+  intent: { fontFamily: fonts.uiMed, fontSize: 12, letterSpacing: 2.5, color: colors.gold },
+  headline: { fontFamily: fonts.displayItalic, fontSize: 26, lineHeight: 32, color: colors.text, textAlign: 'center' },
   phrasePill: {
     paddingHorizontal: 14, paddingVertical: 6, borderRadius: 999,
     backgroundColor: 'rgba(139,111,232,0.16)', borderWidth: 1, borderColor: 'rgba(139,111,232,0.40)',
   },
-  phrase: { fontFamily: fonts.body ?? 'Inter_500Medium', fontSize: 13, color: colors.text },
-  when: { fontFamily: fonts.body ?? 'Inter_400Regular', fontSize: 15, color: colors.text },
-  whenSub: { fontFamily: fonts.body ?? 'Inter_400Regular', fontSize: 13, color: colors.textMuted },
+  phrase: { fontFamily: fonts.uiMed, fontSize: 13, color: colors.text },
+  when: { fontFamily: fonts.ui, fontSize: 15, color: colors.text },
+  whenSub: { fontFamily: fonts.ui, fontSize: 13, color: colors.textMuted },
   watermark: {
     position: 'absolute', bottom: 22, alignSelf: 'center',
-    fontFamily: fonts.display ?? 'Fraunces_500Medium', fontSize: 13, color: colors.textMuted,
+    fontFamily: fonts.display, fontSize: 13, color: colors.textMuted,
   },
 });
 ```
 
-- [ ] **Step 2: Resolve the exact font keys**
+- [ ] **Step 2: Verify it parses**
 
-Open `src/theme.js`, confirm the real keys for the display-italic + body fonts; replace the `fonts.displayItalic ?? …` / `fonts.body ?? …` fallbacks with the exact `fonts.*` names (a typo silently falls back and the fallback is what rasterizes — spec §9). Commit only after the names match `theme.js`.
+Run: `cd apps/mobile && node -e "require('@babel/core').transformFileSync('src/components/card/MomentCard.js',{presets:['babel-preset-expo']}); console.log('OK')"` → Expected `OK`. (Font keys already match theme.js: `displayItalic`/`ui`/`uiMed`/`display` all exist; the italic family is loaded in App.js. The binding visual check is the Task 11 smoke.)
 
 - [ ] **Step 3: Commit**
 
