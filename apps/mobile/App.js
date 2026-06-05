@@ -69,7 +69,7 @@ const TAB_FOR_SCREEN = { today: 'today', calendar: 'calendar', moments: 'moments
 // `&& true` → `&& false` to restore the app; remove this flag and
 // src/screens/CaptureSpikeScreen.js once the go/no-go result is recorded.
 // __DEV__-gated so it can never reach a production build.
-const SPIKE_CAPTURE = __DEV__ && true;
+const SPIKE_CAPTURE = __DEV__ && false; // spike PASSED 2026-06-05 — app boots normally; probe kept as CaptureSafeMoon reference
 
 export default function App() {
   const [fontsLoaded] = useFraunces({
