@@ -3,7 +3,7 @@
 // capture source), the two privacy toggles + the aspect choice, and the Share
 // button. Toggles re-render the card live. Reuses the in-app Modal/sheet idiom.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, View, Text, Pressable, Switch, StyleSheet, ScrollView } from 'react-native';
+import { Modal, View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
 import MomentCard from './MomentCard';
 import { buildCardViewModel, defaultShowIntent } from '../../lib/card/card-view-model';
 import { useMomentCardShare } from '../../hooks/useMomentCardShare';
@@ -80,12 +80,18 @@ export default function MomentCardSheet({ visible, onClose, window: w, activity,
   );
 }
 
+// Custom Pressable toggle. The stock RN <Switch> did not fire onValueChange in
+// this Modal/New-Arch context (the aspect Pressables worked, proving state→card
+// re-render is fine — Switch was the lone failure). Pressable is reliable here
+// and matches the Mystical Premium palette (violet, not the default green).
 function Row({ label, value, onChange }) {
   return (
-    <View style={styles.row}>
+    <Pressable style={styles.row} onPress={() => onChange(!value)} hitSlop={6}>
       <Text style={styles.rowLabel}>{label}</Text>
-      <Switch value={value} onValueChange={onChange} />
-    </View>
+      <View style={[styles.toggle, value ? styles.toggleOn : styles.toggleOff]}>
+        <View style={styles.knob} />
+      </View>
+    </Pressable>
   );
 }
 
@@ -94,8 +100,12 @@ const styles = StyleSheet.create({
   sheet: { backgroundColor: colors.surface2, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '92%' },
   scroll: { padding: 20, gap: 14, alignItems: 'stretch' },
   cardWrap: { alignItems: 'center', marginBottom: 6 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 },
   rowLabel: { fontFamily: fonts.uiMed, fontSize: 15, color: colors.text },
+  toggle: { width: 50, height: 30, borderRadius: 15, padding: 3, flexDirection: 'row' },
+  toggleOff: { backgroundColor: colors.borderSoft, justifyContent: 'flex-start' },
+  toggleOn: { backgroundColor: colors.primary, justifyContent: 'flex-end' },
+  knob: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#FFFFFF' },
   aspectRow: { flexDirection: 'row', gap: 10, justifyContent: 'center' },
   chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.borderGlow },
   chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
