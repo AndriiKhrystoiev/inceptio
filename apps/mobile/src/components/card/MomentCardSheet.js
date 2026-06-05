@@ -1,0 +1,103 @@
+// apps/mobile/src/components/card/MomentCardSheet.js
+// Share Preview sheet: hosts the LIVE MomentCard (its rendered output is the
+// capture source), the two privacy toggles + the aspect choice, and the Share
+// button. Toggles re-render the card live. Reuses the in-app Modal/sheet idiom.
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Modal, View, Text, Pressable, Switch, StyleSheet, ScrollView } from 'react-native';
+import MomentCard from './MomentCard';
+import { buildCardViewModel, defaultShowIntent } from '../../lib/card/card-view-model';
+import { useMomentCardShare } from '../../hooks/useMomentCardShare';
+import { getLastLocation } from '../../lib/location-storage';
+import { colors, fonts } from '../../theme';
+
+export default function MomentCardSheet({ visible, onClose, window: w, activity, showToast }) {
+  const location = useMemo(() => getLastLocation(), []);
+  const [showLocation, setShowLocation] = useState(false);
+  const [showIntent, setShowIntent] = useState(defaultShowIntent(activity));
+  const [aspect, setAspect] = useState('9:16');
+  const cardRef = useRef(null);
+  const { share, sharing } = useMomentCardShare(showToast);
+
+  // Graceful-catch (complements the mapper's fail-loud throw on a contract
+  // violation): never let a build error crash the sheet render. On error → null.
+  const vm = useMemo(() => {
+    try {
+      return buildCardViewModel(w, { activity, location, showLocation, showIntent });
+    } catch (e) {
+      return null;
+    }
+  }, [w, activity, location, showLocation, showIntent]);
+
+  // If the view model couldn't be built (contract violation), don't render a
+  // broken card — toast + close. Effect (not render-time) to avoid setState-in-render.
+  useEffect(() => {
+    if (visible && !vm) {
+      showToast("Couldn't prepare this moment to share.", 'warn');
+      onClose();
+    }
+  }, [visible, vm]);
+
+  const onShare = async () => {
+    if (!vm) return;
+    const r = await share(cardRef);
+    if (r.ok) onClose();
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.backdrop}>
+        <View style={styles.sheet}>
+          <ScrollView contentContainerStyle={styles.scroll}>
+            <View style={styles.cardWrap}>
+              {vm && <MomentCard ref={cardRef} vm={vm} aspect={aspect} />}
+            </View>
+
+            <Row label="Show my city" value={showLocation} onChange={setShowLocation} />
+            <Row label="Show the occasion" value={showIntent} onChange={setShowIntent} />
+
+            <View style={styles.aspectRow}>
+              {['9:16', '1:1'].map((a) => (
+                <Pressable key={a} onPress={() => setAspect(a)} style={[styles.chip, aspect === a && styles.chipOn]}>
+                  <Text style={[styles.chipText, aspect === a && styles.chipTextOn]}>{a}</Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Pressable onPress={onShare} disabled={sharing} style={[styles.shareBtn, sharing && styles.shareBusy]}>
+              <Text style={styles.shareText}>{sharing ? 'Preparing…' : 'Share'}</Text>
+            </Pressable>
+            <Pressable onPress={onClose} style={styles.cancel}><Text style={styles.cancelText}>Cancel</Text></Pressable>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+function Row({ label, value, onChange }) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Switch value={value} onValueChange={onChange} />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: colors.surface2, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '92%' },
+  scroll: { padding: 20, gap: 14, alignItems: 'stretch' },
+  cardWrap: { alignItems: 'center', marginBottom: 6 },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 },
+  rowLabel: { fontFamily: fonts.uiMed, fontSize: 15, color: colors.text },
+  aspectRow: { flexDirection: 'row', gap: 10, justifyContent: 'center' },
+  chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.borderGlow },
+  chipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontFamily: fonts.uiMed, color: colors.textMuted },
+  chipTextOn: { color: colors.text },
+  shareBtn: { backgroundColor: colors.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  shareBusy: { opacity: 0.5 },
+  shareText: { fontFamily: fonts.uiSemi, fontSize: 16, color: colors.text },
+  cancel: { alignItems: 'center', paddingVertical: 8 },
+  cancelText: { fontFamily: fonts.ui, color: colors.textMuted },
+});
