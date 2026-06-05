@@ -47,6 +47,35 @@ export default function CaptureSpikeScreen() {
   // The spike bypasses the normal screen tree, so hide the splash ourselves.
   useEffect(() => { SplashScreen.hideAsync().catch(() => {}); }, []);
 
+  // Headless self-report: auto-capture both targets on mount and log
+  // structured results to Metro (SPIKE_RESULT::), so the smoke can be read
+  // from the bundler log without tapping. The captured tmpfile path is host-
+  // readable on a simulator, so halo-survives-capture is verified off-device.
+  // Manual buttons below still work for human inspection.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      // eslint-disable-next-line no-console
+      console.log('SPIKE_RUNTIME::' + RUNTIME);
+      // Let layout settle + the SVG halo paint before capturing.
+      await new Promise((r) => setTimeout(r, 1500));
+      for (const [ref, key] of [[plainRef, 'A'], [haloRef, 'B']]) {
+        if (cancelled) return;
+        try {
+          const uri = await captureRef(ref, { format: 'png', result: 'tmpfile' });
+          // eslint-disable-next-line no-console
+          console.log('SPIKE_RESULT::' + JSON.stringify({ key, ok: true, uri }));
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.log('SPIKE_RESULT::' + JSON.stringify({ key, ok: false, error: e?.message ?? String(e) }));
+        }
+      }
+      // eslint-disable-next-line no-console
+      console.log('SPIKE_DONE::');
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const setResult = (key, value) =>
     setResults((prev) => ({ ...prev, [key]: value }));
 

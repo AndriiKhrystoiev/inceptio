@@ -45,7 +45,9 @@ Before building the feature, prove the riskiest unknown: **bridgeless New-Arch i
 - **On FAIL:** fall back to the server-side Satori path (§3), accepting its costs.
 - This is the existing "on-device view-shot smoke" discipline moved **earlier** — from acceptance gate to build-path go/no-go.
 
-**Everything below (content/privacy decisions, full implementation plan) is gated on this spike passing.**
+**RESULT — 2026-06-05 — iOS SIMULATOR: PASS (green pre-check).** Built a dev client via `expo run:ios` on a booted iPhone 15 sim (`ios · RN 0.83.6 · bridgeless=true`). `react-native-view-shot@^5.1.0` `captureRef` resolved and produced clean PNGs for both targets — the #657 "RNViewShot is undefined" bridgeless failure **did not reproduce**. The SVG radial-gradient halo **survived capture** (verified by reading the exported PNG), and Fraunces rasterized correctly. Standing up the dev client also surfaced a pre-existing gap: the app had never been built natively and was missing `react-native-worklets` (reanimated 4 split-out) — now installed at the bundled `0.7.4`. **Native path GREEN-LIT for the feature build**, with **real-device iOS capture as a deferred pre-ship gate** (blocked on a pending Apple Developer account — ownership / org-vs-individual decision with the owner; flip `eas.json` `simulator` back to `false` to run it).
+
+**Content/privacy decisions (§7c) and the full implementation plan proceed from here on the native path.**
 
 ## 5. Entry point & flow
 
