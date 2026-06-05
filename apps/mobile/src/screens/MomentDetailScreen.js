@@ -205,9 +205,8 @@ export default function MomentDetailScreen({ go }) {
             <IconBtn onPress={() => go('calendar')} label="Back">
               <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5} />
             </IconBtn>
-            <IconBtn onPress={handleShare} label="Share">
-              <Share2 color="#F5EFE4" size={20} strokeWidth={1.5} />
-            </IconBtn>
+            {/* Single share affordance: the footer Save/Share action row (below).
+                The header keeps just Back; the inert top-right share icon is gone. */}
           </View>
 
           <View className="px-6 pt-6 pb-9">
