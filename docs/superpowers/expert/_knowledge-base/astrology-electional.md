@@ -226,3 +226,36 @@ Distinct from the tradition-asymmetry matrix (2026-06-02). This is about *social
 - Co-Star loop (witty screenshot-bait, not watermark): [Newsweek](https://www.newsweek.com/co-star-astrology-app-instagram-1451220)
 
 ---
+
+## Updated 2026-06-06 — Cost-shaping usage cap + hidden-paywall copy constraints
+
+Generalized from the per-user daily search-cap feature (spec `docs/superpowers/specs/2026-06-06-usage-cap-design.md`). These are reusable rules for any quota / soft-block / expiry-copy surface in an astrology app running a *hidden* paywall.
+
+### Rule 1 — Soft-block copy under a hidden paywall MUST carry zero monetization signal
+
+When the paywall is wired-but-hidden (RevenueCat in the bundle, `PAYWALL_ENABLED=false`), a usage cap is *cost-shaping/anti-abuse*, NOT a monetization gate, and the copy must read that way. Banned in soft-block copy: "upgrade," "Pro," "premium," "unlock," "subscribe," price strings, and even "free [tier]" / "free searches" (implies a paid tier by inference, re-exposing the hidden paywall). Use "today's searches," never "today's *free* searches." Two reasons this is load-bearing for astrology apps specifically: (a) it's the only posture consistent with a hidden-paywall product decision, and (b) it avoids waving a paywall flag at App Store reviewers who already scrutinize astrology apps under Guideline 4.3 (spam) — a paywall-flavored cap message invites them to hunt the hidden purchase flow, which physically exists in the bundle. ([Apple 4.3 / iMore](https://www.imore.com/apple-rejects-developers-horoscope-app-says-app-store-has-enough), [molfar.io](https://www.molfar.io/blog/apple-review)). The sanctioned framing is "early access" pacing (per Inceptio CLAUDE.md soft-block precedent: *"Inceptio is in early access — try again in a few days."*).
+
+### Rule 2 — Reset/expiry copy keyed to PICKED-LOCATION tz must not promise a device-relative day
+
+This is the cap-feature corollary of the EC-19 (2026-06-03) + surface-class (2026-06-05) tz findings. If a quota/reset bucket is computed server-side from the **request's** tz (= `tzLookup(picked location)`), then a bare relative word like **"tomorrow"** silently assumes the *device's* wall clock and will be wrong by up to a full calendar day for cross-tz users — which are this product's marquee personas (destination-wedding planners, nomads, expats, travel-activity users; see 2026-06-03 risk-envelope). **Anchor reset copy to "midnight" or omit the time; do not promise a relative day.** Generalizes to any future expiry/countdown copy (saved-moment expiry, trial windows, "fresh tomorrow" daily-note refresh).
+
+### Rule 3 — A single-chokepoint error/status string must survive every render surface's surrounding affordances
+
+"One edit, distinct state everywhere" is true for *plumbing* but NOT automatically for the *sentence*. A string routed through one chokepoint (e.g. `friendlyMessage` in `apps/mobile/src/lib/error-messages.ts`, rendered by LoadingScreen / MomentDetail / NoViable / Calendar / DailyHero) lands in N different contexts. Two concrete traps observed: (a) **NoViable collision** — a "no good windows" *result* surface will blur a quota message into "the sky offered nothing" unless the copy names the mechanism ("searches"); (b) **dead retry** — DailyHero pairs the message with a retry pressable (`DailyHero.js:~97`), and a retry next to a terminal daily cap just re-hits the 429. Rule: a single-chokepoint string must be self-contained, terminal-safe, and must not read as a system *error* nor as a domain-empty *result*; verify it against every surface's adjacent affordances (especially any retry button), not just the chokepoint.
+
+### Rule 4 — "searches/lookups," never "moments/windows" in chrome strings (extends the forbidden-word set)
+
+"Moment" is Inceptio's product noun for an astrological window; "window" likewise. Any chrome string about *running out of search runs* MUST say "searches" or "lookups" — "you've used today's moments" misreads as "the auspicious times have passed." This extends the locked forbidden-word list (magic/destiny/fortune/stars-align/manifest/energy[noun]/vibes/alignment/blessed) with an *ambiguous-noun* class for quota/error copy. Note: the live `RateLimitError` copy as of this pass violated this ("You've explored 10 moments this month" in `error-messages.ts`) — a reminder that the forbidden/ambiguous-noun negative test should cover existing strings, not just new ones.
+
+### Rule 5 — Pre-telemetry quota numbers should ship gentle, not enforcing
+
+A consumer electional search is a *considered* action (exploring a date range across candidate dates/cities), so an engaged first-run user can legitimately burn 4–5 searches in one sitting. A hard low cap with enforcement-flavored copy ("you've used today's 5") risks frustrating the most-engaged users *before* any telemetry exists to justify the number (survival-curve telemetry only accrues post-deploy). Until the number is validated, prefer gentle/early-access copy and consider not displaying the count at all (the count adds enforcement flavor that cuts against the gentle posture and re-leans toward paywall-feel under Rule 1).
+
+### Sources (this pass)
+
+- Inceptio CLAUDE.md (locked): Mystical Premium voice, forbidden-word list, "moments" as product noun, "Paywall hidden but wired" decision + sanctioned soft-block precedent.
+- App Store 4.3 (carried from 2026-06-05 pass): [iMore](https://www.imore.com/apple-rejects-developers-horoscope-app-says-app-store-has-enough), [molfar.io](https://www.molfar.io/blog/apple-review).
+- Cross-tz personas + tz-as-load-bearing: this KB's 2026-06-03 (EC-19) and 2026-06-05 (surface-class) passes.
+- In-repo verified this pass: `apps/mobile/src/lib/error-messages.ts` (live `RateLimitError` copy violates Rules 1 & 4); five surfaces calling `friendlyMessage` (`LoadingScreen.js:88`, `MomentDetailScreen.js:111`, `NoViableScreen.js:93`, `CalendarScreen.js:379`, `DailyHero.js:104`); DailyHero retry-pressable pairing (`DailyHero.js:~97`).
+
+---
