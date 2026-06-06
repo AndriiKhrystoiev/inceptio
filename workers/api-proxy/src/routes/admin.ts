@@ -121,3 +121,53 @@ export async function handleActivityMissingRate(
 
   return Response.json({ days }, { status: 200 });
 }
+
+// Survival-curve depth: how many "reach exactly N" buckets to report per day.
+// Covers the current free limit (5) with headroom; raise if a tier limit ever
+// exceeds it (display-only, no enforcement impact).
+const REACH_MAX = 10;
+
+/**
+ * GET /admin/cap-metrics — usage-cap observability (operator-only).
+ * Auth: x-admin-token === env.ADMIN_TOKEN (fail-closed on empty secret).
+ * Returns the last 14 UTC days (newest first):
+ *   { date, metered, capped, capped_ratio, reach: number[REACH_MAX] }
+ * where reach[n-1] = searches that reached daily count n that day — a survival
+ * curve (reach[0] vs reach[limit-1] shows whether usage clusters near 1 or the
+ * cap). UTC-dated to match the writers; aggregate-only (no deviceId).
+ */
+export async function handleCapMetrics(req: Request, env: Env): Promise<Response> {
+  const token = req.headers.get('x-admin-token');
+  if (!token || token !== env.ADMIN_TOKEN) {
+    return new Response('unauthorized', { status: 401 });
+  }
+
+  const today = new Date();
+  const dates: string[] = [];
+  for (let i = 0; i < DAYS; i++) {
+    const d = new Date(today);
+    d.setUTCDate(today.getUTCDate() - i);
+    dates.push(isoDate(d));
+  }
+
+  const days = await Promise.all(
+    dates.map(async (date) => {
+      const [metered, capped, ...reach] = await Promise.all([
+        readCounter(env.CACHE, `metrics:search-metered:${date}`),
+        readCounter(env.CACHE, `metrics:search-capped:${date}`),
+        ...Array.from({ length: REACH_MAX }, (_, n) =>
+          readCounter(env.CACHE, `metrics:search-reach:${date}:${n + 1}`),
+        ),
+      ]);
+      return {
+        date,
+        metered,
+        capped,
+        capped_ratio: metered > 0 ? capped / metered : 0,
+        reach,
+      };
+    }),
+  );
+
+  return Response.json({ days, reach_max: REACH_MAX }, { status: 200 });
+}
