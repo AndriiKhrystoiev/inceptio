@@ -1,4 +1,5 @@
 import type { Env } from '../env';
+import { readCounter } from '../lib/kv-counter';
 
 /**
  * GET /admin/activity-missing-rate
@@ -62,16 +63,6 @@ function isoDate(d: Date): string {
   // reader and writer agree on the date boundary regardless of local
   // operator timezone.
   return d.toISOString().slice(0, 10);
-}
-
-async function readCounter(kv: KVNamespace, key: string): Promise<number> {
-  const raw = await kv.get(key);
-  if (raw === null) return 0;
-  const n = Number(raw);
-  // Same NaN-guard contract as bumpCounter: a corrupt KV value
-  // (e.g. legacy 'NaN' from a pre-Task-2.6 write) is read as 0
-  // rather than poisoning the ratio computation with NaN.
-  return Number.isFinite(n) ? n : 0;
 }
 
 export async function handleActivityMissingRate(
