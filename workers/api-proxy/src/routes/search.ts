@@ -7,6 +7,7 @@ import { meterSearch, type MeterResult } from '../rate-limit';
 import { resolveBucketTz } from '../lib/local-date';
 import { callUpstream, UpstreamError } from '../upstream';
 import { translate } from '../translations';
+import { bumpCounter } from '../lib/kv-counter';
 
 // No-op ExecutionContext default so callers/tests that omit `ctx` don't crash.
 // Public + daily-note both pass a real ctx in production.
@@ -33,7 +34,6 @@ export async function handleSearch(
   opts: { meter?: boolean; now?: number } = {},
 ): Promise<Response> {
   const { meter = true, now } = opts;
-  void ctx; // used for telemetry in a later task; threaded now to fix arity.
 
   // Parse + validate BEFORE metering so invalid requests never burn quota.
   let body: unknown;
@@ -71,8 +71,21 @@ export async function handleSearch(
       searchRequest.timezone,
     );
     rl = await meterSearch(env, deviceId, bucketTz, now);
+    const nowSec = now ?? Math.floor(Date.now() / 1000);
+
+    // Aggregate-only telemetry — UTC-dated so /admin/cap-metrics's 14-day UTC
+    // window aligns (the quota bucket is device-tz; the metric date is UTC by
+    // design). NEVER put deviceId in a metric key. Best-effort via waitUntil:
+    // a metric write must never affect the response.
+    const utcDate = new Date(nowSec * 1000).toISOString().slice(0, 10);
+    ctx.waitUntil(bumpCounter(env.CACHE, `metrics:search-metered:${utcDate}`));
+    if (rl.allowed) {
+      ctx.waitUntil(bumpCounter(env.CACHE, `metrics:search-reach:${utcDate}:${rl.used}`));
+    } else {
+      ctx.waitUntil(bumpCounter(env.CACHE, `metrics:search-capped:${utcDate}`));
+    }
+
     if (!rl.allowed) {
-      const nowSec = now ?? Math.floor(Date.now() / 1000);
       const retryAfter = rl.reset_at_unix - nowSec;
       return Response.json(
         {
