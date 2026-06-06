@@ -31,7 +31,11 @@ export class TimeoutError extends ApiError {
 }
 
 export class RateLimitError extends ApiError {
-  constructor(public readonly resetAtUnix: number | null) {
+  constructor(
+    public readonly resetAtUnix: number | null,
+    public readonly limit: number | null = null,
+    public readonly used: number | null = null,
+  ) {
     super('Rate limit reached');
     this.name = 'RateLimitError';
   }
@@ -120,6 +124,7 @@ export async function searchElectional(
       headers: {
         'Content-Type': 'application/json',
         'X-Device-Id': deviceId,
+        'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
       body: JSON.stringify(parsedRequest),
     },
@@ -140,13 +145,15 @@ export async function searchElectional(
     const body = (await res.json().catch(() => ({}))) as {
       error?: string;
       reset_at_unix?: number;
+      limit?: number;
+      used?: number;
       upstream?: { detail?: { error?: { error_code?: string; message?: string } } };
     };
     const upstreamError = body.upstream?.detail?.error;
     if (upstreamError?.error_code === 'RATE_LIMIT_EXCEEDED') {
       throw new UpstreamQuotaError(upstreamError.message ?? 'Upstream quota exhausted');
     }
-    throw new RateLimitError(body.reset_at_unix ?? null);
+    throw new RateLimitError(body.reset_at_unix ?? null, body.limit ?? null, body.used ?? null);
   }
 
   if (res.status === 502) {
@@ -260,13 +267,15 @@ export async function getDailyNote(
     const body = (await res.json().catch(() => ({}))) as {
       error?: string;
       reset_at_unix?: number;
+      limit?: number;
+      used?: number;
       upstream?: { detail?: { error?: { error_code?: string; message?: string } } };
     };
     const upstreamError = body.upstream?.detail?.error;
     if (upstreamError?.error_code === 'RATE_LIMIT_EXCEEDED') {
       throw new UpstreamQuotaError(upstreamError.message ?? 'Upstream quota exhausted');
     }
-    throw new RateLimitError(body.reset_at_unix ?? null);
+    throw new RateLimitError(body.reset_at_unix ?? null, body.limit ?? null, body.used ?? null);
   }
 
   if (!res.ok) {
