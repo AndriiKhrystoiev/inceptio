@@ -13,6 +13,7 @@ import type {
 import { handleSearch } from './search';
 import tzLookup from '@photostructure/tz-lookup';
 import { tzEquivalent } from '../lib/tz-aliases';
+import { formatDateInTz } from '../lib/local-date';
 
 /**
  * GET /daily-note?lat=<n>&lng=<n>&tz=<iana>
@@ -432,15 +433,4 @@ export async function handleDailyNote(
   };
 
   return Response.json(response);
-}
-
-function formatDateInTz(d: Date, tz: string): string {
-  // Intl.DateTimeFormat with `en-CA` produces YYYY-MM-DD natively.
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  return fmt.format(d);
 }
