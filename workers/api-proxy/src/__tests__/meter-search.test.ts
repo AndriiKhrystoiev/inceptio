@@ -100,6 +100,13 @@ describe('meterSearch (production / free tier)', () => {
     expect(r.allowed).toBe(true);
     expect(r.count).toBe(1);
   });
+
+  it('floor-guard: a negative stored value is treated as 0 (cannot grant extra searches)', async () => {
+    store.set(quotaKey('d1', formatDateInTz(new Date(now * 1000), 'UTC')), '-5');
+    const r = await meterSearch(env, 'd1', 'UTC', now);
+    expect(r.allowed).toBe(true);
+    expect(r.count).toBe(1); // floored to 0 then incremented, NOT -5+1
+  });
 });
 
 describe('meterSearch (ENV ceilings)', () => {

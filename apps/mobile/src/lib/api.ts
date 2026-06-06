@@ -242,8 +242,9 @@ export interface GetDailyNoteInput {
  * part_of_day_cutoffs).
  *
  * Errors map to the existing discriminated hierarchy:
- *   - 429 rate-limited → RateLimitError (shares the per-device counter
- *     since /daily-note internally fans out to /electional/search)
+ *   - 429 rate-limited → RateLimitError (DEFENSIVE ONLY: /daily-note's internal
+ *     fan-out is metered:false, so the Worker's per-device cap is never
+ *     triggered here. Retained in case metering is ever re-enabled on this route.)
  *   - 429 upstream quota → UpstreamQuotaError
  *   - 502 → ServerError(502, ...)
  *   - Zod parse failure → SchemaMismatchError

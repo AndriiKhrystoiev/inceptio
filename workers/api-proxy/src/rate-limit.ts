@@ -53,7 +53,10 @@ export async function meterSearch(
 
   const current = await kv.get(key);
   const parsed = current !== null ? Number(current) : 0;
-  const count = Number.isFinite(parsed) ? parsed : 0;
+  // Floor at 0: treat non-finite OR negative stored values as 0 so a corrupt /
+  // tampered KV entry can't slip past the `count >= limit` check (Number.isFinite
+  // alone would let a negative value through and grant extra searches).
+  const count = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 
   if (count >= limit) {
     return { allowed: false, count, limit, used: count, reset_at_unix: resetAt };
