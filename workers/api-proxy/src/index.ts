@@ -14,7 +14,7 @@ export default {
     }
 
     if (url.pathname === '/electional/search' && req.method === 'POST') {
-      return handleSearch(req, env);
+      return handleSearch(req, env, ctx);
     }
 
     if (url.pathname === '/daily-note' && req.method === 'GET') {
