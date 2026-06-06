@@ -314,14 +314,17 @@ export async function handleDailyNote(
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        // Pass the device id through so handleSearch's rate-limit fires
-        // against the same counter as a direct /electional/search call.
-        // The X-Device-Id presence is guarded at the top of this handler.
+        // X-Device-Id is forwarded for parity with the public search contract,
+        // but the fan-out is metered:false (exempt), so it is NOT used for
+        // rate attribution. daily-note's OWN top-level X-Device-Id gate stays.
         'X-Device-Id': deviceId,
       },
       body: JSON.stringify(searchBody),
     });
-    const searchRes = await handleSearch(internalReq, env);
+    // meter:false — the daily note is a free retention hook and MUST NOT
+    // consume the per-user search cap. handleSearch defaults to meter:true,
+    // so this conscious opt-out is the exemption (see usage-cap spec §5).
+    const searchRes = await handleSearch(internalReq, env, ctx, { meter: false });
     if (!searchRes.ok) {
       return Response.json(
         { error: 'upstream_failure', message: 'electional/search failed' },
