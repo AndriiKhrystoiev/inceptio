@@ -165,8 +165,31 @@ export const GENERIC_HEADLINE_STEMS: Record<Activity, Localized> = {
   },
 };
 
-function lowerFirst(s: string): string {
-  return s.charAt(0).toLowerCase() + s.slice(1);
+/**
+ * Planet/luminary proper nouns that START a factor lead, per locale. DERIVED
+ * from the actual translated phrase_shorts (enumerated in apply-stem.test.ts) —
+ * only these three occur as lead-initial across the dictionary; no Mars/Saturn/
+ * Moon/Sun, sign, or node ever begins a lead (those are article-initial, e.g.
+ * "The Moon …"). A lead that begins with one of these keeps its capital when
+ * embedded mid-sentence in en/fr/es-419/pt-BR (proper nouns are not lowercased).
+ * apply-stem.test.ts asserts this set stays complete against the real leads, so
+ * a future bare-proper-noun lead fails loudly until it's added here.
+ */
+export const LEAD_PROPER_NOUNS: Record<Locale, ReadonlySet<string>> = {
+  en: new Set(['Venus', 'Mercury', 'Jupiter']),
+  fr: new Set(['Vénus', 'Mercure', 'Jupiter']),
+  'es-419': new Set(['Venus', 'Mercurio', 'Júpiter']),
+  'pt-BR': new Set(['Vênus', 'Mercúrio', 'Júpiter']),
+  de: new Set(), // de is never lowercased (applyStem preserves it); guard moot.
+};
+
+function lowerFirstForLead(lead: string, locale: Locale): string {
+  // Match the FIRST TOKEN (up to space / hyphen / apostrophe) so a possessive
+  // or hyphenated proper-noun prefix ("Venus's hour", "Mars-ruled") is caught,
+  // not just a standalone first word.
+  const firstToken = lead.split(/[\s'’-]/, 1)[0] ?? '';
+  if (LEAD_PROPER_NOUNS[locale].has(firstToken)) return lead;
+  return lead.charAt(0).toLowerCase() + lead.slice(1);
 }
 
 /**
@@ -177,8 +200,10 @@ function lowerFirst(s: string): string {
  * standalone-capitalized (it renders capitalized on cards / factor rows). Mid-
  * sentence after the stem frame ("A tender day — {lead}.") it must read
  * naturally:
- *   - en / fr / es-419 / pt-BR → lowercase the lead's first letter
- *     ("A tender day — venus brings warmth.") — restores the prior EN reading.
+ *   - en / fr / es-419 / pt-BR → lowercase the lead's first letter UNLESS the
+ *     lead begins with a proper noun (planet/luminary), which stays capitalized:
+ *       common/article-initial → "A clear day — the room is clear."
+ *       proper-noun-initial    → "A tender day — Venus brings warmth." (NOT "venus")
  *   - de → PRESERVE as authored. German mid-sentence casing is word-type-
  *     dependent (noun capitalized, article lowercase), so the German D-task
  *     authors each lead's correct embedded form; the runtime must NOT blanket-
@@ -189,7 +214,7 @@ export function applyStem(
   lead: string,
   locale: Locale,
 ): string {
-  const cased = locale === 'de' ? lead : lowerFirst(lead);
+  const cased = locale === 'de' ? lead : lowerFirstForLead(lead, locale);
   return template.replace('{lead}', cased);
 }
 
