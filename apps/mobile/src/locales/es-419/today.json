@@ -1,1 +1,7 @@
-{}
+{
+  "findMomentCta": "Buscar un momento para…",
+  "looking": "Observando el cielo para vos…",
+  "emptyHeadline": "Definir una ubicación predeterminada para ver tu timing diario.",
+  "emptySupporting": "Te mostraremos cómo se mueve el cielo para tu punto de partida habitual.",
+  "emptyCta": "Agregar una ubicación"
+}

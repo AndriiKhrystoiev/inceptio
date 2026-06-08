@@ -10,6 +10,7 @@
 
 import React from 'react';
 import { View, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HeroGradient from '../HeroGradient';
 import Starfield from '../Starfield';
@@ -17,6 +18,7 @@ import Moon from '../Moon';
 import PrimaryButton from '../PrimaryButton';
 
 export default function EmptyStateHero({ onSetLocation }) {
+  const { t } = useTranslation('today');
   return (
     <View className="flex-1 bg-base">
       <HeroGradient height={900}/>
@@ -27,15 +29,15 @@ export default function EmptyStateHero({ onSetLocation }) {
           <Moon phase="waxing-crescent" size={62} glow={false}/>
           <View className="h-8"/>
           <Text className="font-display-reg text-[28px] leading-[36px] tracking-[-0.3px] text-cream text-center max-w-[320px]">
-            Set a default location to see your daily timing.
+            {t('emptyHeadline')}
           </Text>
           <Text className="font-ui text-base leading-6 text-muted text-center mt-4 max-w-[320px]">
-            We'll show how the sky is moving for your usual starting point.
+            {t('emptySupporting')}
           </Text>
         </View>
         <View className="flex-[1.5]"/>
         <View className="pb-8">
-          <PrimaryButton onPress={onSetLocation}>Add a location</PrimaryButton>
+          <PrimaryButton onPress={onSetLocation}>{t('emptyCta')}</PrimaryButton>
         </View>
       </SafeAreaView>
     </View>

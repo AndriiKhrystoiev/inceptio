@@ -21,6 +21,7 @@
 
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import HeroGradient from '../HeroGradient';
 import Starfield from '../Starfield';
 import Moon from '../Moon';
@@ -81,12 +82,13 @@ export default function DailyHero({ mood = 'good', phase = 'waxing-crescent', ch
  * Same backdrop, centered Pulse + text, no moon.
  */
 export function LoadingHero() {
+  const { t } = useTranslation('today');
   return (
     <HeroBackdrop>
       <View className="items-center justify-center" style={{ minHeight: 160 }}>
         <Pulse/>
         <Text className="font-ui text-[14px] text-muted mt-4">
-          Looking at the sky for you…
+          {t('looking')}
         </Text>
       </View>
     </HeroBackdrop>
@@ -98,6 +100,7 @@ export function LoadingHero() {
  * Same backdrop, centered friendlyMessage + retry pressable, no moon.
  */
 export function ErrorHero({ error, onRetry }) {
+  const { t } = useTranslation('common');
   const isCapped = error instanceof RateLimitError;
   return (
     <HeroBackdrop>
@@ -107,7 +110,7 @@ export function ErrorHero({ error, onRetry }) {
         </Text>
         {!isCapped && (
           <Pressable onPress={onRetry} className="mt-3">
-            <Text className="font-ui-med text-[14px] text-primary-glow">Try again</Text>
+            <Text className="font-ui-med text-[14px] text-primary-glow">{t('tryAgain')}</Text>
           </Pressable>
         )}
       </View>

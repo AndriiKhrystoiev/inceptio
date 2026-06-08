@@ -13,6 +13,7 @@
 
 import React, { useState } from 'react';
 import { View, ScrollView } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { useDailyNote } from '../hooks/useDailyNote';
 import { useLocationPreference } from '../lib/location-preference';
 import { useEffectiveLocation } from '../hooks/useEffectiveLocation';
@@ -23,6 +24,7 @@ import StatePicker from '../components/StatePicker';
 import PrimaryButton from '../components/PrimaryButton';
 
 export default function TodayScreen({ go }) {
+  const { t } = useTranslation('today');
   const { hydrationStatus: locationHydrationStatus } = useLocationPreference();
   const effectiveLocation = useEffectiveLocation();
   const { data, isLoading, isError, error, refetch } = useDailyNote();
@@ -69,7 +71,7 @@ export default function TodayScreen({ go }) {
       )}
 
       <View className="px-6 mt-7">
-        <PrimaryButton onPress={() => go('picker')}>Find a moment for…</PrimaryButton>
+        <PrimaryButton onPress={() => go('picker')}>{t('findMomentCta')}</PrimaryButton>
       </View>
     </ScrollView>
   );
