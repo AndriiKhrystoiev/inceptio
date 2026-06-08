@@ -41,12 +41,18 @@ export function localize<T>(v: Localized<T>, locale: Locale): T {
     : (v as T);
 }
 
-/** The two text fragments produced per factor instance. */
+/**
+ * The two text fragments produced per factor instance. VOICE phase: these are
+ * DICTIONARY leaves (factors.ts + activity-overrides), localized per request
+ * locale. Read sites resolve via `localize(..., locale)` to a plain string for
+ * the displayable output. (Task 0 widened the daily-note/headline leaves but
+ * missed these — completed here so D-factors/D-overrides can convert.)
+ */
 export interface FactorPhrasing {
   /** Under 8 words. Used on cards and in factor-list rows. */
-  phrase_short: string;
+  phrase_short: Localized;
   /** 1–2 sentences. Used in narrative paragraphs on the moment-detail screen. */
-  phrase_full: string;
+  phrase_full: Localized;
 }
 
 /**
@@ -76,9 +82,9 @@ export type ActivityOverrides = Partial<
   >
 >;
 
-/** Softens the API's English label into Inceptio's voice. */
+/** Softens the API's English label into Inceptio's voice. VOICE phase: localized. */
 export interface ReasonEntry {
-  phrase: string;
+  phrase: Localized;
 }
 
 /**

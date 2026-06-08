@@ -85,7 +85,10 @@ export function translateFactor(
   status: FactorStatus,
   activity: Activity,
   locale: Locale,
-): FactorPhrasing {
+): { phrase_short: string; phrase_full: string } {
+  // NOTE: returns RESOLVED strings (localize'd to `locale`), not raw `Localized`
+  // leaves — the dictionary `FactorPhrasing` is now locale-keyed, but this
+  // function's job is to resolve it for the displayable output.
   const entry = FACTORS[factorId as FactorId];
   if (!entry) {
     // Permissive policy: upstream has added new factor_ids without notice
