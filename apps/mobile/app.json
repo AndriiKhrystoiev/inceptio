@@ -41,7 +41,8 @@
           "locationWhenInUsePermission": "Inceptio uses your location to find astrologically favorable moments for events near you."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-localization"
     ]
   }
 }

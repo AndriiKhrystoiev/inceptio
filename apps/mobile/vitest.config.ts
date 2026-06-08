@@ -8,6 +8,7 @@ export default defineConfig({
       'src/config/__tests__/**/*.test.ts',
       'src/lib/**/__tests__/**/*.test.ts',
       'src/hooks/__tests__/**/*.test.ts',
+      'src/i18n/__tests__/**/*.test.ts',
       'src/screens/__tests__/**/*.test.{ts,js}',
       'src/share/__tests__/**/*.test.ts',
     ],

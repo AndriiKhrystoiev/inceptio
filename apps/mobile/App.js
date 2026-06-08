@@ -11,11 +11,15 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { I18nextProvider } from 'react-i18next';
 import { useFonts as useFraunces, Fraunces_400Regular, Fraunces_500Medium, Fraunces_600SemiBold, Fraunces_500Medium_Italic } from '@expo-google-fonts/fraunces';
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 
 import { colors } from './src/theme';
+import i18n, { initI18n } from './src/i18n';
+import { SUPPORTED, __setLocaleOverride, activeBundle } from './src/i18n/locale';
+import StatePicker from './src/components/StatePicker';
 import { queryClient } from './src/lib/query-client';
 import { hydrateStorage, storage } from './src/lib/storage';
 import { initActivityPreference, useActivityPreference } from './src/lib/activity-preference';
@@ -83,6 +87,10 @@ export default function App() {
   // Synchronous storage.getString() calls inside hooks return undefined until
   // this completes, which is fine for the splash window but not for actual UI.
   useEffect(() => {
+    // Initialize i18next before the boot gate lifts (same slot as hydrateStorage).
+    // Synchronous: resources are eager static imports, so init() resolves
+    // immediately and t() is safe by the time any screen mounts.
+    initI18n();
     hydrateStorage().then(() => {
       // Cold-start resets for per-session UI preferences. These persist
       // across in-session navigation (back from MomentDetail keeps your
@@ -118,6 +126,39 @@ export default function App() {
   const onLayoutRoot = useCallback(async () => {
     if (fontsLoaded && storageReady) await SplashScreen.hideAsync();
   }, [fontsLoaded, storageReady]);
+
+  // __DEV__-only locale override for the local-verification loop. Sits next to the
+  // other __DEV__ affordances (TodayScreen StatePicker). Forces i18next to a chosen
+  // bundle without changing the device language. No-op in production builds.
+  const [devLocale, setDevLocale] = useState(__DEV__ ? activeBundle() : 'en');
+  const onDevLocale = useCallback((b) => {
+    __setLocaleOverride(b);
+    i18n.changeLanguage(b);
+    setDevLocale(b);
+  }, []);
+
+  // Hoist I18nextProvider above the three conditional return branches so every
+  // branch (first-launch gate, location gate, normal tree) renders under it.
+  const withProviders = useCallback((node) => (
+    <I18nextProvider i18n={i18n}>
+      <QueryClientProvider client={queryClient}>
+        <SafeAreaProvider>
+          <View style={styles.root} onLayout={onLayoutRoot}>
+            <StatusBar style="light"/>
+            {__DEV__ && (
+              <StatePicker
+                label="locale"
+                options={SUPPORTED.map((b) => [b, b])}
+                value={devLocale}
+                onChange={onDevLocale}
+              />
+            )}
+            {node}
+          </View>
+        </SafeAreaProvider>
+      </QueryClientProvider>
+    </I18nextProvider>
+  ), [onLayoutRoot, devLocale, onDevLocale]);
 
   // useActivityPreference MUST be called before any conditional return below
   // — Rules of Hooks: every hook call site must be reached on every render in
@@ -159,17 +200,10 @@ export default function App() {
   // Continue → setDefaultActivity fires → hydrationStatus moves to 'set' → next
   // render falls through to the normal screen tree.
   if (hydrationStatus === 'unset' && screen !== 'first-launch-activity') {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider>
-          <View style={styles.root} onLayout={onLayoutRoot}>
-            <StatusBar style="light"/>
-            <View style={styles.content}>
-              <FirstLaunchActivityPicker go={go}/>
-            </View>
-          </View>
-        </SafeAreaProvider>
-      </QueryClientProvider>
+    return withProviders(
+      <View style={styles.content}>
+        <FirstLaunchActivityPicker go={go}/>
+      </View>
     );
   }
 
@@ -183,39 +217,27 @@ export default function App() {
     onboardingLocationStatus === 'pending' &&
     screen !== 'set-default-location'
   ) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider>
-          <View style={styles.root} onLayout={onLayoutRoot}>
-            <StatusBar style="light"/>
-            <View style={styles.content}>
-              <SetDefaultLocationScreen
-                go={go}
-                dismissLabel="Skip for now"
-                onDismissStatus="skipped"
-              />
-            </View>
-          </View>
-        </SafeAreaProvider>
-      </QueryClientProvider>
+    return withProviders(
+      <View style={styles.content}>
+        <SetDefaultLocationScreen
+          go={go}
+          dismissLabel="Skip for now"
+          onDismissStatus="skipped"
+        />
+      </View>
     );
   }
 
   const Screen = SCREENS[screen] || SCREENS.today;
   const showTabBar = !MODAL_SCREENS.has(screen);
 
-  return (
-    <QueryClientProvider client={queryClient}>
-      <SafeAreaProvider>
-        <View style={styles.root} onLayout={onLayoutRoot}>
-          <StatusBar style="light"/>
-          <View style={styles.content}>
-            <Screen go={go}/>
-          </View>
-          {showTabBar && <TabBar active={tab} onChange={handleTab}/>}
-        </View>
-      </SafeAreaProvider>
-    </QueryClientProvider>
+  return withProviders(
+    <>
+      <View style={styles.content}>
+        <Screen go={go}/>
+      </View>
+      {showTabBar && <TabBar active={tab} onChange={handleTab}/>}
+    </>
   );
 }
 
