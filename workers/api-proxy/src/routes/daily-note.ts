@@ -15,7 +15,8 @@ import tzLookup from '@photostructure/tz-lookup';
 import { tzEquivalent } from '../lib/tz-aliases';
 import { formatDateInTz } from '../lib/local-date';
 import { bumpCounter } from '../lib/kv-counter';
-import { isValidLocale } from '../lib/locale';
+import { isValidLocale, resolveLocale } from '../lib/locale';
+import type { Locale } from '../translations/types';
 
 /**
  * GET /daily-note?lat=<n>&lng=<n>&tz=<iana>
@@ -118,14 +119,17 @@ export async function handleDailyNote(
   // a distinct GET that may now carry the same locale header as the public
   // search; absent is valid (unset), malformed is a 400. The existing `?tz=`
   // query param is untouched (O2 — locale is header-only, tz stays a query
-  // param). Accepted and intentionally IGNORED this phase (cache key stays
-  // locale-free; see daily-note-cache keyOf forward-note).
+  // param).
   if (!isValidLocale(req.headers.get('X-Locale'))) {
     return Response.json(
       { error: 'invalid_locale', message: 'X-Locale header is malformed' },
       { status: 400 },
     );
   }
+
+  // VOICE phase: resolve once and thread the non-optional Locale into the
+  // cache key (cross-locale-poisoning boundary), the picker, and the composer.
+  const locale: Locale = resolveLocale(req.headers.get('X-Locale'));
 
   // Explicit null-check FIRST. `Number(null)` returns 0 (not NaN), so a missing
   // lat/lng would silently pass the isFinite check below and the route would
@@ -279,7 +283,7 @@ export async function handleDailyNote(
   // business_launch above) is naturally namespaced under
   // `...:business_launch`; when the client later upgrades to ?activity=wedding,
   // it's a fresh cache miss against `...:wedding` — correct behavior.
-  const cacheKey = { lat, lng, dateIso, activity };
+  const cacheKey = { lat, lng, dateIso, activity, locale };
 
   // Read cache. On hit we have the daily_note portion; envelope is added below.
   let dailyNote: DailyNoteOutput | null = await readCache(env, cacheKey);
@@ -332,6 +336,15 @@ export async function handleDailyNote(
         // but the fan-out is metered:false (exempt), so it is NOT used for
         // rate attribution. daily-note's OWN top-level X-Device-Id gate stays.
         'X-Device-Id': deviceId,
+        // No X-Locale forwarded: this internal search exists only to fetch the
+        // raw top-window + excluded-ranges (locale-INVARIANT data). The daily-note
+        // composes its OWN copy in `locale` below; the search `displayable` is
+        // discarded. So handleSearch runs as 'en' and warms the 'en' search-cache
+        // bucket regardless of the daily-note's locale — NOT poisoning (the locale
+        // copy is composed separately), but a known cache-warm gap: a direct
+        // /electional/search in a non-en locale for the same params still misses.
+        // Acceptable (efficiency, not correctness); revisit if cold-start refill
+        // cost matters.
       },
       body: JSON.stringify(searchBody),
     });
@@ -394,6 +407,7 @@ export async function handleDailyNote(
       excludedRangesActiveToday: excludedRanges as any,
       today_iso_date: dateIso,
       noViableWindows,
+      locale,
     });
 
     // Compose PickResult + moon_phase (+ activity-asymmetric severity_hint
@@ -403,6 +417,7 @@ export async function handleDailyNote(
       picked,
       moonPhase: computeMoonPhase(dateIso),
       activity,
+      locale,
       wasActivityFallback,
     });
 

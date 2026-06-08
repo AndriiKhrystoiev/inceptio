@@ -3,7 +3,7 @@ import {
   getSeverityHint,
   type SeverityCondition,
 } from '../dictionary/severity-hints';
-import type { DailyNoteOutput } from '../types';
+import type { DailyNoteOutput, Locale } from '../types';
 import type { PickResult } from './picker';
 
 /**
@@ -48,6 +48,8 @@ export interface ComposeDisplayableInput {
   picked: PickResult;
   moonPhase: MoonPhase;
   activity: Activity;
+  /** Request locale (VOICE phase) — threaded to getSeverityHint. */
+  locale: Locale;
   /**
    * True iff the route fell back to `business_launch` because the client
    * omitted `?activity=`. Drives the diagnostic warn below — when an
@@ -71,11 +73,11 @@ export interface ComposeDisplayableInput {
 export function composeDisplayable(
   input: ComposeDisplayableInput,
 ): DailyNoteOutput {
-  const { picked, moonPhase, activity, wasActivityFallback = false } = input;
+  const { picked, moonPhase, activity, locale, wasActivityFallback = false } = input;
 
   const condition = ENTRY_TO_CONDITION[picked.entry_id];
   const severityHint = condition
-    ? getSeverityHint(condition, activity)
+    ? getSeverityHint(condition, activity, locale)
     : undefined;
 
   // Diagnostic only. The route still serves the response — we just want a

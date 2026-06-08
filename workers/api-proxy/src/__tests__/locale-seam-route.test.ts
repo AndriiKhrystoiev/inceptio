@@ -1,12 +1,18 @@
-// Task A2 — X-Locale seam route behavior: accept + validate + ignore.
+// Task A2 (CHROME) — X-Locale seam route behavior: accept + validate.
 //
-// Asserts, for BOTH the public search route and the daily-note route, that:
-//   - a well-formed X-Locale (pt-BR) is accepted and produces the SAME body +
-//     cache behavior as no header at all (locale is ignored this phase),
+// VOICE Task 0 UPDATE: locale now DOES enter the cache key + the composition.
+// These tests mock `computeCacheKey` and `translate`, so they exercise route
+// VALIDATION and response-SHAPE invariance — NOT keying. The "same body"
+// assertion still holds: the response JSON SHAPE is locale-invariant (only the
+// composed string VALUES differ per locale, and translate is mocked here). The
+// strong-form key behavior is asserted in locale-voice-spine.test.ts and
+// locale-cache-key-unaffected.test.ts against the REAL computeCacheKey.
+//
+// Asserts, for the public search route, that:
+//   - a well-formed X-Locale (pt-BR) is accepted and produces the SAME response
+//     SHAPE as no header at all (shape is locale-invariant; translate mocked),
 //   - a malformed X-Locale (bad!!) → 400 invalid_locale,
-//   - an absent X-Locale → 200 (no regression for existing clients),
-//   - computeCacheKey output is IDENTICAL with and without the header
-//     (the cache-key-unaffected invariant — locale never enters the key).
+//   - an absent X-Locale → 200 (no regression for existing clients).
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── search.ts: stub upstream + cache + translate so we exercise validation
@@ -125,6 +131,6 @@ describe('search route — X-Locale accept + validate + ignore', () => {
 
   it('the mocked computeCacheKey is what search uses (sanity)', async () => {
     // Guard against the mock drifting: the search path uses the mocked key.
-    expect(await computeCacheKey({} as ElectionalSearchRequest)).toBe('ck');
+    expect(await computeCacheKey({} as ElectionalSearchRequest, 'en')).toBe('ck');
   });
 });

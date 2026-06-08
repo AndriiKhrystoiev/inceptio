@@ -12,20 +12,20 @@ const A: 'business_launch' = 'business_launch';
 
 describe('keyOf', () => {
   it('includes LIBRARY_VERSION so library bumps invalidate cached entries atomically', () => {
-    const key = keyOf({ lat: 50.4501, lng: 30.5234, dateIso: '2026-05-29', activity: A });
+    const key = keyOf({ lat: 50.4501, lng: 30.5234, dateIso: '2026-05-29', activity: A, locale: 'en' });
     expect(key).toContain(LIBRARY_VERSION);
     expect(key.startsWith(`daily-note:${LIBRARY_VERSION}:`)).toBe(true);
   });
 
   it('rounds lat/lng to 2 decimal places (~1.1 km granularity) so nearby locations share a cache entry', () => {
-    const k1 = keyOf({ lat: 50.4501234, lng: 30.5234567, dateIso: '2026-05-29', activity: A });
-    const k2 = keyOf({ lat: 50.4499999, lng: 30.5234001, dateIso: '2026-05-29', activity: A });
+    const k1 = keyOf({ lat: 50.4501234, lng: 30.5234567, dateIso: '2026-05-29', activity: A, locale: 'en' });
+    const k2 = keyOf({ lat: 50.4499999, lng: 30.5234001, dateIso: '2026-05-29', activity: A, locale: 'en' });
     expect(k1).toBe(k2);
   });
 
   it('different dates produce different keys', () => {
-    const k1 = keyOf({ lat: 50.45, lng: 30.52, dateIso: '2026-05-29', activity: A });
-    const k2 = keyOf({ lat: 50.45, lng: 30.52, dateIso: '2026-05-30', activity: A });
+    const k1 = keyOf({ lat: 50.45, lng: 30.52, dateIso: '2026-05-29', activity: A, locale: 'en' });
+    const k2 = keyOf({ lat: 50.45, lng: 30.52, dateIso: '2026-05-30', activity: A, locale: 'en' });
     expect(k1).not.toBe(k2);
   });
 });

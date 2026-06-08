@@ -23,6 +23,7 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
       excludedRangesActiveToday: [],
       today_iso_date: '2026-05-28',
       noViableWindows: false,
+      locale: 'en',
     });
     expect(result.entry_id).toBe('strong-sky-is-clear');
     expect(result.mood).toBe('strong');
@@ -47,6 +48,7 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
       excludedRangesActiveToday: [],
       today_iso_date: '2026-05-28',
       noViableWindows: false,
+      locale: 'en',
     });
     expect(result.entry_id).toBe('good-venus-warm');
     expect(result.mood).toBe('good');
@@ -62,6 +64,7 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
       excludedRangesActiveToday: [excludedRange({ reason_id: 'moon_voc' })],
       today_iso_date: '2026-05-28',
       noViableWindows: true,
+      locale: 'en',
     });
     expect(result.entry_id).toBe('closed-moon-voc');
     expect(result.mood).toBe('closed');
@@ -91,6 +94,7 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
       excludedRangesActiveToday: [excludedRange({ reason_id: 'moon_voc' })],
       today_iso_date: '2026-06-19',
       noViableWindows: false,
+      locale: 'en',
     });
     expect(result.mood).toBe('mixed');
     // Venus-dominant PASS routes to the venus-bright-mercury-dim mixed entry.
@@ -112,6 +116,7 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
       excludedRangesActiveToday: [excludedRange({ reason_id: 'mercury_retrograde' })],
       today_iso_date: '2026-08-29',
       noViableWindows: true,
+      locale: 'en',
     });
     expect(result.entry_id).toBe('closed-mercury-retrograde');
     const pool = DAILY_NOTE_VARIANT_POOLS['closed-mercury-retrograde']!;
@@ -132,6 +137,7 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
       excludedRangesActiveToday: [excludedRange({ reason_id: 'mercury_retrograde' })],
       today_iso_date: '2026-08-10',
       noViableWindows: true,
+      locale: 'en',
     });
     expect(result.entry_id).toBe('closed-mercury-retrograde-vague');
     expect(result.supporting).toContain('for now');
@@ -149,6 +155,7 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
       excludedRangesActiveToday: [excludedRange({ reason_id: 'venus_retrograde' })],
       today_iso_date: '2026-05-28',
       noViableWindows: true,
+      locale: 'en',
     });
     expect(result.entry_id).toBe('closed-venus-retrograde');
     expect(result.mood).toBe('closed');
@@ -165,12 +172,14 @@ describe('synthesizeDailyNote — sibling-variant rotation for long conditions',
       excludedRangesActiveToday: exclusions,
       today_iso_date: '2026-08-30',  // 1 day before Mercury direct → primary entry path
       noViableWindows: true,
+      locale: 'en',
     });
     const day1Repeat = synthesizeDailyNote({
       topWindow: top,
       excludedRangesActiveToday: exclusions,
       today_iso_date: '2026-08-30',
       noViableWindows: true,
+      locale: 'en',
     });
     expect(day1.headline).toBe(day1Repeat.headline);
   });
@@ -185,6 +194,7 @@ describe('synthesizeDailyNote — sibling-variant rotation for long conditions',
           excludedRangesActiveToday: exclusions,
           today_iso_date,
           noViableWindows: true,
+          locale: 'en',
         }).headline,
     );
     // At least 2 of the 3 days should differ — proves rotation is happening.

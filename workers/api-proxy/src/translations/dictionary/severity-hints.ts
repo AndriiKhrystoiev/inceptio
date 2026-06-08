@@ -10,6 +10,8 @@
 // The 4 `moon_voc_intraday` entries are provisional drafts pending the
 // astrologer pass; the `getSeverityHint` helper hides them by default.
 import type { Activity } from '@inceptio/shared-types';
+import { localize } from '../types';
+import type { Locale, Localized } from '../types';
 
 export type SeverityCondition =
   | 'mercury_retrograde'
@@ -18,7 +20,12 @@ export type SeverityCondition =
   | 'moon_voc_intraday';
 
 type Entry = {
-  text: string;
+  // `Localized` (VOICE phase): plain string today (en-everywhere); D-severity
+  // migrates to a per-locale Record. Structural metadata
+  // (pending_astrologer_ruling) stays ABOVE the leaf so a locale re-translates
+  // independently. Task 0 touches the SIGNATURE/mechanism only — the DATA is
+  // left English (D-severity's job).
+  text: Localized;
   pending_astrologer_ruling: boolean;
 };
 
@@ -105,10 +112,11 @@ type GetSeverityHintOptions = { includePending?: boolean };
 export function getSeverityHint(
   condition: SeverityCondition,
   activity: Activity,
+  locale: Locale,
   options: GetSeverityHintOptions = {}
 ): string | undefined {
   const entry = SEVERITY_HINTS[condition]?.[activity];
   if (!entry) return undefined;
   if (entry.pending_astrologer_ruling && !options.includePending) return undefined;
-  return entry.text;
+  return localize(entry.text, locale);
 }

@@ -21,3 +21,26 @@ export function isValidLocale(raw: string | null | undefined): boolean {
   if (raw == null) return true; // absent header is valid (unset)
   return raw.length <= MAX && LOCALE_RE.test(raw);
 }
+
+import type { Locale } from '../translations/types';
+
+// The four non-en locales the VOICE phase composes. Any other (or absent)
+// tag resolves to 'en' — the fail-safe default, so an unknown/garbage header
+// can never silently route to a half-filled locale branch.
+const SUPPORTED_NON_EN = ['de', 'fr', 'es-419', 'pt-BR'] as const;
+
+/**
+ * Resolve a raw X-Locale header value to a supported `Locale`. Absent or
+ * unknown → 'en' (the authoritative default). This is the SINGLE place a
+ * header string becomes a `Locale`; routes call it once at the top and thread
+ * the non-optional result down the composition path (spec §3).
+ *
+ * Note: `isValidLocale` (shape gate, above) runs separately and 400s a
+ * MALFORMED tag; `resolveLocale` then maps a well-formed-but-unsupported tag
+ * (e.g. 'ja', 'zh-Hant-HK') to 'en'. The two are complementary, not redundant.
+ */
+export function resolveLocale(raw: string | null): Locale {
+  return raw && (SUPPORTED_NON_EN as readonly string[]).includes(raw)
+    ? (raw as Locale)
+    : 'en';
+}

@@ -40,6 +40,7 @@ describe('severity_hint composition', () => {
       }),
       moonPhase: 'waxing-crescent',
       activity: 'wedding',
+      locale: 'en',
       wasActivityFallback: false,
     });
     expect(out.severity_hint).toMatch(/does not take root/i);
@@ -54,6 +55,7 @@ describe('severity_hint composition', () => {
       }),
       moonPhase: 'waxing-crescent',
       activity: 'travel',
+      locale: 'en',
       wasActivityFallback: false,
     });
     expect(out.severity_hint).toMatch(/matters less|fine to take/i);
@@ -64,6 +66,7 @@ describe('severity_hint composition', () => {
       picked: pickResult({ entry_id: 'good-venus-warm' }),
       moonPhase: 'waxing-crescent',
       activity: 'wedding',
+      locale: 'en',
       wasActivityFallback: false,
     });
     expect(out.severity_hint).toBeUndefined();
@@ -77,6 +80,7 @@ describe('severity_hint composition', () => {
       }),
       moonPhase: 'waxing-crescent',
       activity: 'wedding',
+      locale: 'en',
       wasActivityFallback: false,
     });
     expect(out.severity_hint).toBeUndefined();
@@ -94,6 +98,7 @@ describe('severity_hint composition', () => {
       picked,
       moonPhase: 'full',
       activity: 'contracts',
+      locale: 'en',
       wasActivityFallback: false,
     });
     expect(out.entry_id).toBe('closed-mercury-retrograde');
@@ -118,6 +123,7 @@ describe('severity_hint composition', () => {
         }),
         moonPhase: 'waxing-crescent',
         activity: 'business_launch',
+        locale: 'en',
         wasActivityFallback: true,
       });
       // The warn fires only when BOTH (a) an asymmetric condition matched
@@ -147,6 +153,7 @@ describe('severity_hint composition', () => {
         }),
         moonPhase: 'waxing-crescent',
         activity: 'wedding',
+        locale: 'en',
         wasActivityFallback: false,
       });
       expect(warn).not.toHaveBeenCalled();
@@ -162,6 +169,7 @@ describe('severity_hint composition', () => {
         picked: pickResult({ entry_id: 'good-venus-warm' }),
         moonPhase: 'waxing-crescent',
         activity: 'business_launch',
+        locale: 'en',
         wasActivityFallback: true,
       });
       expect(warn).not.toHaveBeenCalled();

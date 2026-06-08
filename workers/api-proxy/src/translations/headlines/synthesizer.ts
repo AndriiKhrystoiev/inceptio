@@ -7,10 +7,13 @@ import type {
   Window,
 } from '@inceptio/shared-types';
 import { translateFactor } from '../translate';
+import { localize } from '../types';
+import type { Locale } from '../types';
 import {
   GENERIC_HEADLINE_STEMS,
   HEADLINES,
   NO_VIABLE_HEADLINES,
+  applyStem,
 } from './headlines';
 
 // weight_class is primary. Comparator returns negative when `a` outranks `b`,
@@ -57,6 +60,7 @@ export interface SynthesizeOpts {
   topWindow: Window;
   activity: Activity;
   noViableWindows: boolean;
+  locale: Locale;
 }
 
 /**
@@ -69,24 +73,29 @@ export function synthesizeHeadline({
   topWindow,
   activity,
   noViableWindows,
+  locale,
 }: SynthesizeOpts): string {
   if (noViableWindows) {
-    return NO_VIABLE_HEADLINES[activity];
+    return localize(NO_VIABLE_HEADLINES[activity], locale);
   }
 
   const candidates = rankFactors(topWindow.factors);
   const lead = candidates[0];
   if (!lead) {
     // Every factor failed despite no_viable_windows being false. Defensive.
-    return NO_VIABLE_HEADLINES[activity];
+    return localize(NO_VIABLE_HEADLINES[activity], locale);
   }
 
   // `lead.factor_id` is `string` (permissive schema); the HEADLINES table is
   // keyed by KNOWN_FACTOR_IDS. An unknown id simply misses the lookup and
   // falls through to the generic stem below.
   const hand = HEADLINES[activity]?.[lead.factor_id as FactorId]?.[lead.status];
-  if (hand) return hand;
+  if (hand) return localize(hand, locale);
 
-  const phrasing = translateFactor(lead.factor_id, lead.status, activity);
-  return GENERIC_HEADLINE_STEMS[activity](phrasing.phrase_short);
+  // translateFactor already resolved the lead to `locale`; substitute it into
+  // the locale-resolved stem template. applyStem applies locale-aware lead
+  // casing (lowercase-first for en/fr/es-419/pt-BR, preserve for de).
+  const phrasing = translateFactor(lead.factor_id, lead.status, activity, locale);
+  const template = localize(GENERIC_HEADLINE_STEMS[activity], locale);
+  return applyStem(template, phrasing.phrase_short, locale);
 }

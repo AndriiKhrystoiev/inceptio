@@ -2,7 +2,13 @@ import type { ExcludedRange, Window } from '@inceptio/shared-types';
 import { DAILY_NOTES } from '../dictionary/daily-notes';
 import { DAILY_NOTE_FALLBACKS } from '../dictionary/daily-note-fallbacks';
 import { DAILY_NOTE_VARIANT_POOLS } from '../dictionary/daily-note-variants';
-import type { DailyNoteEntry, KnownDailyNoteId, QualityBucket } from '../types';
+import { localize } from '../types';
+import type {
+  DailyNoteEntry,
+  KnownDailyNoteId,
+  Locale,
+  QualityBucket,
+} from '../types';
 import { isHorizonWithin3Days, nextStationOf } from './horizon';
 import { assignBucket } from './quality-bucket';
 
@@ -30,6 +36,12 @@ export interface SynthesizeInput {
    * "Post-MVP empirical discoveries" section.
    */
   noViableWindows: boolean;
+  /**
+   * Request locale (VOICE phase). The picker stays selection-logic-agnostic
+   * of locale; `locale` is only consumed at `finalize` where the chosen
+   * entry's leaf strings are resolved via `localize()`.
+   */
+  locale: Locale;
 }
 
 /**
@@ -94,7 +106,7 @@ export function synthesizeDailyNote(input: SynthesizeInput): PickResult {
   // signal). The exclusion-reason entry is preferred when an exclusion
   // covers today; otherwise falls through to closed-long-quiet-stretch.
   if (bucket === 'closed') {
-    return pickClosedEntry(input);
+    return pickClosedEntry(input, input.locale);
   }
 
   // Branches 2-4 — score-band picks via dominant factor. Note that
@@ -103,10 +115,10 @@ export function synthesizeDailyNote(input: SynthesizeInput): PickResult {
   // (assignBucket §post-MVP-empirical-discoveries rule). The selection
   // within the mixed bucket is the same either way: pick by dominant
   // PASS factor of the surviving top window.
-  return pickByDominantFactor(input, bucket);
+  return pickByDominantFactor(input, bucket, input.locale);
 }
 
-function pickClosedEntry(input: SynthesizeInput): PickResult {
+function pickClosedEntry(input: SynthesizeInput, locale: Locale): PickResult {
   // Prefer the most-specific named exclusion (highest severity, falling back
   // to first in list). Severity is `'hard_stop' | 'medium'` per shared-types
   // (`packages/shared-types/src/api/excluded-range.ts:30` SeveritySchema).
@@ -129,16 +141,17 @@ function pickClosedEntry(input: SynthesizeInput): PickResult {
   if (entry.horizon_class === 'concrete-date' && entry.needs_vague_fallback) {
     const todayDate = new Date(`${input.today_iso_date}T00:00:00Z`);
     if (!verifyConcreteHorizon(entry.id, todayDate)) {
-      return useFallback(entry.id, input.today_iso_date, reason);
+      return useFallback(entry.id, input.today_iso_date, locale, reason);
     }
   }
 
-  return finalize(entry, false, input.today_iso_date, reason);
+  return finalize(entry, false, input.today_iso_date, locale, reason);
 }
 
 function pickByDominantFactor(
   input: SynthesizeInput,
   bucket: 'strong' | 'good' | 'mixed',
+  locale: Locale,
 ): PickResult {
   const passFactors = input.topWindow.factors.filter((f) => f.status === 'pass');
 
@@ -146,7 +159,7 @@ function pickByDominantFactor(
   // fall to the most distinctive PASS pair (Venus + Jupiter or asc-ruler trio).
   if (bucket === 'strong') {
     if (passFactors.length >= 6) {
-      return finalize(DAILY_NOTES['strong-sky-is-clear'], false, input.today_iso_date);
+      return finalize(DAILY_NOTES['strong-sky-is-clear'], false, input.today_iso_date, locale);
     }
     const hasVenus = passFactors.some(
       (f) => f.factor_id === 'venus_dignified_direct_well_aspected' && f.weight_class === 'high',
@@ -155,9 +168,9 @@ function pickByDominantFactor(
       (f) => f.factor_id === 'jupiter_angular_or_aspecting' && f.weight_class === 'high',
     );
     if (hasVenus && hasJupiter) {
-      return finalize(DAILY_NOTES['strong-venus-jupiter-pair'], false, input.today_iso_date);
+      return finalize(DAILY_NOTES['strong-venus-jupiter-pair'], false, input.today_iso_date, locale);
     }
-    return finalize(DAILY_NOTES['strong-ruler-in-motion'], false, input.today_iso_date);
+    return finalize(DAILY_NOTES['strong-ruler-in-motion'], false, input.today_iso_date, locale);
   }
 
   // Good/Mixed: pick by highest-weight PASS factor's id.
@@ -167,16 +180,16 @@ function pickByDominantFactor(
   // Good bucket
   if (bucket === 'good') {
     if (leadId === 'venus_dignified_direct_well_aspected')
-      return finalize(DAILY_NOTES['good-venus-warm'], false, input.today_iso_date);
+      return finalize(DAILY_NOTES['good-venus-warm'], false, input.today_iso_date, locale);
     if (leadId === 'mercury_dignified_direct_not_combust')
-      return finalize(DAILY_NOTES['good-mercury-clear'], false, input.today_iso_date);
+      return finalize(DAILY_NOTES['good-mercury-clear'], false, input.today_iso_date, locale);
     if (leadId === 'jupiter_angular_or_aspecting')
-      return finalize(DAILY_NOTES['good-jupiter-room-to-grow'], false, input.today_iso_date);
+      return finalize(DAILY_NOTES['good-jupiter-room-to-grow'], false, input.today_iso_date, locale);
     if (leadId === 'moon_applying_to_benefic')
-      return finalize(DAILY_NOTES['good-moon-toward-benefic'], false, input.today_iso_date);
+      return finalize(DAILY_NOTES['good-moon-toward-benefic'], false, input.today_iso_date, locale);
     if (leadId === 'moon_and_asc_ruler_in_good_aspect')
-      return finalize(DAILY_NOTES['good-moon-asc-accord'], false, input.today_iso_date);
-    return finalize(DAILY_NOTES['good-moon-steady'], false, input.today_iso_date);
+      return finalize(DAILY_NOTES['good-moon-asc-accord'], false, input.today_iso_date, locale);
+    return finalize(DAILY_NOTES['good-moon-steady'], false, input.today_iso_date, locale);
   }
 
   // Mixed bucket (default fallthrough)
@@ -195,12 +208,12 @@ function pickByDominantFactor(
     (f) => f.factor_id === 'mercury_dignified_direct_not_combust',
   );
   if (mercuryPass && !passFactors.some((f) => f.factor_id === 'jupiter_angular_or_aspecting')) {
-    return finalize(DAILY_NOTES['mixed-mercury-clear-jupiter-absent'], false, input.today_iso_date);
+    return finalize(DAILY_NOTES['mixed-mercury-clear-jupiter-absent'], false, input.today_iso_date, locale);
   }
   if (venusPass && !mercuryPass) {
-    return finalize(DAILY_NOTES['mixed-venus-bright-mercury-dim'], false, input.today_iso_date);
+    return finalize(DAILY_NOTES['mixed-venus-bright-mercury-dim'], false, input.today_iso_date, locale);
   }
-  return finalize(DAILY_NOTES['mixed-moon-steady-sky-thin'], false, input.today_iso_date);
+  return finalize(DAILY_NOTES['mixed-moon-steady-sky-thin'], false, input.today_iso_date, locale);
 }
 
 /** Order factors by weight_class desc, then contribution desc. Mirrors synthesizer.ts. */
@@ -235,31 +248,38 @@ function verifyConcreteHorizon(entryId: string, today: Date): boolean {
   return true;
 }
 
-function useFallback(entryId: string, today_iso_date: string, exclusion_reason?: string): PickResult {
+function useFallback(
+  entryId: string,
+  today_iso_date: string,
+  locale: Locale,
+  exclusion_reason?: string,
+): PickResult {
   const fallback = DAILY_NOTE_FALLBACKS[entryId as KnownDailyNoteId];
   if (!fallback) {
     // Defensive: declared needs_vague_fallback but none defined. Fall to the
     // bucket's safest entry instead of crashing.
-    return finalize(DAILY_NOTES['closed-long-quiet-stretch'], true, today_iso_date, exclusion_reason);
+    return finalize(DAILY_NOTES['closed-long-quiet-stretch'], true, today_iso_date, locale, exclusion_reason);
   }
-  return finalize(fallback, true, today_iso_date, exclusion_reason);
+  return finalize(fallback, true, today_iso_date, locale, exclusion_reason);
 }
 
 function finalize(
   entry: DailyNoteEntry,
   usedFallback: boolean,
   today_iso_date: string,
+  locale: Locale,
   exclusion_reason?: string,
 ): PickResult {
   // Skip rotation for fallback entries — they already represent the
-  // horizon-fail branch and should be a single voice.
+  // horizon-fail branch and should be a single voice. Leaf strings are
+  // resolved to `locale` HERE — the single terminal resolution point (spec §2).
   if (usedFallback) {
     return {
       entry_id: entry.id,
       mood: entry.quality_bucket,
       date: today_iso_date,
-      headline: entry.headline,
-      supporting: entry.supporting_line,
+      headline: localize(entry.headline, locale),
+      supporting: localize(entry.supporting_line, locale),
       exclusion_reason,
       used_fallback: true,
     };
@@ -271,14 +291,17 @@ function finalize(
       entry_id: entry.id,
       mood: entry.quality_bucket,
       date: today_iso_date,
-      headline: entry.headline,
-      supporting: entry.supporting_line,
+      headline: localize(entry.headline, locale),
+      supporting: localize(entry.supporting_line, locale),
       exclusion_reason,
       used_fallback: false,
     };
   }
 
-  // All siblings: [primary, ...variants]
+  // All siblings: [primary, ...variants]. Selection (the date-seeded rotation)
+  // stays locale-AGNOSTIC — the same sibling index is chosen for every locale —
+  // and only the CHOSEN sibling's leaves are localized, so a locale can't drift
+  // the rotation.
   const siblings = [
     { headline: entry.headline, supporting_line: entry.supporting_line },
     ...pool.variants,
@@ -289,8 +312,8 @@ function finalize(
     entry_id: entry.id,
     mood: entry.quality_bucket,
     date: today_iso_date,
-    headline: chosen.headline,
-    supporting: chosen.supporting_line,
+    headline: localize(chosen.headline, locale),
+    supporting: localize(chosen.supporting_line, locale),
     exclusion_reason,
     used_fallback: false,
   };

@@ -8,7 +8,8 @@ import { resolveBucketTz } from '../lib/local-date';
 import { callUpstream, UpstreamError } from '../upstream';
 import { translate } from '../translations';
 import { bumpCounter } from '../lib/kv-counter';
-import { isValidLocale } from '../lib/locale';
+import { isValidLocale, resolveLocale } from '../lib/locale';
+import type { Locale } from '../translations/types';
 
 // No-op ExecutionContext default so callers/tests that omit `ctx` don't crash.
 // Public + daily-note both pass a real ctx in production.
@@ -59,16 +60,19 @@ export async function handleSearch(
   // Validate X-Locale UNCONDITIONALLY, before metering. Deliberately NOT inside
   // the `if (meter)` block and NOT gated on X-Device-Id: an absent locale is
   // valid (unset), so this never regresses existing clients that send no
-  // locale header; a malformed one is a 400 regardless of metering. The locale
-  // is accepted and then intentionally IGNORED this phase — it does not enter
-  // the request body (the schema is `.strict()`) and does not affect the cache
-  // key (see computeCacheKey forward-note). VOICE-phase threads it onward.
+  // locale header; a malformed one is a 400 regardless of metering.
   if (!isValidLocale(req.headers.get('X-Locale'))) {
     return Response.json(
       { error: 'invalid_locale', message: 'X-Locale header is malformed' },
       { status: 400 },
     );
   }
+
+  // VOICE phase: resolve the (shape-valid) X-Locale to a supported Locale ONCE
+  // here and thread the non-optional result through searchCore → both the
+  // cache key (cross-locale-poisoning boundary) and translate(). Absent or
+  // well-formed-but-unsupported → 'en'.
+  const locale: Locale = resolveLocale(req.headers.get('X-Locale'));
 
   let rl: MeterResult | null = null;
   if (meter) {
@@ -125,7 +129,7 @@ export async function handleSearch(
     }
   }
 
-  return searchCore(searchRequest, env, rl);
+  return searchCore(searchRequest, env, rl, locale);
 }
 
 /**
@@ -139,6 +143,7 @@ async function searchCore(
   searchRequest: ElectionalSearchRequest,
   env: Env,
   rl: MeterResult | null,
+  locale: Locale,
 ): Promise<Response> {
   const rlHeaders: Record<string, string> = rl
     ? {
@@ -147,7 +152,7 @@ async function searchCore(
       }
     : {};
 
-  const cacheKey = await computeCacheKey(searchRequest);
+  const cacheKey = await computeCacheKey(searchRequest, locale);
   const cached = await readCache<unknown>(env.CACHE, cacheKey);
   if (cached) {
     return Response.json(cached, { headers: { 'X-Cache': 'HIT', ...rlHeaders } });
@@ -155,7 +160,7 @@ async function searchCore(
 
   try {
     const upstream = await callUpstream(env, searchRequest);
-    const translated = translate(upstream, searchRequest.activity);
+    const translated = translate(upstream, searchRequest.activity, locale);
     await writeCache(env.CACHE, cacheKey, translated);
     return Response.json(translated, { headers: { 'X-Cache': 'MISS', ...rlHeaders } });
   } catch (err) {

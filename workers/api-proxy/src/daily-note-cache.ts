@@ -1,6 +1,6 @@
 import type { Activity } from '@inceptio/shared-types';
 import type { Env } from './env';
-import type { DailyNoteOutput } from './translations/types';
+import type { DailyNoteOutput, Locale } from './translations/types';
 import { LIBRARY_VERSION } from './translations/types';
 
 export interface DailyNoteCacheKey {
@@ -17,6 +17,13 @@ export interface DailyNoteCacheKey {
    * the legacy fallback (`business_launch`) to a specific activity.
    */
   activity: Activity;
+  /**
+   * Request locale (VOICE phase). LOAD-BEARING: the daily-note copy is now
+   * composed in the request locale, so two requests differing only in locale
+   * produce different `headline`/`supporting`/`severity_hint` and MUST NOT
+   * share a cache entry. Appended as the final key segment (see keyOf).
+   */
+  locale: Locale;
 }
 
 /**
@@ -29,15 +36,15 @@ export interface DailyNoteCacheKey {
  * locations share a cache entry. Adequate for daily-note purposes; the sky
  * doesn't change meaningfully at city-block scale.
  *
- * Activity is the final segment so it reads naturally and so existing log
- * tooling that grep'd on the date prefix still matches the leading portion.
+ * Activity then locale are the trailing segments so it reads naturally and so
+ * existing log tooling that grep'd on the date prefix still matches the
+ * leading portion. Locale is last (VOICE phase) — appended so an en-only
+ * historical reader still prefix-matches the activity portion.
  */
-export function keyOf({ lat, lng, dateIso, activity }: DailyNoteCacheKey): string {
-  // VOICE-phase TODO: when composed copy is localized, thread X-Locale into this key
-  // to prevent cross-locale cache poisoning. Locale is intentionally absent today.
+export function keyOf({ lat, lng, dateIso, activity, locale }: DailyNoteCacheKey): string {
   const latRounded = lat.toFixed(2);
   const lngRounded = lng.toFixed(2);
-  return `daily-note:${LIBRARY_VERSION}:${latRounded}:${lngRounded}:${dateIso}:${activity}`;
+  return `daily-note:${LIBRARY_VERSION}:${latRounded}:${lngRounded}:${dateIso}:${activity}:${locale}`;
 }
 
 /**

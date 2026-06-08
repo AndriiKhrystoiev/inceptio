@@ -1,9 +1,10 @@
-// Task A2 — the cache-key-unaffected invariant, asserted against the REAL
-// computeCacheKey (no module mocks here; mirrors cache.test.ts). Locale never
-// enters the cache key: computeCacheKey's sole input is the parsed request
-// body, the body schema is `.strict()` (locale can't leak into it), and the
-// function has no locale parameter. Any extra arg a future caller passes is
-// ignored — the key is byte-identical with or without it.
+// FLIPPED in the VOICE phase (Task 0). The CHROME-phase invariant this file
+// asserted — "computeCacheKey is locale-FREE; the key is byte-identical with
+// or without a locale" — is now WRONG by design: the Worker composes copy in
+// the request locale, so two requests differing only in X-Locale MUST produce
+// DIFFERENT keys or cross-locale cache poisoning results. This is the STRONG
+// form. (The companion spine test lives in locale-voice-spine.test.ts;
+// retained here so the original CHROME guard's file name documents the flip.)
 import { describe, expect, it } from 'vitest';
 import type { ElectionalSearchRequest } from '@inceptio/shared-types';
 import { computeCacheKey } from '../cache';
@@ -18,20 +19,19 @@ const baseRequest: ElectionalSearchRequest = {
   city: 'São Paulo',
 };
 
-describe('computeCacheKey is locale-free (cache-key-unaffected assertion)', () => {
-  it('is byte-identical whether or not a locale would be present', async () => {
-    const keyA = await computeCacheKey(baseRequest);
-    const keyB = await computeCacheKey(baseRequest);
+describe('computeCacheKey carries locale (cross-locale-poisoning boundary)', () => {
+  it('is byte-identical for the same locale (determinism preserved)', async () => {
+    const keyA = await computeCacheKey(baseRequest, 'en');
+    const keyB = await computeCacheKey(baseRequest, 'en');
     expect(keyA).toBe(keyB);
+  });
 
-    // computeCacheKey has no locale arity; a future caller passing a locale as
-    // an extra arg must not change the key (proves the seam is non-poisoning).
-    const withExtraArg = (
-      computeCacheKey as unknown as (
-        r: ElectionalSearchRequest,
-        locale?: string,
-      ) => Promise<string>
-    )(baseRequest, 'pt-BR');
-    expect(await withExtraArg).toBe(keyA);
+  it('produces DIFFERENT keys for different locales (strong form)', async () => {
+    const en = await computeCacheKey(baseRequest, 'en');
+    const pt = await computeCacheKey(baseRequest, 'pt-BR');
+    const de = await computeCacheKey(baseRequest, 'de');
+    expect(pt).not.toBe(en);
+    expect(de).not.toBe(en);
+    expect(pt).not.toBe(de);
   });
 });

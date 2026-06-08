@@ -12,6 +12,7 @@ describe('translateFactor', () => {
       'venus_dignified_direct_well_aspected',
       'pass',
       'wedding',
+      'en',
     );
     expect(out.phrase_short).toBe('Venus brings tenderness');
   });
@@ -21,6 +22,7 @@ describe('translateFactor', () => {
       'venus_dignified_direct_well_aspected',
       'partial',
       'contracts',
+      'en',
     );
     expect(out.phrase_short).toBe('Goodwill is present');
     expect(out.phrase_full).toContain('Venus is around but not at her brightest');
@@ -31,6 +33,7 @@ describe('translateFactor', () => {
       'venus_dignified_direct_well_aspected',
       'partial',
       'travel',
+      'en',
     );
     expect(out.phrase_short).toBe('Venus shows up gently');
     expect(out.phrase_full).toContain('in good standing but not at her strongest');
@@ -42,6 +45,7 @@ describe('translateFactor', () => {
       'venus_dignified_direct_well_aspected',
       'fail',
       'wedding',
+      'en',
     );
     expect(out.phrase_short).toBe('Venus is muted');
     expect(out.phrase_full).toContain('Venus is quiet in the sky');
@@ -52,6 +56,7 @@ describe('translateFactor', () => {
       'mercury_dignified_direct_not_combust',
       'pass',
       'travel',
+      'en',
     );
     expect(out.phrase_short).toBe('Mercury moves easily');
   });
@@ -59,7 +64,7 @@ describe('translateFactor', () => {
   it('falls back to a generic phrasing + warns on unknown factor_id', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      const out = translateFactor('totally_new_2027_factor', 'pass', 'wedding');
+      const out = translateFactor('totally_new_2027_factor', 'pass', 'wedding', 'en');
       expect(out.phrase_short).toBe('A subtle influence');
       expect(out.phrase_full).toContain('subtle influence');
       expect(warn).toHaveBeenCalledWith(
@@ -74,13 +79,13 @@ describe('translateFactor', () => {
 
 describe('translateExcludedReason', () => {
   it('returns the locked Mercury retrograde phrase', () => {
-    expect(translateExcludedReason('mercury_retrograde')).toBe(
+    expect(translateExcludedReason('mercury_retrograde', 'en')).toBe(
       'Mercury is sleeping — communication needs extra care this week.',
     );
   });
 
   it('returns the locked moon_voc phrase', () => {
-    expect(translateExcludedReason('moon_voc')).toContain(
+    expect(translateExcludedReason('moon_voc', 'en')).toContain(
       'The Moon is between signs',
     );
   });
@@ -88,7 +93,7 @@ describe('translateExcludedReason', () => {
   it('falls back to a generic phrase + warns on unknown reason_id', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
-      const out = translateExcludedReason('pluto_retrograde');
+      const out = translateExcludedReason('pluto_retrograde', 'en');
       expect(out).toBe('The sky asks for stillness here.');
       expect(warn).toHaveBeenCalledWith(
         '[translate] unknown reason_id from upstream:',
@@ -101,7 +106,7 @@ describe('translateExcludedReason', () => {
 });
 
 describe('translate — viable response (envelope shape)', () => {
-  const out = translate(viableResponse(), 'wedding');
+  const out = translate(viableResponse(), 'wedding', 'en');
 
   it('preserves the envelope (success, metadata, warnings, pagination)', () => {
     expect(out.success).toBe(true);
@@ -187,28 +192,28 @@ describe('translate — viable response (envelope shape)', () => {
 
 describe('translate — no_viable_windows', () => {
   it('returns the stock per-activity headline at data.summary.displayable.headline', () => {
-    const out = translate(noViableResponse(), 'contracts');
+    const out = translate(noViableResponse(), 'contracts', 'en');
     expect(out.data.summary.displayable.headline).toBe(
       'A quieter stretch for paper. Better moments are nearby.',
     );
   });
 
   it("still translates every window's factors (L3 view needs them)", () => {
-    const out = translate(noViableResponse(), 'wedding');
+    const out = translate(noViableResponse(), 'wedding', 'en');
     expect(out.data.top_windows[0]!.displayable.factors).toHaveLength(1);
   });
 });
 
 describe('translate — determinism', () => {
   it('same input → same output (golden-style)', () => {
-    const a = translate(viableResponse(), 'wedding');
-    const b = translate(viableResponse(), 'wedding');
+    const a = translate(viableResponse(), 'wedding', 'en');
+    const b = translate(viableResponse(), 'wedding', 'en');
     expect(JSON.stringify(a)).toBe(JSON.stringify(b));
   });
 
   it('different activities produce different headlines for the same Venus-led window', () => {
-    const weddingOut = translate(viableResponse(), 'wedding');
-    const travelOut = translate(viableResponse(), 'travel');
+    const weddingOut = translate(viableResponse(), 'wedding', 'en');
+    const travelOut = translate(viableResponse(), 'travel', 'en');
     expect(weddingOut.data.summary.displayable.headline).not.toBe(
       travelOut.data.summary.displayable.headline,
     );
@@ -233,6 +238,7 @@ describe('translate — fallback to generic stem', () => {
         ],
       }),
       'travel',
+      'en',
     );
     expect(out.data.summary.displayable.headline).toMatch(/^An open day —/);
   });
@@ -286,7 +292,7 @@ describe('translate — per-window tagline diversification', () => {
         }),
       ],
     });
-    const out = translate(env, 'wedding');
+    const out = translate(env, 'wedding', 'en');
     // Index access preserves the TranslatedResponse intersection narrowing
     // (`.map()` loses it — TS quirk with the schema-passthrough intersection).
     const t0 = out.data.top_windows[0]!.displayable.tagline.phrase_short;
@@ -312,7 +318,7 @@ describe('translate — per-window tagline diversification', () => {
         }),
       ],
     });
-    const out = translate(env, 'wedding');
+    const out = translate(env, 'wedding', 'en');
     const tagline = out.data.top_windows[0]!.displayable.tagline;
     expect(tagline.factor_id).toBe('venus_dignified_direct_well_aspected');
     expect(tagline.phrase_short).toBe('Venus brings tenderness');
@@ -340,7 +346,7 @@ describe('translate — per-window tagline diversification', () => {
         }),
       ],
     });
-    const out = translate(env, 'wedding');
+    const out = translate(env, 'wedding', 'en');
     const t0 = out.data.top_windows[0]!.displayable.tagline;
     const t1 = out.data.top_windows[1]!.displayable.tagline;
     const t2 = out.data.top_windows[2]!.displayable.tagline;

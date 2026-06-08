@@ -1,6 +1,12 @@
-// Task A2 — X-Locale seam on /daily-note: validated INDEPENDENTLY of the
-// device-id gate; absent = valid; malformed = 400; well-formed = ignored and
-// the existing ?tz= query param is untouched.
+// Task A2 (CHROME) — X-Locale seam on /daily-note: validated INDEPENDENTLY of
+// the device-id gate; absent = valid; malformed = 400; the existing ?tz=
+// query param is untouched.
+//
+// VOICE Task 0 UPDATE: locale now ENTERS the daily-note cache key (it is the
+// final `:${locale}` segment, see daily-note-cache.ts keyOf). The three
+// CHROME "locale never enters the key" assertions below are FLIPPED to the
+// strong form: locale-A vs locale-B now write DIFFERENT key sets, and the key
+// DOES contain the locale tag. Validation behavior (400/200) is unchanged.
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the upstream search handler BEFORE importing the route (mirrors
@@ -104,7 +110,7 @@ describe('handleDailyNote — X-Locale accept + validate + ignore', () => {
     expect(res.status).toBe(200);
   });
 
-  it('well-formed X-Locale (pt-BR) is ignored: same body + same cache key as no header', async () => {
+  it('well-formed X-Locale (pt-BR): same response body, DIFFERENT cache key vs no header (FLIPPED)', async () => {
     const a = makeEnv();
     const resWith = await handleDailyNote(
       makeRequest('lat=50.45&lng=30.52&tz=UTC', {
@@ -120,18 +126,19 @@ describe('handleDailyNote — X-Locale accept + validate + ignore', () => {
     );
     expect(resWith.status).toBe(200);
     expect(resWithout.status).toBe(200);
+    // Body is still equal: dictionaries are all-English at this commit, so the
+    // composed copy is byte-identical (only the cache KEY namespace changed).
     expect(await resWith.json()).toEqual(await resWithout.json());
-    // Cache key unaffected by locale: both runs wrote the SAME single KV key.
-    expect([...a.store.keys()]).toEqual([...b.store.keys()]);
+    // FLIPPED (VOICE Task 0): pt-BR keys under :pt-BR, absent → :en. The written
+    // key SETS now DIFFER. (CHROME asserted .toEqual here.)
+    expect([...a.store.keys()]).not.toEqual([...b.store.keys()]);
   });
 
-  it('strong-form O2: locale-A (pt-BR) vs locale-B (de) write IDENTICAL cache key sets', async () => {
-    // The strong inverse the VOICE phase will deliberately flip: two requests
+  it('strong-form: locale-A (pt-BR) vs locale-B (de) write DIFFERENT cache key sets (FLIPPED)', async () => {
+    // The strong inverse the VOICE phase deliberately flipped: two requests
     // identical except X-Locale (pt-BR vs de), same lat/lng/tz/device/activity,
-    // must produce the SAME written KV key set today (locale is header-only and
-    // never enters the key). The existing test covers with-locale vs no-header;
-    // this asserts locale-A vs locale-B so a future per-locale key split fails
-    // here loudly rather than silently passing the absent-vs-present case.
+    // now produce DIFFERENT written KV key sets — locale is the final key
+    // segment (cross-locale-poisoning boundary). CHROME asserted .toEqual.
     const a = makeEnv();
     const resA = await handleDailyNote(
       makeRequest('lat=50.45&lng=30.52&tz=UTC', {
@@ -150,14 +157,12 @@ describe('handleDailyNote — X-Locale accept + validate + ignore', () => {
     );
     expect(resA.status).toBe(200);
     expect(resB.status).toBe(200);
-    expect([...a.store.keys()]).toEqual([...b.store.keys()]);
+    expect([...a.store.keys()]).not.toEqual([...b.store.keys()]);
   });
 
-  it('the ?tz= query param remains the tz transport (locale is header-only, O2)', async () => {
-    // The O2 invariant: locale rides as a header and must NEVER enter the cache
-    // key; tz stays the only transport that shapes the key. Assert that directly
-    // — not the flaky "two zones write different keys" claim (UTC and Tokyo can
-    // share a local date when run before Tokyo midnight, silently passing).
+  it('the cache key now carries the locale tag as its final segment (FLIPPED)', async () => {
+    // FLIPPED (VOICE Task 0): the daily-note key ends with `:${locale}`. tz is
+    // still the local-date transport; locale is now an additional key dimension.
     const { env, store } = makeEnv();
     await handleDailyNote(
       makeRequest('lat=50.45&lng=30.52&tz=UTC', {
@@ -166,11 +171,13 @@ describe('handleDailyNote — X-Locale accept + validate + ignore', () => {
       }),
       env,
     );
-    const keys = [...store.keys()];
-    expect(keys.length).toBeGreaterThan(0);
-    // The locale value never appears in any written cache key (header-only, O2).
-    // The daily-note key embeds the tz-derived local dateIso, not the literal tz
-    // string, so we assert the locale's ABSENCE rather than the tz's presence.
-    expect(keys.every((k) => !k.includes('pt-BR') && !k.includes('locale'))).toBe(true);
+    // Filter to the daily-note CACHE key (the route also writes `metrics:*`
+    // counter keys, which are locale-independent observability — not the
+    // response cache).
+    const dnKeys = [...store.keys()].filter((k) => k.startsWith('daily-note:'));
+    expect(dnKeys.length).toBeGreaterThan(0);
+    // Every written daily-note cache key ends with the request locale (CHROME
+    // asserted the locale was ABSENT from every key).
+    expect(dnKeys.every((k) => k.endsWith(':pt-BR'))).toBe(true);
   });
 });

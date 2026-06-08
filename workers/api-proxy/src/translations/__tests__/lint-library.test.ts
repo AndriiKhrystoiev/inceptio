@@ -3,7 +3,12 @@ import { DAILY_NOTES } from '../dictionary/daily-notes';
 import { DAILY_NOTE_FALLBACKS } from '../dictionary/daily-note-fallbacks';
 import { DAILY_NOTE_VARIANT_POOLS } from '../dictionary/daily-note-variants';
 import { lintPhrase } from '../daily-notes/lint';
-import { KNOWN_DAILY_NOTE_IDS } from '../types';
+import { KNOWN_DAILY_NOTE_IDS, localize } from '../types';
+
+// VOICE Task 0: dictionary leaves are now `Localized` (plain string today,
+// en-everywhere). These en-source structural/budget checks resolve each leaf
+// to 'en' before measuring. Task T splits this into all-locale budget +
+// en-only language checks; for the spine we only need en-equivalence + green.
 
 const CHAR_LIMITS = {
   headline_max: 48,
@@ -20,14 +25,16 @@ describe('library lint — every entry must pass boundary tests + char limits', 
 
     it.each(KNOWN_DAILY_NOTE_IDS)('entry %s: headline within 48 chars', (id) => {
       const entry = DAILY_NOTES[id];
-      expect(entry.headline.length).toBeLessThanOrEqual(CHAR_LIMITS.headline_max);
+      expect(localize(entry.headline, 'en').length).toBeLessThanOrEqual(
+        CHAR_LIMITS.headline_max,
+      );
     });
 
     it.each(KNOWN_DAILY_NOTE_IDS)(
       'entry %s: supporting_line within 140 chars',
       (id) => {
         const entry = DAILY_NOTES[id];
-        expect(entry.supporting_line.length).toBeLessThanOrEqual(
+        expect(localize(entry.supporting_line, 'en').length).toBeLessThanOrEqual(
           CHAR_LIMITS.supporting_line_max,
         );
       },
@@ -44,13 +51,13 @@ describe('library lint — every entry must pass boundary tests + char limits', 
         // horizon verified at render time, not lint time.
         const headlineResult = lintPhrase({
           surface: 'daily-note',
-          phrase: entry.headline,
+          phrase: localize(entry.headline, 'en'),
           today_offset_days: null,
         });
         expect(headlineResult.reasons).toEqual([]);
         const supportingResult = lintPhrase({
           surface: 'daily-note',
-          phrase: entry.supporting_line,
+          phrase: localize(entry.supporting_line, 'en'),
           today_offset_days: 2,
         });
         expect(supportingResult.reasons).toEqual([]);
@@ -78,13 +85,13 @@ describe('library lint — every entry must pass boundary tests + char limits', 
       expect(entry.horizon_class).toBe('vague');
       const headlineResult = lintPhrase({
         surface: 'daily-note',
-        phrase: entry.headline,
+        phrase: localize(entry.headline, 'en'),
         today_offset_days: null,
       });
       expect(headlineResult.reasons).toEqual([]);
       const supportingResult = lintPhrase({
         surface: 'daily-note',
-        phrase: entry.supporting_line,
+        phrase: localize(entry.supporting_line, 'en'),
         today_offset_days: null,
       });
       expect(supportingResult.reasons).toEqual([]);
@@ -99,22 +106,22 @@ describe('DAILY_NOTE_VARIANT_POOLS lint-clean', () => {
 
   for (const pool of pools) {
     for (const variant of pool.variants) {
-      it(`pool ${pool.primary_entry_id} variant headline "${variant.headline}" within 48 chars`, () => {
-        expect(variant.headline.length).toBeLessThanOrEqual(48);
+      it(`pool ${pool.primary_entry_id} variant headline "${localize(variant.headline, 'en')}" within 48 chars`, () => {
+        expect(localize(variant.headline, 'en').length).toBeLessThanOrEqual(48);
       });
       it(`pool ${pool.primary_entry_id} variant supporting_line within 140 chars`, () => {
-        expect(variant.supporting_line.length).toBeLessThanOrEqual(140);
+        expect(localize(variant.supporting_line, 'en').length).toBeLessThanOrEqual(140);
       });
       it(`pool ${pool.primary_entry_id} variant lint-clean`, () => {
         const headlineResult = lintPhrase({
           surface: 'daily-note',
-          phrase: variant.headline,
+          phrase: localize(variant.headline, 'en'),
           today_offset_days: null,
         });
         expect(headlineResult.reasons).toEqual([]);
         const supportingResult = lintPhrase({
           surface: 'daily-note',
-          phrase: variant.supporting_line,
+          phrase: localize(variant.supporting_line, 'en'),
           today_offset_days: null,
         });
         expect(supportingResult.reasons).toEqual([]);

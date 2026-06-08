@@ -71,6 +71,7 @@ describe('synthesizeHeadline', () => {
       topWindow: window_(),
       activity: 'wedding',
       noViableWindows: true,
+      locale: 'en',
     });
     expect(out).toBe('These days ask for patience — the sky is between rooms.');
   });
@@ -82,6 +83,7 @@ describe('synthesizeHeadline', () => {
       }),
       activity: 'wedding',
       noViableWindows: false,
+      locale: 'en',
     });
     expect(out).toBe('A tender day for beginnings.');
   });
@@ -101,9 +103,16 @@ describe('synthesizeHeadline', () => {
       }),
       activity: 'travel',
       noViableWindows: false,
+      locale: 'en',
     });
     expect(out).toMatch(/^An open day —/);
+    // VOICE Task 0: lead casing is LOCALE-AWARE (applyStem). For en the lead's
+    // first letter is lowercased mid-sentence, restoring the original EN reading
+    // — "An open day — the room is clear." (NOT the regressed "...— The room").
+    // German preserves the lead (see the per-locale casing test in
+    // headlines/__tests__/apply-stem.test.ts).
     expect(out).toContain('the room is clear');
+    expect(out).toBe('An open day — the room is clear.');
   });
 
   it('never picks a fail factor as lead — falls back to no-viable headline if all fail', () => {
@@ -115,6 +124,7 @@ describe('synthesizeHeadline', () => {
       }),
       activity: 'contracts',
       noViableWindows: false,
+      locale: 'en',
     });
     expect(out).toBe('A quieter stretch for paper. Better moments are nearby.');
   });
@@ -133,6 +143,7 @@ describe('synthesizeHeadline', () => {
       }),
       activity: 'contracts',
       noViableWindows: false,
+      locale: 'en',
     });
     expect(out).toBe('A clear day for plain words.');
   });

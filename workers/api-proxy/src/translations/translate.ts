@@ -15,16 +15,41 @@ import { EXCLUDED_REASONS } from './dictionary/excluded-reasons';
 // Generic fallback phrasings used when upstream emits a reason/factor we
 // don't have a translation for yet. Keeps the response shippable while
 // surfacing the unknown id via console.warn so we can add it deliberately.
-const FALLBACK_REASON_PHRASE = 'The sky asks for stillness here.';
-const FALLBACK_FACTOR_PHRASING: FactorPhrasing = {
+//
+// Localized (VOICE spec §8): these are the ONLY guaranteed-rendered strings on
+// an upstream enum-drift event (a recurring occurrence), so a non-en user must
+// not see English on every drift. en-filled-everywhere here; D-tasks fill the
+// non-en values. Resolved via `localize(.., locale)` at the call site.
+const FALLBACK_REASON_PHRASE: Localized = 'The sky asks for stillness here.';
+const FALLBACK_FACTOR_PHRASING: {
+  phrase_short: Localized;
+  phrase_full: Localized;
+} = {
   phrase_short: 'A subtle influence',
   phrase_full: 'The sky brings a subtle influence to this moment.',
+};
+
+// Inline hour-band tags moved off the function body into a localized constant
+// (VOICE spec §5.2). en-filled for now; D-tasks fill the non-en values.
+const CONTEXTUAL_TAGS: {
+  default: Localized;
+  morning: Localized;
+  afternoon: Localized;
+  evening: Localized;
+  late_night: Localized;
+} = {
+  default: 'A window worth looking at',
+  morning: 'A morning moment',
+  afternoon: 'An afternoon moment',
+  evening: 'An evening moment',
+  late_night: 'A late-night moment',
 };
 import weddingOverrides from './activity-overrides/wedding';
 import contractsOverrides from './activity-overrides/contracts';
 import businessLaunchOverrides from './activity-overrides/business-launch';
 import travelOverrides from './activity-overrides/travel';
 import { synthesizeHeadline, compareFactors } from './headlines/synthesizer';
+import { localize } from './types';
 import type {
   ActivityOverrides,
   DisplayableExcludedRange,
@@ -32,6 +57,8 @@ import type {
   DisplayableSummary,
   DisplayableWindow,
   FactorPhrasing,
+  Locale,
+  Localized,
 } from './types';
 
 const ACTIVITY_OVERRIDES: Record<Activity, ActivityOverrides> = {
@@ -57,6 +84,7 @@ export function translateFactor(
   factorId: string,
   status: FactorStatus,
   activity: Activity,
+  locale: Locale,
 ): FactorPhrasing {
   const entry = FACTORS[factorId as FactorId];
   if (!entry) {
@@ -64,39 +92,53 @@ export function translateFactor(
     // (e.g. mid-2026). Log so the unknown id surfaces for later inclusion,
     // then return a neutral phrasing so the response is still shippable.
     console.warn('[translate] unknown factor_id from upstream:', factorId);
-    return FALLBACK_FACTOR_PHRASING;
+    return {
+      phrase_short: localize(FALLBACK_FACTOR_PHRASING.phrase_short, locale),
+      phrase_full: localize(FALLBACK_FACTOR_PHRASING.phrase_full, locale),
+    };
   }
   const base = entry.polarity_aware;
   const override = ACTIVITY_OVERRIDES[activity][factorId as FactorId]?.polarity_aware;
 
-  const basePhrasing: FactorPhrasing = {
+  // Merge stays locale-AGNOSTIC: the leaf fields may be plain strings (today)
+  // or `Localized` Records (after D-factors migrates); the deep-merge
+  // preserves whichever shape, and `localize` resolves it once at the end.
+  const basePhrasing = {
     ...base.pass,
     ...(base[status] ?? {}),
-  };
+  } as { phrase_short: Localized; phrase_full: Localized };
 
   // Only this status's override — never fall back to override.pass.
-  const overridePhrasing: Partial<FactorPhrasing> = override?.[status] ?? {};
+  const overridePhrasing = (override?.[status] ?? {}) as Partial<{
+    phrase_short: Localized;
+    phrase_full: Localized;
+  }>;
 
-  return {
+  const merged = {
     ...basePhrasing,
     ...overridePhrasing,
   };
+
+  return {
+    phrase_short: localize(merged.phrase_short, locale),
+    phrase_full: localize(merged.phrase_full, locale),
+  };
 }
 
-export function translateExcludedReason(reasonId: string): string {
+export function translateExcludedReason(reasonId: string, locale: Locale): string {
   const entry = EXCLUDED_REASONS[reasonId as ReasonId];
   if (!entry) {
     // Permissive policy: see translateFactor() above.
     console.warn('[translate] unknown reason_id from upstream:', reasonId);
-    return FALLBACK_REASON_PHRASE;
+    return localize(FALLBACK_REASON_PHRASE, locale);
   }
-  return entry.phrase;
+  return localize(entry.phrase as Localized, locale);
 }
 
-function translateExcluded(range: ExcludedRange): DisplayableExcludedRange {
+function translateExcluded(range: ExcludedRange, locale: Locale): DisplayableExcludedRange {
   return {
     reason_id: range.reason_id,
-    phrase: translateExcludedReason(range.reason_id),
+    phrase: translateExcludedReason(range.reason_id, locale),
   };
 }
 
@@ -125,20 +167,21 @@ function localHourFromIso(s: string): number | null {
   return parseInt(match[1], 10);
 }
 
-function contextualTag(window: Window): string {
-  if (!window.start) return 'A window worth looking at';
+function contextualTag(window: Window, locale: Locale): string {
+  if (!window.start) return localize(CONTEXTUAL_TAGS.default, locale);
   const hour = localHourFromIso(window.start);
-  if (hour == null) return 'A window worth looking at';
-  if (hour < 11) return 'A morning moment';
-  if (hour < 17) return 'An afternoon moment';
-  if (hour < 21) return 'An evening moment';
-  return 'A late-night moment';
+  if (hour == null) return localize(CONTEXTUAL_TAGS.default, locale);
+  if (hour < 11) return localize(CONTEXTUAL_TAGS.morning, locale);
+  if (hour < 17) return localize(CONTEXTUAL_TAGS.afternoon, locale);
+  if (hour < 21) return localize(CONTEXTUAL_TAGS.evening, locale);
+  return localize(CONTEXTUAL_TAGS.late_night, locale);
 }
 
 function pickTagline(
   thisFactors: DisplayableFactor[],
   allFactor0Ids: string[],
   window: Window,
+  locale: Locale,
 ): { factor_id?: string; phrase_short: string; phrase_full?: string } {
   const total = allFactor0Ids.length;
 
@@ -165,7 +208,7 @@ function pickTagline(
 
   // Every factor in this window appears as a dominant factor[0] across the
   // result set. Astrology is genuinely homogeneous — use time-of-day.
-  return { phrase_short: contextualTag(window) };
+  return { phrase_short: contextualTag(window, locale) };
 }
 
 /**
@@ -196,6 +239,7 @@ export type TranslatedResponse = ApiEnvelope & {
 export function translate(
   envelope: ApiEnvelope,
   activity: Activity,
+  locale: Locale,
 ): TranslatedResponse {
   const { data } = envelope;
 
@@ -207,6 +251,7 @@ export function translate(
       ({ factors: [] as Factor[] } as unknown as Window),
     activity,
     noViableWindows: data.summary.no_viable_windows,
+    locale,
   });
 
   // Pre-compute each window's ranked factors and the factor[0].factor_id
@@ -228,7 +273,7 @@ export function translate(
       top_windows: data.top_windows.map((w, i) => {
         const ranked = rankedPerWindow[i] ?? [];
         const factors: DisplayableFactor[] = ranked.map((f) => {
-          const phrasing = translateFactor(f.factor_id, f.status, activity);
+          const phrasing = translateFactor(f.factor_id, f.status, activity, locale);
           return {
             factor_id: f.factor_id,
             status: f.status,
@@ -240,8 +285,9 @@ export function translate(
           topWindow: w,
           activity,
           noViableWindows: false,
+          locale,
         });
-        const tagline = pickTagline(factors, allFactor0Ids, w);
+        const tagline = pickTagline(factors, allFactor0Ids, w, locale);
         return {
           ...w,
           displayable: { headline, factors, tagline },
@@ -249,7 +295,7 @@ export function translate(
       }),
       excluded_ranges: data.excluded_ranges.map((r) => ({
         ...r,
-        displayable: translateExcluded(r),
+        displayable: translateExcluded(r, locale),
       })),
     },
   };

@@ -7,7 +7,10 @@
 // v2: per-window tagline added to DisplayableWindow. Bumping invalidates
 // any KV-cached responses from v1 that lack the new field, so mobile clients
 // get fresh translations on next request.
-export const TRANSLATIONS_VERSION = 2;
+// v3: VOICE phase — X-Locale now part of the search cache-key prefix. (Even
+// though composed copy is still all-English at this commit, the prefix now
+// carries the locale segment, so the key namespace changed.)
+export const TRANSLATIONS_VERSION = 3;
 
 export {
   translate,

@@ -32,8 +32,8 @@ describe('stableStringify', () => {
 
 describe('computeCacheKey', () => {
   it('is deterministic for the same input', async () => {
-    const k1 = await computeCacheKey(baseRequest);
-    const k2 = await computeCacheKey(baseRequest);
+    const k1 = await computeCacheKey(baseRequest, 'en');
+    const k2 = await computeCacheKey(baseRequest, 'en');
     expect(k1).toBe(k2);
   });
 
@@ -47,23 +47,24 @@ describe('computeCacheKey', () => {
       start: '2026-06-01',
       activity: 'wedding',
     };
-    expect(await computeCacheKey(baseRequest)).toBe(
-      await computeCacheKey(reordered),
+    expect(await computeCacheKey(baseRequest, 'en')).toBe(
+      await computeCacheKey(reordered, 'en'),
     );
   });
 
   it('changes when any field changes', async () => {
-    const k1 = await computeCacheKey(baseRequest);
-    const k2 = await computeCacheKey({ ...baseRequest, activity: 'travel' });
-    const k3 = await computeCacheKey({ ...baseRequest, lat: 50.45 });
+    const k1 = await computeCacheKey(baseRequest, 'en');
+    const k2 = await computeCacheKey({ ...baseRequest, activity: 'travel' }, 'en');
+    const k3 = await computeCacheKey({ ...baseRequest, lat: 50.45 }, 'en');
     expect(k1).not.toBe(k2);
     expect(k1).not.toBe(k3);
     expect(k2).not.toBe(k3);
   });
 
-  it('produces a versioned, prefixed sha256 hex key', async () => {
-    const k = await computeCacheKey(baseRequest);
-    // search:v1:t{TRANSLATIONS_VERSION}:{sha256}
-    expect(k).toMatch(/^search:v1:t\d+:[0-9a-f]{64}$/);
+  it('produces a versioned, locale-prefixed sha256 hex key', async () => {
+    const k = await computeCacheKey(baseRequest, 'en');
+    // search:v1:t{TRANSLATIONS_VERSION}:{locale}:{sha256} — locale segment is
+    // VOICE-phase (cross-locale-poisoning boundary).
+    expect(k).toMatch(/^search:v1:t\d+:en:[0-9a-f]{64}$/);
   });
 });

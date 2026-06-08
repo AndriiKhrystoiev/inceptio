@@ -1,10 +1,18 @@
 import type { ElectionalSearchRequest } from '@inceptio/shared-types';
 import { CACHE_TTL_SECONDS } from './env';
 import { TRANSLATIONS_VERSION } from './translations';
+import type { Locale } from './translations/types';
 
-// Cache key format: `search:v1:t{TRANSLATIONS_VERSION}:{sha256(canonical request)}`.
+// Cache key format:
+//   `search:v1:t{TRANSLATIONS_VERSION}:{locale}:{sha256(canonical request)}`.
 // Bumping TRANSLATIONS_VERSION on any dictionary/synthesizer change naturally
 // invalidates the prior cache entries.
+//
+// LOCALE IS LOAD-BEARING (VOICE phase, spec §3): the Worker now composes copy
+// in the request locale, so two requests that differ ONLY in X-Locale produce
+// DIFFERENT translated responses and MUST NOT share a cache entry. The locale
+// segment sits in the prefix (before the request hash) so cross-locale entries
+// are naturally namespaced and a `grep search:v1:tN:de:` enumerates a locale.
 const CACHE_PREFIX = `search:v1:t${TRANSLATIONS_VERSION}:`;
 
 // Stable JSON: keys sorted alphabetically at every depth. Two requests with the
@@ -27,16 +35,15 @@ export function stableStringify(value: unknown): string {
 
 export async function computeCacheKey(
   req: ElectionalSearchRequest,
+  locale: Locale,
 ): Promise<string> {
-  // VOICE-phase TODO: when composed copy is localized, thread X-Locale into this key
-  // to prevent cross-locale cache poisoning. Locale is intentionally absent today.
   const canonical = stableStringify(req);
   const bytes = new TextEncoder().encode(canonical);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   const hex = Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
-  return CACHE_PREFIX + hex;
+  return `${CACHE_PREFIX}${locale}:${hex}`;
 }
 
 export async function readCache<T>(

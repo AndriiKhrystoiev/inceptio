@@ -4,6 +4,7 @@ import {
   getSeverityHint,
   type SeverityCondition,
 } from '../dictionary/severity-hints';
+import { localize } from '../types';
 import { ActivitySchema, type Activity } from '@inceptio/shared-types';
 
 const ACTIVITIES: Activity[] = ['wedding', 'contracts', 'business_launch', 'travel'];
@@ -22,7 +23,7 @@ describe('severity-hints dictionary', () => {
     confirmed.forEach((cond) => {
       ACTIVITIES.forEach((act) => {
         const entry = SEVERITY_HINTS[cond][act];
-        expect(entry.text).toMatch(/^For (a |)/);
+        expect(localize(entry.text, 'en')).toMatch(/^For (a |)/);
         expect(entry.pending_astrologer_ruling).toBe(false);
       });
     });
@@ -31,7 +32,7 @@ describe('severity-hints dictionary', () => {
   it('4 pending entries exist for intraday moon VOC × 4 activities', () => {
     ACTIVITIES.forEach((act) => {
       const entry = SEVERITY_HINTS.moon_voc_intraday[act];
-      expect(entry.text).toMatch(/^For (a |)/);
+      expect(localize(entry.text, 'en')).toMatch(/^For (a |)/);
       expect(entry.pending_astrologer_ruling).toBe(true);
     });
   });
@@ -39,7 +40,7 @@ describe('severity-hints dictionary', () => {
   it('every entry is ≤ 150 chars', () => {
     Object.values(SEVERITY_HINTS).forEach((perActivity) => {
       Object.values(perActivity).forEach((entry) => {
-        expect(entry.text.length).toBeLessThanOrEqual(150);
+        expect(localize(entry.text, 'en').length).toBeLessThanOrEqual(150);
       });
     });
   });
@@ -48,22 +49,22 @@ describe('severity-hints dictionary', () => {
     Object.values(SEVERITY_HINTS).forEach((perActivity) => {
       Object.values(perActivity).forEach((entry) => {
         FORBIDDEN.forEach((word) => {
-          expect(entry.text.toLowerCase()).not.toContain(word);
+          expect(localize(entry.text, 'en').toLowerCase()).not.toContain(word);
         });
       });
     });
   });
 
   it('getSeverityHint returns text for confirmed entry', () => {
-    expect(getSeverityHint('venus_retrograde', 'travel')).toMatch(/journey|trip|vacation/i);
+    expect(getSeverityHint('venus_retrograde', 'travel', 'en')).toMatch(/journey|trip|vacation/i);
   });
 
   it('getSeverityHint returns undefined for pending entry by default', () => {
-    expect(getSeverityHint('moon_voc_intraday', 'wedding')).toBeUndefined();
+    expect(getSeverityHint('moon_voc_intraday', 'wedding', 'en')).toBeUndefined();
   });
 
   it('getSeverityHint with includePending=true returns pending entry text', () => {
-    expect(getSeverityHint('moon_voc_intraday', 'wedding', { includePending: true }))
+    expect(getSeverityHint('moon_voc_intraday', 'wedding', 'en', { includePending: true }))
       .toMatch(/wedding/);
   });
 });

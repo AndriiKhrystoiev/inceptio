@@ -5,6 +5,42 @@ import type {
   ReasonId,
 } from '@inceptio/shared-types';
 
+// ─── Locale spine (VOICE phase — spec §2/§3) ───────────────────────────────
+/**
+ * The five supported locales. `en` is authoritative; the other four are
+ * filled per-dictionary by the parallel D-tasks. Routes resolve X-Locale to
+ * one of these once at the top (default 'en') and thread it down.
+ */
+export type Locale = 'en' | 'de' | 'fr' | 'es-419' | 'pt-BR';
+
+/**
+ * A user-facing leaf that is EITHER a plain English string (the state every
+ * dictionary is in until its D-task migrates it) OR a per-locale Record.
+ * The composer threads `locale` to every leaf-read and resolves via
+ * `localize()` exactly once at the terminal function — so dictionaries can
+ * migrate string → Record file-by-file with no spine coordination.
+ */
+export type Localized<T = string> = T | Record<Locale, T>;
+
+/**
+ * Resolve a `Localized<T>` to the requested locale.
+ *
+ * Tolerates BOTH shapes by design (the lynchpin of the spine, per plan §0):
+ *   - a plain value (string/object lacking an `en` key) → returned verbatim
+ *     (English-everywhere — the pre-migration state);
+ *   - a `Record<Locale, T>` → `[locale]`, falling back to `.en` for a
+ *     not-yet-translated locale.
+ *
+ * The `'en' in v` guard distinguishes the two: a migrated leaf is the only
+ * object carrying an `en` key. A plain string fails the `typeof === 'object'`
+ * test and is returned as-is.
+ */
+export function localize<T>(v: Localized<T>, locale: Locale): T {
+  return (v && typeof v === 'object' && 'en' in (v as object))
+    ? ((v as Record<Locale, T>)[locale] ?? (v as Record<Locale, T>).en)
+    : (v as T);
+}
+
 /** The two text fragments produced per factor instance. */
 export interface FactorPhrasing {
   /** Under 8 words. Used on cards and in factor-list rows. */
@@ -95,7 +131,7 @@ export interface DisplayableSummary {
  * cleanly. Used by the headline synthesizer.
  */
 export type HeadlineOverrides = Partial<
-  Record<Activity, Partial<Record<FactorId, Partial<Record<FactorStatus, string>>>>>
+  Record<Activity, Partial<Record<FactorId, Partial<Record<FactorStatus, Localized>>>>>
 >;
 
 // ─── Daily-note layer (spec: docs/superpowers/specs/2026-05-28-daily-timing-voice-design.md) ───
@@ -113,8 +149,12 @@ export type HorizonClass = 'static' | 'vague' | 'concrete-date' | 'intraday';
 export interface DailyNoteEntry {
   id: string;
   quality_bucket: QualityBucket;
-  headline: string;
-  supporting_line: string;
+  // `Localized` (VOICE phase): plain string today (en-everywhere); the
+  // D-dailynotes task migrates to a per-locale Record. The picker resolves via
+  // `localize()` once at `finalize`. Structural metadata (horizon_class,
+  // pending_astrologer_ruling, etc.) stays ABOVE the localized leaf.
+  headline: Localized;
+  supporting_line: Localized;
   horizon_class: HorizonClass;
   /**
    * PROVISIONAL — see spec §3.1. This is a hint for the picker design, not a
@@ -148,8 +188,9 @@ export interface DailyNoteEntry {
 export interface DailyNoteVariantPool {
   primary_entry_id: string;
   variants: Array<{
-    headline: string;
-    supporting_line: string;
+    // `Localized` (VOICE phase) — see DailyNoteEntry. Resolved at `finalize`.
+    headline: Localized;
+    supporting_line: Localized;
   }>;
 }
 
@@ -308,7 +349,9 @@ export interface DailyNoteResponseShape {
  *
  * Date-stamped + revision suffix so semantic ordering is human-readable.
  */
-export const LIBRARY_VERSION = '2026-05-28-r1';
+// VOICE phase: bumped when the locale spine landed (X-Locale now threaded
+// through composition + both cache keys; client daily-note cache busts).
+export const LIBRARY_VERSION = '2026-06-08-r1';
 
 /**
  * The 21 entry ids defined in spec §3.3. The dictionary in
