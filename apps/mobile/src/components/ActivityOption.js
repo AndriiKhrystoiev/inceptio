@@ -25,9 +25,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ChevronRight } from 'lucide-react-native';
 import {
   ACTIVITY_EMOJI,
-  ACTIVITY_LABELS,
-  ACTIVITY_SUBTITLES,
   ACTIVITY_TINTS,
+  getActivityLabel,
+  getActivitySubtitle,
 } from '../lib/activities';
 
 /**
@@ -100,10 +100,10 @@ export function ActivityOption({ activity, selected, onPress }) {
         {/* Title + subtitle */}
         <View style={{ flex: 1 }}>
           <Text className="font-ui-med text-[17px] leading-[22px] text-cream">
-            {ACTIVITY_LABELS[activity]}
+            {getActivityLabel(activity)}
           </Text>
           <Text className="font-ui text-[13px] leading-[18px] text-muted mt-[3px]">
-            {ACTIVITY_SUBTITLES[activity]}
+            {getActivitySubtitle(activity)}
           </Text>
         </View>
 

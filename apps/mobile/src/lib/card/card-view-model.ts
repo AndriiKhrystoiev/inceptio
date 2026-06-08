@@ -3,7 +3,7 @@
 import type { Activity, MoonPhase } from '@inceptio/shared-types';
 import { gradeToMood, type MoodKey } from './grade-to-mood';
 import { TIER_PHRASES, t, SENSITIVE_ACTIVITIES } from './card-strings';
-import { ACTIVITY_LABELS } from '../activities';
+import { getActivityLabel } from '../activities';
 import { timeOfDayBand, weekday, monthDay, weekdayMonthDay } from './time-of-day';
 import { exactClock, tzAbbrev } from './format-tz';
 import { moonPhaseForIso } from './moon-phase';
@@ -79,7 +79,7 @@ export function buildCardViewModel(w: WindowLike, ctx: CardContext): CardViewMod
     moodKey,
     moonPhase: moonPhaseForIso(iso),
     tierPhrase: TIER_PHRASES[moodKey],
-    intentText: ctx.showIntent ? ACTIVITY_LABELS[ctx.activity] : t('card.genericIntent'),
+    intentText: ctx.showIntent ? getActivityLabel(ctx.activity) : t('card.genericIntent'),
     whenPrimary,
     whenSecondary,
     city: ctx.showLocation ? (ctx.location?.city ?? null) : null,

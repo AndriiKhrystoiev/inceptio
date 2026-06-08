@@ -11,15 +11,17 @@ import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import IconBtn from '../components/IconBtn';
 import { patchDraft, setLastActivity } from '../lib/draft-store';
-import { ACTIVITY_LABELS } from '../lib/activities';
+import { getActivityLabel } from '../lib/activities';
 
-// Activity title comes from the shared ACTIVITY_LABELS map; the subtitle is a
-// localized chrome string keyed by activity id (`subtitle.<id>` in activity ns).
+// Activity title resolves at RENDER time via getActivityLabel(id) (i18n-backed,
+// honors locale switches); the subtitle is a localized chrome string keyed by
+// activity id (`subtitle.<id>` in activity ns). Building the title into this
+// module-level const would freeze the English label at import.
 const CARDS = [
-  { id: 'wedding',        emoji: '💍', title: ACTIVITY_LABELS.wedding,         tint: 'rgba(249,181,200,0.10)', tintDeep: 'rgba(249,181,200,0.18)' },
-  { id: 'contracts',      emoji: '📋', title: ACTIVITY_LABELS.contracts,       tint: 'rgba(244,193,154,0.10)', tintDeep: 'rgba(244,193,154,0.18)' },
-  { id: 'business_launch',emoji: '🚀', title: ACTIVITY_LABELS.business_launch, tint: 'rgba(229,199,125,0.10)', tintDeep: 'rgba(229,199,125,0.18)' },
-  { id: 'travel',         emoji: '✈️', title: ACTIVITY_LABELS.travel,          tint: 'rgba(103,232,199,0.10)', tintDeep: 'rgba(103,232,199,0.18)' },
+  { id: 'wedding',        emoji: '💍', tint: 'rgba(249,181,200,0.10)', tintDeep: 'rgba(249,181,200,0.18)' },
+  { id: 'contracts',      emoji: '📋', tint: 'rgba(244,193,154,0.10)', tintDeep: 'rgba(244,193,154,0.18)' },
+  { id: 'business_launch',emoji: '🚀', tint: 'rgba(229,199,125,0.10)', tintDeep: 'rgba(229,199,125,0.18)' },
+  { id: 'travel',         emoji: '✈️', tint: 'rgba(103,232,199,0.10)', tintDeep: 'rgba(103,232,199,0.18)' },
 ];
 
 export default function ActivityPickerScreen({ go }) {
@@ -64,7 +66,7 @@ export default function ActivityPickerScreen({ go }) {
 
       <View className="px-6 mt-10 gap-3">
         {CARDS.map((c) => (
-          <Card key={c.id} c={c} subtitle={t(`subtitle.${c.id}`)} onPress={() => handleSelect(c.id)} />
+          <Card key={c.id} c={c} title={getActivityLabel(c.id)} subtitle={t(`subtitle.${c.id}`)} onPress={() => handleSelect(c.id)} />
         ))}
       </View>
 
@@ -75,12 +77,12 @@ export default function ActivityPickerScreen({ go }) {
   );
 }
 
-function Card({ c, subtitle, onPress }) {
+function Card({ c, title, subtitle, onPress }) {
   return (
     <Pressable
       onPress={onPress}
       className="active:opacity-[0.92]"
-      accessibilityLabel={c.title}
+      accessibilityLabel={title}
       accessibilityRole="button">
       <LinearGradient
         colors={['#1F1838', '#2A2247']}
@@ -117,7 +119,7 @@ function Card({ c, subtitle, onPress }) {
         </LinearGradient>
 
         <View className="flex-1">
-          <Text className="font-ui-med text-[17px] leading-[22px] text-cream">{c.title}</Text>
+          <Text className="font-ui-med text-[17px] leading-[22px] text-cream">{title}</Text>
           <Text className="font-ui text-[13px] leading-[18px] text-muted mt-[3px]">{subtitle}</Text>
         </View>
 

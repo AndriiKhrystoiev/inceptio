@@ -6,5 +6,17 @@
   "subtitle.wedding": "Compromissos e uniões duradouras",
   "subtitle.contracts": "Assinaturas e acordos importantes",
   "subtitle.business_launch": "Novos empreendimentos e aberturas",
-  "subtitle.travel": "Viagens e mudanças"
+  "subtitle.travel": "Viagens e mudanças",
+  "label.wedding": "Casamento",
+  "label.contracts": "Contrato",
+  "label.business_launch": "Lançamento de negócio",
+  "label.travel": "Viagem",
+  "noun.wedding": "casamento",
+  "noun.contracts": "contrato",
+  "noun.business_launch": "lançamento",
+  "noun.travel": "jornada",
+  "eyebrow.wedding": "para o seu casamento",
+  "eyebrow.contracts": "para os seus contratos",
+  "eyebrow.business_launch": "para o seu lançamento",
+  "eyebrow.travel": "para as suas viagens"
 }

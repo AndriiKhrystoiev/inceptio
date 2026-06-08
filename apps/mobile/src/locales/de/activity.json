@@ -6,5 +6,17 @@
   "subtitle.wedding": "Bleibende Bindungen und Verbindungen",
   "subtitle.contracts": "Wichtige Unterschriften und Abschlüsse",
   "subtitle.business_launch": "Neue Vorhaben und Eröffnungen",
-  "subtitle.travel": "Reisen und Umzüge"
+  "subtitle.travel": "Reisen und Umzüge",
+  "label.wedding": "Hochzeit",
+  "label.contracts": "Vertrag",
+  "label.business_launch": "Unternehmensstart",
+  "label.travel": "Reise",
+  "noun.wedding": "Hochzeit",
+  "noun.contracts": "Vertrag",
+  "noun.business_launch": "Start",
+  "noun.travel": "Reise",
+  "eyebrow.wedding": "für deine Hochzeit",
+  "eyebrow.contracts": "für deine Verträge",
+  "eyebrow.business_launch": "für deinen Start",
+  "eyebrow.travel": "für deine Reise"
 }

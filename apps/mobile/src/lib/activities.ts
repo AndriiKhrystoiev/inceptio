@@ -1,4 +1,5 @@
 import type { Activity } from '@inceptio/shared-types';
+import i18n from 'i18next';
 
 // Canonical activity display data for the mobile app. Mirrors the activity
 // label / noun / emoji / theme-token / eyebrow-phrase needs of UI surfaces.
@@ -79,18 +80,30 @@ export const ACTIVITY_TINTS: Record<Activity, { tint: string; tintDeep: string }
   travel:          { tint: 'rgba(103,232,199,0.10)', tintDeep: 'rgba(103,232,199,0.18)' },
 };
 
+// Getters resolve through the i18next singleton at CALL time (not module-load),
+// so a locale switch is honored. The English const maps stay as `defaultValue`
+// fallbacks: en resolves correctly, and nothing crashes if a key is missing or
+// i18n hasn't initialized yet (pre-init the const map is returned directly).
 export function getActivityLabel(activity: Activity): string {
-  return ACTIVITY_LABELS[activity];
+  return i18n.isInitialized
+    ? i18n.t('activity:label.' + activity, { defaultValue: ACTIVITY_LABELS[activity] })
+    : ACTIVITY_LABELS[activity];
 }
 
 export function getActivityNoun(activity: Activity): string {
-  return ACTIVITY_NOUNS[activity];
+  return i18n.isInitialized
+    ? i18n.t('activity:noun.' + activity, { defaultValue: ACTIVITY_NOUNS[activity] })
+    : ACTIVITY_NOUNS[activity];
 }
 
 export function getActivityEyebrowPhrase(activity: Activity): string {
-  return ACTIVITY_EYEBROW_PHRASES[activity];
+  return i18n.isInitialized
+    ? i18n.t('activity:eyebrow.' + activity, { defaultValue: ACTIVITY_EYEBROW_PHRASES[activity] })
+    : ACTIVITY_EYEBROW_PHRASES[activity];
 }
 
 export function getActivitySubtitle(activity: Activity): string {
-  return ACTIVITY_SUBTITLES[activity];
+  return i18n.isInitialized
+    ? i18n.t('activity:subtitle.' + activity, { defaultValue: ACTIVITY_SUBTITLES[activity] })
+    : ACTIVITY_SUBTITLES[activity];
 }
