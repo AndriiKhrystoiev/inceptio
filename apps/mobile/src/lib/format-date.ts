@@ -15,14 +15,25 @@
  */
 import { activeBundle, toIntlLocale } from '../i18n/locale';
 
+/**
+ * Locale-aware lowercasing for weekday/month-bearing display strings. German
+ * capitalizes weekday and month nouns ("Montag, 8. Juni" — NOT "montag,
+ * 8. juni"), so de keeps Intl's casing as-is. en (a design choice) and
+ * fr/es-419/pt-BR conventionally lowercase the eyebrow. Resolves the active
+ * bundle at call time so a locale switch is honored.
+ */
+export function casedForBundle(s: string): string {
+  return activeBundle() === 'de' ? s : s.toLowerCase();
+}
+
 export function formatDailyEyebrow(dateIso: string): string {
   // Locale resolves at call time so a locale change is honored. es-419/pt-BR
   // map to es/pt before reaching Intl (Hermes/ICU has no M49 `419` data).
-  return new Intl.DateTimeFormat(toIntlLocale(activeBundle()), {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-  })
-    .format(new Date(`${dateIso}T00:00:00Z`))
-    .toLowerCase();
+  return casedForBundle(
+    new Intl.DateTimeFormat(toIntlLocale(activeBundle()), {
+      weekday: 'long',
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(`${dateIso}T00:00:00Z`)),
+  );
 }

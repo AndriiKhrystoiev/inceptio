@@ -29,6 +29,7 @@ import { friendlyMessage } from '../lib/error-messages';
 import { setSelectedWindow } from '../lib/nav-params';
 import { storage } from '../lib/storage';
 import { clusterWindows } from '../lib/cluster-windows';
+import { casedForBundle } from '../lib/format-date';
 import { activeBundle, toIntlLocale } from '../i18n/locale';
 
 const VIEW_KEY = 'inceptio.results_view'; // 'list' | 'calendar'
@@ -636,10 +637,11 @@ export default function CalendarScreen({ go }) {
               {topWindows.slice(0, 3).map((w, i) => {
                 const displayable = w.displayable ?? {};
                 const wDate = w.start
-                  ? new Intl.DateTimeFormat(toIntlLocale(activeBundle()), { weekday: 'short', month: 'short', day: 'numeric' })
-                      .format(new Date(w.start))
-                      .replace(',', ' ·')
-                      .toLowerCase()
+                  ? casedForBundle(
+                      new Intl.DateTimeFormat(toIntlLocale(activeBundle()), { weekday: 'short', month: 'short', day: 'numeric' })
+                        .format(new Date(w.start))
+                        .replace(',', ' ·'),
+                    )
                   : '';
                 return (
                   <WindowCard
