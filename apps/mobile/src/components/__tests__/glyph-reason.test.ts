@@ -69,14 +69,18 @@ describe('voice:reason lookups', () => {
   });
 });
 
-describe('voice/reason.json is en-only', () => {
-  it('has no de/fr/es-419/pt-BR counterpart files', async () => {
+// Task T (2026-06-08): VOICE guard flipped — C-voice filled de/fr/es-419/pt-BR
+// voice/reason.json. The prior "en-only" guard is reversed: voice files must
+// exist in ALL 5 locales. Only the structural key-presence check remains; the
+// old "no non-en file" assertion is removed.
+describe('voice/reason.json exists in all 5 locales', () => {
+  it('has de/fr/es-419/pt-BR counterpart files (Task T flip)', async () => {
     const fs = await import('node:fs');
     const path = await import('node:path');
     const localesDir = path.resolve(__dirname, '../../locales');
-    for (const loc of ['de', 'fr', 'es-419', 'pt-BR']) {
+    for (const loc of ['en', 'de', 'fr', 'es-419', 'pt-BR']) {
       const p = path.join(localesDir, loc, 'voice', 'reason.json');
-      expect(fs.existsSync(p)).toBe(false);
+      expect(fs.existsSync(p), `missing voice/reason.json for locale ${loc}`).toBe(true);
     }
   });
 

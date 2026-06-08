@@ -66,14 +66,14 @@ describe('card-strings (i18next-backed)', () => {
     expect(SENSITIVE_ACTIVITIES.has('wedding')).toBe(false);
   });
 
-  it('the voice card sub-file exists in en only — on disk and in the i18n store', () => {
+  // Task T (2026-06-08): VOICE guard flipped — C-voice filled de/fr/es-419/pt-BR
+  // voice/card.json. The prior "en-only" assertion is removed; voice files now
+  // exist in all 5 locales. The en bundle presence check is retained.
+  it('the voice card sub-file exists in all 5 locales — on disk (Task T flip)', () => {
     // vitest runs from apps/mobile (cwd); locales live under src/locales.
     const localeFile = (loc: string) => resolve('src/locales', loc, 'voice/card.json');
-    expect(existsSync(localeFile('en'))).toBe(true);
-    for (const loc of ['de', 'fr', 'es-419', 'pt-BR']) {
-      expect(existsSync(localeFile(loc))).toBe(false);
-      // and the loaded bundle carries no voice namespace for the non-en locales
-      expect(i18n.hasResourceBundle(loc, 'voice')).toBe(false);
+    for (const loc of ['en', 'de', 'fr', 'es-419', 'pt-BR']) {
+      expect(existsSync(localeFile(loc)), `missing voice/card.json for locale ${loc}`).toBe(true);
     }
     expect(i18n.hasResourceBundle('en', 'voice')).toBe(true);
   });
