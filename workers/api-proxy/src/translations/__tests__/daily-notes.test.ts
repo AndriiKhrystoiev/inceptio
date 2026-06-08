@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { synthesizeDailyNote } from '../daily-notes/picker';
 import { DAILY_NOTES } from '../dictionary/daily-notes';
 import { DAILY_NOTE_VARIANT_POOLS } from '../dictionary/daily-note-variants';
+import { localize } from '../types';
 import { excludedRange, factor, window_ } from './fixtures';
 
 describe('synthesizeDailyNote — quality bucket → entry selection', () => {
@@ -120,10 +121,13 @@ describe('synthesizeDailyNote — quality bucket → entry selection', () => {
     });
     expect(result.entry_id).toBe('closed-mercury-retrograde');
     const pool = DAILY_NOTE_VARIANT_POOLS['closed-mercury-retrograde']!;
+    // VOICE phase: leaves are `Localized` Records — resolve to the request
+    // locale ('en' here) before comparing against the composer's resolved
+    // `result.headline` string (mirrors lint-library.test.ts).
     const acceptableHeadlines = [
       DAILY_NOTES['closed-mercury-retrograde'].headline,
       ...pool.variants.map((v) => v.headline),
-    ];
+    ].map((h) => localize(h, 'en'));
     expect(acceptableHeadlines).toContain(result.headline);
     expect(result.exclusion_reason).toBe('mercury_retrograde');
     expect(result.used_fallback).toBe(false);
