@@ -27,6 +27,7 @@ import en_paywall from '../locales/en/paywall.json';
 import en_today from '../locales/en/today.json';
 import en_card from '../locales/en/card.json';
 import en_errors from '../locales/en/errors.json';
+import en_share from '../locales/en/share.json';
 
 // --- de ---
 import de_common from '../locales/de/common.json';
@@ -45,6 +46,7 @@ import de_paywall from '../locales/de/paywall.json';
 import de_today from '../locales/de/today.json';
 import de_card from '../locales/de/card.json';
 import de_errors from '../locales/de/errors.json';
+import de_share from '../locales/de/share.json';
 
 // --- fr ---
 import fr_common from '../locales/fr/common.json';
@@ -63,6 +65,7 @@ import fr_paywall from '../locales/fr/paywall.json';
 import fr_today from '../locales/fr/today.json';
 import fr_card from '../locales/fr/card.json';
 import fr_errors from '../locales/fr/errors.json';
+import fr_share from '../locales/fr/share.json';
 
 // --- es-419 ---
 import es419_common from '../locales/es-419/common.json';
@@ -81,6 +84,7 @@ import es419_paywall from '../locales/es-419/paywall.json';
 import es419_today from '../locales/es-419/today.json';
 import es419_card from '../locales/es-419/card.json';
 import es419_errors from '../locales/es-419/errors.json';
+import es419_share from '../locales/es-419/share.json';
 
 // --- pt-BR ---
 import ptBR_common from '../locales/pt-BR/common.json';
@@ -99,6 +103,7 @@ import ptBR_paywall from '../locales/pt-BR/paywall.json';
 import ptBR_today from '../locales/pt-BR/today.json';
 import ptBR_card from '../locales/pt-BR/card.json';
 import ptBR_errors from '../locales/pt-BR/errors.json';
+import ptBR_share from '../locales/pt-BR/share.json';
 
 // --- VOICE (en only, by design — no de/fr/es-419/pt-BR voice entries) ---
 import en_voice_card from '../locales/en/voice/card.json';
@@ -113,36 +118,39 @@ const bundle = (
   common: Json, nav: Json, onboarding: Json, activity: Json, daterange: Json,
   location: Json, loading: Json, calendar: Json, moment: Json, noviable: Json,
   moments: Json, settings: Json, paywall: Json, today: Json, card: Json, errors: Json,
+  share: Json,
 ) => ({
   common, nav, onboarding, activity, daterange, location, loading, calendar,
-  moment, noviable, moments, settings, paywall, today, card, errors,
+  moment, noviable, moments, settings, paywall, today, card, errors, share,
 });
 
 const resources = {
   en: bundle(
     en_common, en_nav, en_onboarding, en_activity, en_daterange, en_location,
     en_loading, en_calendar, en_moment, en_noviable, en_moments, en_settings,
-    en_paywall, en_today, en_card, en_errors,
+    en_paywall, en_today, en_card, en_errors, en_share,
   ),
   de: bundle(
     de_common, de_nav, de_onboarding, de_activity, de_daterange, de_location,
     de_loading, de_calendar, de_moment, de_noviable, de_moments, de_settings,
-    de_paywall, de_today, de_card, de_errors,
+    de_paywall, de_today, de_card, de_errors, de_share,
   ),
   fr: bundle(
     fr_common, fr_nav, fr_onboarding, fr_activity, fr_daterange, fr_location,
     fr_loading, fr_calendar, fr_moment, fr_noviable, fr_moments, fr_settings,
-    fr_paywall, fr_today, fr_card, fr_errors,
+    fr_paywall, fr_today, fr_card, fr_errors, fr_share,
   ),
   'es-419': bundle(
     es419_common, es419_nav, es419_onboarding, es419_activity, es419_daterange,
     es419_location, es419_loading, es419_calendar, es419_moment, es419_noviable,
     es419_moments, es419_settings, es419_paywall, es419_today, es419_card, es419_errors,
+    es419_share,
   ),
   'pt-BR': bundle(
     ptBR_common, ptBR_nav, ptBR_onboarding, ptBR_activity, ptBR_daterange,
     ptBR_location, ptBR_loading, ptBR_calendar, ptBR_moment, ptBR_noviable,
     ptBR_moments, ptBR_settings, ptBR_paywall, ptBR_today, ptBR_card, ptBR_errors,
+    ptBR_share,
   ),
 };
 

@@ -78,12 +78,14 @@ const VOICE_NS = existsSync(EN_VOICE_DIR)
 const TRANSLATION_DEFERRED = [{ ns: 'onboarding', key: 'subhead' }] as const;
 
 describe('consolidated CHROME coverage', () => {
-  it('finds the expected 16 CHROME namespaces in en', () => {
+  it('finds the expected 17 CHROME namespaces in en', () => {
     // Sanity floor: if someone deletes the locales dir or the glob breaks, this
-    // guard would vacuously pass otherwise.
-    expect(CHROME_NS.length).toBe(16);
+    // guard would vacuously pass otherwise. (17th ns `share` added when the
+    // MomentCardSheet share sheet was extracted — closing the Batch-B gap.)
+    expect(CHROME_NS.length).toBe(17);
     expect(CHROME_NS).toContain('common');
     expect(CHROME_NS).toContain('onboarding');
+    expect(CHROME_NS).toContain('share');
   });
 
   it('every CHROME ns file exists in all 5 locales', () => {

@@ -53,19 +53,10 @@ function isAllowlisted(lit: string): boolean {
 // These are NOT allowlisted-as-fine; they are TODO i18n work, recorded here so
 // the suite stays green while keeping the gaps visible and inventoried.
 //
-// components/card/MomentCardSheet.js is the share sheet — it was not in any
-// Batch-B partition row (B8 owned MomentDetailScreen + ResultsListView; A5 owned
-// card-strings.ts/MomentCard, not the sheet). Its full literal set to extract:
-//   "Show my city", "Show the occasion" (the two flagged below),
-//   plus (not prop-shaped, so not flagged by the heuristic): the
-//   "Couldn't prepare this moment to share." toast, "Preparing…", "Share",
-//   "Cancel" (→ common:cancel / common:share).
-// FOLLOW-UP: extract MomentCardSheet to a `share` ns (or reuse common/card),
-// then delete the matching KNOWN_GAPS entries.
-const KNOWN_GAPS: Array<{ file: string; text: string }> = [
-  { file: 'components/card/MomentCardSheet.js', text: 'Show my city' },
-  { file: 'components/card/MomentCardSheet.js', text: 'Show the occasion' },
-];
+// (Previously: components/card/MomentCardSheet.js — the share sheet — was not in
+// any Batch-B partition row. It has since been extracted to the `share` ns, so its
+// entries were removed from this inventory.)
+const KNOWN_GAPS: Array<{ file: string; text: string }> = [];
 
 function isKnownGap(f: Finding): boolean {
   return KNOWN_GAPS.some((g) => g.file === f.file && g.text === f.text);

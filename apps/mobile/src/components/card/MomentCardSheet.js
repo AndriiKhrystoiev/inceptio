@@ -4,6 +4,7 @@
 // button. Toggles re-render the card live. Reuses the in-app Modal/sheet idiom.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, View, Text, Pressable, StyleSheet, ScrollView } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import MomentCard from './MomentCard';
 import { buildCardViewModel, defaultShowIntent } from '../../lib/card/card-view-model';
 import { useMomentCardShare } from '../../hooks/useMomentCardShare';
@@ -11,6 +12,7 @@ import { getLastLocation } from '../../lib/location-storage';
 import { colors, fonts } from '../../theme';
 
 export default function MomentCardSheet({ visible, onClose, window: w, activity, showToast }) {
+  const { t } = useTranslation('share');
   const location = useMemo(() => getLastLocation(), []);
   const [showLocation, setShowLocation] = useState(false);
   // showIntent's default is the per-activity privacy default. The initializer
@@ -38,10 +40,10 @@ export default function MomentCardSheet({ visible, onClose, window: w, activity,
   // broken card — toast + close. Effect (not render-time) to avoid setState-in-render.
   useEffect(() => {
     if (visible && !vm) {
-      showToast("Couldn't prepare this moment to share.", 'warn');
+      showToast(t('prepareFailed'), 'warn');
       onClose();
     }
-  }, [visible, vm, showToast, onClose]);
+  }, [visible, vm, showToast, onClose, t]);
 
   const onShare = async () => {
     if (!vm) return;
@@ -58,8 +60,8 @@ export default function MomentCardSheet({ visible, onClose, window: w, activity,
               {vm && <MomentCard ref={cardRef} vm={vm} aspect={aspect} />}
             </View>
 
-            <Row label="Show my city" value={showLocation} onChange={setShowLocation} />
-            <Row label="Show the occasion" value={showIntent} onChange={setShowIntent} />
+            <Row label={t('showCity')} value={showLocation} onChange={setShowLocation} />
+            <Row label={t('showOccasion')} value={showIntent} onChange={setShowIntent} />
 
             <View style={styles.aspectRow}>
               {['9:16', '1:1'].map((a) => (
@@ -70,9 +72,9 @@ export default function MomentCardSheet({ visible, onClose, window: w, activity,
             </View>
 
             <Pressable onPress={onShare} disabled={sharing || !cardMeasured} style={[styles.shareBtn, (sharing || !cardMeasured) && styles.shareBusy]}>
-              <Text style={styles.shareText}>{sharing ? 'Preparing…' : 'Share'}</Text>
+              <Text style={styles.shareText}>{sharing ? t('preparing') : t('common:share')}</Text>
             </Pressable>
-            <Pressable onPress={onClose} style={styles.cancel}><Text style={styles.cancelText}>Cancel</Text></Pressable>
+            <Pressable onPress={onClose} style={styles.cancel}><Text style={styles.cancelText}>{t('common:cancel')}</Text></Pressable>
           </ScrollView>
         </View>
       </View>
