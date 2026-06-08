@@ -15,6 +15,7 @@ import tzLookup from '@photostructure/tz-lookup';
 import { tzEquivalent } from '../lib/tz-aliases';
 import { formatDateInTz } from '../lib/local-date';
 import { bumpCounter } from '../lib/kv-counter';
+import { isValidLocale } from '../lib/locale';
 
 /**
  * GET /daily-note?lat=<n>&lng=<n>&tz=<iana>
@@ -109,6 +110,19 @@ export async function handleDailyNote(
   if (!deviceId) {
     return Response.json(
       { error: 'missing_device_id', message: 'X-Device-Id header required' },
+      { status: 400 },
+    );
+  }
+
+  // Validate X-Locale INDEPENDENTLY of the device-id gate above. /daily-note is
+  // a distinct GET that may now carry the same locale header as the public
+  // search; absent is valid (unset), malformed is a 400. The existing `?tz=`
+  // query param is untouched (O2 — locale is header-only, tz stays a query
+  // param). Accepted and intentionally IGNORED this phase (cache key stays
+  // locale-free; see daily-note-cache keyOf forward-note).
+  if (!isValidLocale(req.headers.get('X-Locale'))) {
+    return Response.json(
+      { error: 'invalid_locale', message: 'X-Locale header is malformed' },
       { status: 400 },
     );
   }

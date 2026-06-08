@@ -28,6 +28,8 @@ export function stableStringify(value: unknown): string {
 export async function computeCacheKey(
   req: ElectionalSearchRequest,
 ): Promise<string> {
+  // VOICE-phase TODO: when composed copy is localized, thread X-Locale into this key
+  // to prevent cross-locale cache poisoning. Locale is intentionally absent today.
   const canonical = stableStringify(req);
   const bytes = new TextEncoder().encode(canonical);
   const digest = await crypto.subtle.digest('SHA-256', bytes);

@@ -33,6 +33,8 @@ export interface DailyNoteCacheKey {
  * tooling that grep'd on the date prefix still matches the leading portion.
  */
 export function keyOf({ lat, lng, dateIso, activity }: DailyNoteCacheKey): string {
+  // VOICE-phase TODO: when composed copy is localized, thread X-Locale into this key
+  // to prevent cross-locale cache poisoning. Locale is intentionally absent today.
   const latRounded = lat.toFixed(2);
   const lngRounded = lng.toFixed(2);
   return `daily-note:${LIBRARY_VERSION}:${latRounded}:${lngRounded}:${dateIso}:${activity}`;

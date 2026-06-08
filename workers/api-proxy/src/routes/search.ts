@@ -8,6 +8,7 @@ import { resolveBucketTz } from '../lib/local-date';
 import { callUpstream, UpstreamError } from '../upstream';
 import { translate } from '../translations';
 import { bumpCounter } from '../lib/kv-counter';
+import { isValidLocale } from '../lib/locale';
 
 // No-op ExecutionContext default so callers/tests that omit `ctx` don't crash.
 // Public + daily-note both pass a real ctx in production.
@@ -54,6 +55,20 @@ export async function handleSearch(
     );
   }
   const searchRequest = parsed.data;
+
+  // Validate X-Locale UNCONDITIONALLY, before metering. Deliberately NOT inside
+  // the `if (meter)` block and NOT gated on X-Device-Id: an absent locale is
+  // valid (unset), so this never regresses existing clients that send no
+  // locale header; a malformed one is a 400 regardless of metering. The locale
+  // is accepted and then intentionally IGNORED this phase — it does not enter
+  // the request body (the schema is `.strict()`) and does not affect the cache
+  // key (see computeCacheKey forward-note). VOICE-phase threads it onward.
+  if (!isValidLocale(req.headers.get('X-Locale'))) {
+    return Response.json(
+      { error: 'invalid_locale', message: 'X-Locale header is malformed' },
+      { status: 400 },
+    );
+  }
 
   let rl: MeterResult | null = null;
   if (meter) {
