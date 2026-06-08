@@ -1,1 +1,25 @@
-{}
+{
+  "topbarWhen": "{{activity}} · when",
+  "title": "When is your window?",
+  "subtitle": "We'll search this range for your best moments.",
+  "from": "FROM",
+  "to": "TO",
+  "fromFull": "From",
+  "toFull": "To",
+  "orTry": "Or try:",
+  "preset.nextMonth": "Next month",
+  "preset.threeMonths": "3 months",
+  "preset.sixMonths": "6 months",
+  "preset.oneYear": "1 year",
+  "hint.short": "Shorter windows may not contain viable moments — try a wider range if results are sparse.",
+  "hint.long": "Looking far ahead — this may take a few seconds to compute.",
+  "weekendDefault": "{{activity}} searches favor weekends and afternoons by default",
+  "duration.days_one": "About {{count}} day",
+  "duration.days_other": "About {{count}} days",
+  "duration.months_one": "About {{count}} month",
+  "duration.months_other": "About {{count}} months",
+  "duration.monthsAndDays_one": "About {{count}} month, {{dayPart}}",
+  "duration.monthsAndDays_other": "About {{count}} months, {{dayPart}}",
+  "duration.dayPart_one": "{{count}} day",
+  "duration.dayPart_other": "{{count}} days"
+}

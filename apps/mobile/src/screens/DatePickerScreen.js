@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, X, ChevronRight, Calendar as CalIcon } from 'lucide-react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useTranslation } from 'react-i18next';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import IconBtn from '../components/IconBtn';
@@ -53,12 +54,16 @@ function diffMonths(a, b) {
 }
 
 // Build a human-friendly duration label, mirroring the design-v2.1 "About 2 months, 5 days" example.
-function durationLabel(startDate, endDate) {
+// Plural selection is delegated to i18next so each locale resolves its own categories.
+function durationLabel(t, startDate, endDate) {
   const months = diffMonths(startDate, endDate);
   const remainder = diffDays(addMonths(startDate, months), endDate);
-  if (months === 0) return `About ${diffDays(startDate, endDate)} days`;
-  if (remainder === 0) return `About ${months} month${months > 1 ? 's' : ''}`;
-  return `About ${months} month${months > 1 ? 's' : ''}, ${remainder} day${remainder > 1 ? 's' : ''}`;
+  if (months === 0) return t('duration.days', { count: diffDays(startDate, endDate) });
+  if (remainder === 0) return t('duration.months', { count: months });
+  return t('duration.monthsAndDays', {
+    count: months,
+    dayPart: t('duration.dayPart', { count: remainder }),
+  });
 }
 
 const FMT_FULL_DATE = new Intl.DateTimeFormat('en-US', {
@@ -66,13 +71,14 @@ const FMT_FULL_DATE = new Intl.DateTimeFormat('en-US', {
 });
 
 const PRESETS = [
-  { label: 'Next month',   months: 1 },
-  { label: '3 months',     months: 3 },
-  { label: '6 months',     months: 6 },
-  { label: '1 year',       months: 12 },
+  { key: 'preset.nextMonth',  months: 1 },
+  { key: 'preset.threeMonths', months: 3 },
+  { key: 'preset.sixMonths',  months: 6 },
+  { key: 'preset.oneYear',    months: 12 },
 ];
 
 export default function DatePickerScreen({ go }) {
+  const { t } = useTranslation('daterange');
   const today = useMemo(() => new Date(), []);
 
   // Initialise from draft if already set, else default to 3 months.
@@ -134,9 +140,9 @@ export default function DatePickerScreen({ go }) {
   const isLong  = totalDays > 90;
 
   const hint = isShort
-    ? 'Shorter windows may not contain viable moments — try a wider range if results are sparse.'
+    ? t('hint.short')
     : isLong
-    ? 'Looking far ahead — this may take a few seconds to compute.'
+    ? t('hint.long')
     : null;
 
   function applyPreset(months) {
@@ -153,7 +159,7 @@ export default function DatePickerScreen({ go }) {
 
   const fromLabel = FMT_FULL_DATE.format(startDate);
   const toLabel   = FMT_FULL_DATE.format(endDate);
-  const durLabel  = durationLabel(startDate, endDate);
+  const durLabel  = durationLabel(t, startDate, endDate);
   const activity  = getDraft().activity ?? 'wedding';
   const actLabel  = activity.replace('_', ' ');
 
@@ -164,22 +170,22 @@ export default function DatePickerScreen({ go }) {
         <Starfield density="heavy" />
         <SafeAreaView edges={['top']}>
           <View className="px-4 pt-2 flex-row items-center justify-between">
-            <IconBtn onPress={() => go('picker')} label="Back">
+            <IconBtn onPress={() => go('picker')} label={t('common:back')}>
               <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5} />
             </IconBtn>
             <Text className="font-display text-[18px] text-cream tracking-[-0.2px]" style={{ textTransform: 'capitalize' }}>
-              {actLabel} · when
+              {t('topbarWhen', { activity: actLabel })}
             </Text>
-            <IconBtn onPress={() => go('today')} label="Close">
+            <IconBtn onPress={() => go('today')} label={t('common:close')}>
               <X color="#F5EFE4" size={22} strokeWidth={1.5} />
             </IconBtn>
           </View>
           <View className="px-6 pt-6 pb-9">
             <Text className="font-display text-[32px] leading-[38px] tracking-[-0.3px] text-cream">
-              When is your window?
+              {t('title')}
             </Text>
             <Text className="font-ui text-[14px] leading-5 text-muted mt-3">
-              We'll search this range for your best moments.
+              {t('subtitle')}
             </Text>
           </View>
         </SafeAreaView>
@@ -187,7 +193,7 @@ export default function DatePickerScreen({ go }) {
 
       <View className="px-6 pt-6 gap-3">
         <DateInput
-          label="FROM"
+          label={t('from')}
           value={fromLabel}
           onPress={() => {
             console.warn('[DatePicker] FROM tapped');
@@ -195,7 +201,7 @@ export default function DatePickerScreen({ go }) {
           }}
         />
         <DateInput
-          label="TO"
+          label={t('to')}
           value={toLabel}
           onPress={() => {
             console.warn('[DatePicker] TO tapped');
@@ -233,12 +239,12 @@ export default function DatePickerScreen({ go }) {
             <View style={{ backgroundColor: '#1F1838', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32, borderTopWidth: 1, borderTopColor: '#3A3258' }}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 8 }}>
                 <Text className="font-display-reg text-[18px] text-cream">
-                  {openPicker === 'from' ? 'From' : 'To'}
+                  {openPicker === 'from' ? t('fromFull') : t('toFull')}
                 </Text>
                 <Pressable
                   onPress={() => setOpenPicker(null)}
                   style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
-                  <Text className="font-ui-med text-[16px] text-primary-glow">Done</Text>
+                  <Text className="font-ui-med text-[16px] text-primary-glow">{t('common:done')}</Text>
                 </Pressable>
               </View>
               {openPicker && (
@@ -267,22 +273,22 @@ export default function DatePickerScreen({ go }) {
 
       <View className="px-6 pt-8">
         <View className="flex-row items-center gap-[14px]">
-          <Text className="font-ui-med text-[13px] text-muted">Or try:</Text>
+          <Text className="font-ui-med text-[13px] text-muted">{t('orTry')}</Text>
           <View className="flex-1 h-px bg-soft" />
         </View>
         <View className="flex-row flex-wrap gap-2 mt-4">
           {PRESETS.map((p) => (
-            <Preset key={p.label} label={p.label} onPress={() => applyPreset(p.months)} />
+            <Preset key={p.key} label={t(p.key)} onPress={() => applyPreset(p.months)} />
           ))}
         </View>
       </View>
 
       <Text className="font-ui text-[12px] leading-[18px] text-subtle text-center mt-10 px-6">
-        {actLabel.charAt(0).toUpperCase() + actLabel.slice(1)} searches favor weekends and afternoons by default
+        {t('weekendDefault', { activity: actLabel.charAt(0).toUpperCase() + actLabel.slice(1) })}
       </Text>
 
       <View className="px-6 pt-8">
-        <PrimaryButton onPress={handleContinue}>Continue</PrimaryButton>
+        <PrimaryButton onPress={handleContinue}>{t('common:continue')}</PrimaryButton>
       </View>
     </ScrollView>
   );

@@ -1,1 +1,25 @@
-{}
+{
+  "topbarWhen": "{{activity}} · quand",
+  "title": "Quelle est ta fenêtre ?",
+  "subtitle": "Nous explorerons cette période pour trouver tes meilleurs moments.",
+  "from": "DU",
+  "to": "AU",
+  "fromFull": "Du",
+  "toFull": "Au",
+  "orTry": "Ou essaie :",
+  "preset.nextMonth": "Le mois prochain",
+  "preset.threeMonths": "3 mois",
+  "preset.sixMonths": "6 mois",
+  "preset.oneYear": "1 an",
+  "hint.short": "Les fenêtres plus courtes peuvent ne contenir aucun moment favorable — essaie une période plus large si les résultats sont rares.",
+  "hint.long": "Un regard vers un horizon lointain — le calcul peut prendre quelques secondes.",
+  "weekendDefault": "Les recherches {{activity}} privilégient par défaut les week-ends et les après-midis",
+  "duration.days_one": "Environ {{count}} jour",
+  "duration.days_other": "Environ {{count}} jours",
+  "duration.months_one": "Environ {{count}} mois",
+  "duration.months_other": "Environ {{count}} mois",
+  "duration.monthsAndDays_one": "Environ {{count}} mois, {{dayPart}}",
+  "duration.monthsAndDays_other": "Environ {{count}} mois, {{dayPart}}",
+  "duration.dayPart_one": "{{count}} jour",
+  "duration.dayPart_other": "{{count}} jours"
+}

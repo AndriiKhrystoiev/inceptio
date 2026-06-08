@@ -1,1 +1,25 @@
-{}
+{
+  "topbarWhen": "{{activity}} · cuándo",
+  "title": "¿Cuál es tu ventana?",
+  "subtitle": "Buscaremos en este rango tus mejores momentos.",
+  "from": "DESDE",
+  "to": "HASTA",
+  "fromFull": "Desde",
+  "toFull": "Hasta",
+  "orTry": "O bien:",
+  "preset.nextMonth": "El próximo mes",
+  "preset.threeMonths": "3 meses",
+  "preset.sixMonths": "6 meses",
+  "preset.oneYear": "1 año",
+  "hint.short": "Las ventanas más cortas pueden no contener momentos viables — conviene un rango más amplio si los resultados son escasos.",
+  "hint.long": "Una mirada lejana — el cálculo puede tardar unos segundos.",
+  "weekendDefault": "Las búsquedas de {{activity}} favorecen los fines de semana y las tardes de forma predeterminada",
+  "duration.days_one": "Alrededor de {{count}} día",
+  "duration.days_other": "Alrededor de {{count}} días",
+  "duration.months_one": "Alrededor de {{count}} mes",
+  "duration.months_other": "Alrededor de {{count}} meses",
+  "duration.monthsAndDays_one": "Alrededor de {{count}} mes, {{dayPart}}",
+  "duration.monthsAndDays_other": "Alrededor de {{count}} meses, {{dayPart}}",
+  "duration.dayPart_one": "{{count}} día",
+  "duration.dayPart_other": "{{count}} días"
+}

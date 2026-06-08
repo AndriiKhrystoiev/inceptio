@@ -1,1 +1,25 @@
-{}
+{
+  "topbarWhen": "{{activity}} · wann",
+  "title": "Wann ist dein Zeitfenster?",
+  "subtitle": "Wir durchsuchen diesen Zeitraum nach deinen besten Momenten.",
+  "from": "VON",
+  "to": "BIS",
+  "fromFull": "Von",
+  "toFull": "Bis",
+  "orTry": "Oder probiere:",
+  "preset.nextMonth": "Nächster Monat",
+  "preset.threeMonths": "3 Monate",
+  "preset.sixMonths": "6 Monate",
+  "preset.oneYear": "1 Jahr",
+  "hint.short": "Kürzere Zeitfenster enthalten womöglich keine geeigneten Momente — probiere einen größeren Zeitraum, falls die Ergebnisse spärlich sind.",
+  "hint.long": "Ein weiter Blick nach vorn — die Berechnung kann ein paar Sekunden dauern.",
+  "weekendDefault": "{{activity}}-Suchen bevorzugen standardmäßig Wochenenden und Nachmittage",
+  "duration.days_one": "Etwa {{count}} Tag",
+  "duration.days_other": "Etwa {{count}} Tage",
+  "duration.months_one": "Etwa {{count}} Monat",
+  "duration.months_other": "Etwa {{count}} Monate",
+  "duration.monthsAndDays_one": "Etwa {{count}} Monat, {{dayPart}}",
+  "duration.monthsAndDays_other": "Etwa {{count}} Monate, {{dayPart}}",
+  "duration.dayPart_one": "{{count}} Tag",
+  "duration.dayPart_other": "{{count}} Tage"
+}

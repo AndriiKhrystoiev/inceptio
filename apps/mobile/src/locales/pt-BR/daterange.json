@@ -1,1 +1,25 @@
-{}
+{
+  "topbarWhen": "{{activity}} · quando",
+  "title": "Qual é a sua janela?",
+  "subtitle": "Vamos buscar neste intervalo os seus melhores momentos.",
+  "from": "DE",
+  "to": "ATÉ",
+  "fromFull": "De",
+  "toFull": "Até",
+  "orTry": "Ou tente:",
+  "preset.nextMonth": "Próximo mês",
+  "preset.threeMonths": "3 meses",
+  "preset.sixMonths": "6 meses",
+  "preset.oneYear": "1 ano",
+  "hint.short": "Janelas mais curtas podem não conter momentos viáveis — tente um intervalo maior se os resultados forem escassos.",
+  "hint.long": "Um olhar para um horizonte distante — o cálculo pode levar alguns segundos.",
+  "weekendDefault": "As buscas de {{activity}} priorizam fins de semana e tardes por padrão",
+  "duration.days_one": "Cerca de {{count}} dia",
+  "duration.days_other": "Cerca de {{count}} dias",
+  "duration.months_one": "Cerca de {{count}} mês",
+  "duration.months_other": "Cerca de {{count}} meses",
+  "duration.monthsAndDays_one": "Cerca de {{count}} mês, {{dayPart}}",
+  "duration.monthsAndDays_other": "Cerca de {{count}} meses, {{dayPart}}",
+  "duration.dayPart_one": "{{count}} dia",
+  "duration.dayPart_other": "{{count}} dias"
+}
