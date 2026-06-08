@@ -18,5 +18,9 @@
   "results.countMore_other": "{{count}} moments today · tap for the strongest",
   "results.emptyTitle": "No viable windows in your range",
   "results.emptyBody": "Try widening your search or moving to a different month.",
-  "results.adjust": "Adjust search"
+  "results.adjust": "Adjust search",
+  "time.bestAt": "best at {{time}}",
+  "time.exactly": "{{time}} exactly",
+  "time.minutes_one": "{{count}} minute",
+  "time.minutes_other": "{{count}} minutes"
 }

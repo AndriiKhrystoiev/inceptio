@@ -18,5 +18,9 @@
   "results.countMore_other": "{{count}} momentos hoje · toque para o mais forte",
   "results.emptyTitle": "Nenhuma janela favorável no seu período",
   "results.emptyBody": "Amplie sua busca ou escolha outro mês.",
-  "results.adjust": "Ajustar busca"
+  "results.adjust": "Ajustar busca",
+  "time.bestAt": "melhor às {{time}}",
+  "time.exactly": "{{time}} exatamente",
+  "time.minutes_one": "{{count}} minuto",
+  "time.minutes_other": "{{count}} minutos"
 }

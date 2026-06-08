@@ -18,5 +18,9 @@
   "results.countMore_other": "{{count}} Momente heute · tippe für den stärksten",
   "results.emptyTitle": "Keine geeigneten Fenster in Deinem Zeitraum",
   "results.emptyBody": "Erweitere Deine Suche oder wähle einen anderen Monat.",
-  "results.adjust": "Suche anpassen"
+  "results.adjust": "Suche anpassen",
+  "time.bestAt": "am besten um {{time}}",
+  "time.exactly": "genau um {{time}}",
+  "time.minutes_one": "{{count}} Minute",
+  "time.minutes_other": "{{count}} Minuten"
 }

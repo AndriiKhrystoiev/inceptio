@@ -36,7 +36,25 @@ export function getDurationVariant(
   return 'unknown';
 }
 
+import i18n from 'i18next';
 import { activeBundle, toIntlLocale } from '../i18n/locale';
+import enMoment from '../locales/en/moment.json';
+
+// Time-label CHROME. i18next when initialized (honors locale at call time);
+// en-dictionary fallback otherwise — mirrors lib/card/card-strings.ts so a
+// pre-init unit test stays deterministic and the formatter never inlines an
+// English literal. The plural fallback applies the en CLDR rule (1 → _one).
+function exactlyLabel(time: string): string {
+  return i18n.isInitialized
+    ? i18n.t('moment:time.exactly', { time })
+    : (enMoment['time.exactly'] as string).replace('{{time}}', time);
+}
+
+function minutesLabel(count: number): string {
+  if (i18n.isInitialized) return i18n.t('moment:time.minutes', { count });
+  const key = count === 1 ? 'time.minutes_one' : 'time.minutes_other';
+  return (enMoment[key] as string).replace('{{count}}', String(count));
+}
 
 // Locale-memoized DateTimeFormat. The active bundle resolves at call time (not
 // at import), so a __setLocaleOverride or device-locale change is honored. Cache
@@ -105,17 +123,17 @@ export function formatWindowTime(window: WindowLike): FormattedWindowTime {
       };
     case 'medium':
       return {
-        primary: `${startStr} · ${minutes} minutes`,
+        primary: `${startStr} · ${minutesLabel(minutes)}`,
         secondary: null,
       };
     case 'short':
       return {
-        primary: `${startStr} · ${minutes} minutes`,
+        primary: `${startStr} · ${minutesLabel(minutes)}`,
         secondary: 'A precise window — set a reminder.',
       };
     case 'single':
       return {
-        primary: `${startStr} exactly`,
+        primary: exactlyLabel(startStr),
         secondary: 'A single, pristine moment. Be ready.',
       };
   }

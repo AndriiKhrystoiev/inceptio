@@ -18,5 +18,9 @@
   "results.countMore_other": "{{count}} momentos hoy · tocar para el más fuerte",
   "results.emptyTitle": "Sin ventanas favorables en tu rango",
   "results.emptyBody": "Conviene ampliar la búsqueda o pasar a otro mes.",
-  "results.adjust": "Ajustar búsqueda"
+  "results.adjust": "Ajustar búsqueda",
+  "time.bestAt": "mejor a las {{time}}",
+  "time.exactly": "{{time}} exactamente",
+  "time.minutes_one": "{{count}} minuto",
+  "time.minutes_other": "{{count}} minutos"
 }

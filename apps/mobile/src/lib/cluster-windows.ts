@@ -14,8 +14,20 @@
 // + evening on the same date) we point to the strongest moment instead
 // ("best at 21:30") to avoid implying the entire 6-hour gap is favorable.
 
+import i18n from 'i18next';
 import { formatWindowTime } from './format-window';
 import { activeBundle, toIntlLocale } from '../i18n/locale';
+import enMoment from '../locales/en/moment.json';
+
+// "best at {{time}}" CHROME. i18next when initialized (honors locale at call
+// time), en-dictionary interpolation fallback otherwise — mirrors the seam in
+// lib/card/card-strings.ts so a pre-init unit test stays deterministic and the
+// formatter never inlines an English literal.
+function bestAt(time: string): string {
+  return i18n.isInitialized
+    ? i18n.t('moment:time.bestAt', { time })
+    : (enMoment['time.bestAt'] as string).replace('{{time}}', time);
+}
 
 interface Factor {
   factor_id: string;
@@ -139,7 +151,7 @@ export function clusterWindows(windows: Window[]): ListCard[] {
         // Spread across the day — pointing at the strongest moment is
         // honest. A range like "15:45 → 22:00" would imply the entire
         // ~6 hours are favorable when really there's a dead zone between.
-        timePrimary = `best at ${fmt(TIME_OPTS).format(new Date(rep.start!))}`;
+        timePrimary = bestAt(fmt(TIME_OPTS).format(new Date(rep.start!)));
       }
       // The "single, pristine moment" hint contradicts a multi-moment
       // card — drop it and let the count line carry the meaning.
