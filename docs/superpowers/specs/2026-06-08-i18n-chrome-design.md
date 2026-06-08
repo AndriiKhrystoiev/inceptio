@@ -333,27 +333,40 @@ in the VOICE pass (one source, not two).
 - **Plural/Intl tests:** French `_one` covers `0` (`0 jour`); de/es/pt plural categories resolve via the
   FormatJS polyfill; `Intl.DateTimeFormat` renders non-en dates with the **mapped** Intl-locale
   (`es-419→es`) and a smoke test asserts es-419 does **not** fall back to en-US dates.
+- **Layout / text-expansion verification (manual, German-first).** Not covered by the seam/library/domain
+  pre-flights: longer translations overflow tight RN layouts. German runs ~30% longer than English
+  (compounds) and will truncate/overflow buttons, single-line `numberOfLines` labels, and the tab bar.
+  Step: via the `__DEV__` locale override, switch to **`de`** and eyeball every screen for
+  overflow/truncation/clipping; fix layouts (wrap, shrink, ellipsis-by-design) before launch. Cheap, and
+  catches a class the automated tests miss. Spot-check `fr` (also long) after `de` is clean.
 
 ---
 
 ## 11b. Open questions for the owner (raised by pre-flights)
 
-These are decisions the plan needs answered; none block writing the plan, but O1 must be resolved before
-translation work begins.
+Resolved by the owner (2026-06-08). Recorded here; the **register ruling (O1) must be set in the glossary
+before any translation work begins.**
 
-- **O1 — Register/formality is a brand call, not "native review" (domain-expert).** Each locale needs a
-  2nd-person register decided **before** translation: German **du vs Sie**, French **tu vs vous**,
-  es-419 **voseo-neutral** (avoid 2nd-person-singular verb forms so one file serves Mexico + Argentina),
-  pt-BR **você**. These set the voice of all chrome and can't be cheaply reversed. Owner decides; the
-  termbase/glossary records the ruling.
-- **O2 — Does the shared `requestMetaHeaders()` helper also back-fill `X-Timezone` onto `/daily-note`?**
-  Today `/daily-note` sends tz as a query param and no `X-Timezone` header. Consolidating onto the helper
-  is cleaner but is a **behavior change** on a hot endpoint. Default recommendation: keep the helper
-  **locale-only** this phase (add `X-Locale`, leave the existing tz query-param path untouched) to keep
-  the diff minimal; revisit tz consolidation separately. Confirm.
-- **O3 — Native-speaker review resourcing per locale (from §10).** At minimum one native speaker per
-  locale sanity-checks before launch — the chrome-pass analog of the astrologer gate. Owner's call on
-  resourcing; flagged as a market-entry quality risk if skipped.
+- **O1 — Register/formality (RESOLVED, brand call).** The warm/intimate companion voice drives the
+  default:
+  - **de → `du`** (Sie reads corporate, clashes with the voice).
+  - **fr → `tu`** for consistency with `du` — but this is the **contested** one (French defaults more
+    formal; `vous` is safer-but-cooler, `tu` risks reading presumptuous). **A French native confirms
+    before fr translation starts.** Until confirmed, fr register is *provisional `tu`*.
+  - **es-419 → voseo-neutral** — avoid 2nd-person-singular verb forms so one file serves Mexico +
+    Argentina.
+  - **pt-BR → `você`.**
+  The glossary records the ruling per locale; translation does not start for a locale until its register
+  is locked (fr gated on the native confirm).
+- **O2 — tz consolidation (RESOLVED: locale-only this phase).** The shared `requestMetaHeaders()` helper
+  adds **`X-Locale`** (+ the shared `X-Device-Id`); `/daily-note` keeps its existing **`?tz=`** query
+  param untouched. Moving tz query→header on a hot endpoint is an unrelated behavior change and
+  unnecessary risk to bundle into an i18n phase. tz-transport consolidation is a separate later cleanup.
+- **O3 — Review resourcing (REAFFIRMED, launch-readiness dependency, not a build blocker).** Per locale,
+  pre-launch review must be **native AND astrology-literate** — the chrome-pass analog of the astrologer
+  gate. The **glossary especially** needs a locale-literate astrology reader: traditional terms (PT *Lua
+  Fora de Curso*, *Combustão*, etc.) have established forms a generalist MT gets wrong. Build the infra
+  now; plan the review resource as a launch dependency.
 
 ## 12. Delivery
 
