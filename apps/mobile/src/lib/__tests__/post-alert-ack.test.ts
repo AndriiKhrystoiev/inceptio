@@ -16,6 +16,11 @@ vi.mock('../device-id', () => ({
   getDeviceId: vi.fn(async () => 'test-device-id-abc'),
 }));
 
+// api.ts now imports activeBundle from ../i18n/locale, which pulls in
+// expo-localization (native EventEmitter, undefined in node). Same escape-hatch
+// as the react-native mock above. Inert here — postAlertAck sends no X-Locale.
+vi.mock('expo-localization', () => ({ getLocales: () => [] }));
+
 import { postAlertAck, ServerError } from '../api';
 
 describe('postAlertAck', () => {
