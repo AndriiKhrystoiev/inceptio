@@ -1,1 +1,18 @@
-{}
+{
+  "title": "Inceptio Pro",
+  "subtitle": "Unbegrenzte Momente, Kalenderansicht und mehr.",
+  "capped_one": "Du hast {{count}} Moment erkundet — gehen wir weiter.",
+  "capped_other": "Du hast {{count}} Momente erkundet — gehen wir weiter.",
+  "feature.unlimitedSearches": "Unbegrenzte Suchen",
+  "feature.saveUnlimited": "Unbegrenzt Momente speichern",
+  "feature.twelveMonths": "Bis zu 12 Monate im Voraus suchen",
+  "feature.heatmap": "Kalender-Heatmap-Ansicht",
+  "feature.export": "In den Kalender deines Telefons exportieren",
+  "feature.quiet": "Ruhig — keine Werbung, kein Konto",
+  "plan.yearlyPrice": "29,99 $ / Jahr",
+  "plan.yearlySub": "2,50 $ pro Monat",
+  "plan.yearlyBadge": "50 % SPAREN",
+  "plan.monthlyPrice": "4,99 $ / Monat",
+  "restore": "Wiederherstellen",
+  "termsPrivacy": "Nutzungsbedingungen · Datenschutz"
+}

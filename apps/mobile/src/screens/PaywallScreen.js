@@ -4,22 +4,24 @@ import React, { useState } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react-native';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import IconBtn from '../components/IconBtn';
 import PrimaryButton from '../components/PrimaryButton';
 
-const FEATURES = [
-  'Unlimited searches',
-  'Save unlimited moments',
-  'Search up to 12 months ahead',
-  'Calendar heatmap view',
-  'Export to your phone’s calendar',
-  'Quiet — no ads, no account',
+const FEATURE_KEYS = [
+  'feature.unlimitedSearches',
+  'feature.saveUnlimited',
+  'feature.twelveMonths',
+  'feature.heatmap',
+  'feature.export',
+  'feature.quiet',
 ];
 
 export default function PaywallScreen({ go }) {
+  const { t } = useTranslation('paywall');
   const [plan, setPlan] = useState('yearly');
 
   return (
@@ -29,22 +31,22 @@ export default function PaywallScreen({ go }) {
         <Starfield density="heavy"/>
         <SafeAreaView edges={['top']}>
           <View className="px-4 pt-2">
-            <IconBtn onPress={() => go('today')} label="Close">
+            <IconBtn onPress={() => go('today')} label={t('common:close')}>
               <X color="#F5EFE4" size={22} strokeWidth={1.5}/>
             </IconBtn>
           </View>
 
           <View className="px-6 pt-12">
-            <Text className="font-display text-[36px] leading-[42px] tracking-[-0.7px] text-cream">Inceptio Pro</Text>
-            <Text className="font-ui text-base leading-6 text-muted mt-3">Unlimited moments, calendar view, and more.</Text>
-            <Text className="font-ui italic text-[14px] leading-5 text-subtle mt-6 text-center">You've explored 3 moments — let's go further.</Text>
+            <Text className="font-display text-[36px] leading-[42px] tracking-[-0.7px] text-cream">{t('title')}</Text>
+            <Text className="font-ui text-base leading-6 text-muted mt-3">{t('subtitle')}</Text>
+            <Text className="font-ui italic text-[14px] leading-5 text-subtle mt-6 text-center">{t('capped', { count: 3 })}</Text>
           </View>
         </SafeAreaView>
       </View>
 
       <View className="px-6 pt-12">
-        {FEATURES.map((f, i) => (
-          <Text key={i} className="py-3 font-ui text-base leading-[22px] text-cream">{f}</Text>
+        {FEATURE_KEYS.map((k) => (
+          <Text key={k} className="py-3 font-ui text-base leading-[22px] text-cream">{t(k)}</Text>
         ))}
       </View>
 
@@ -53,22 +55,22 @@ export default function PaywallScreen({ go }) {
           selected={plan === 'yearly'}
           onPress={() => setPlan('yearly')}
           yearly
-          price="$29.99 / year"
-          sub="$2.50 per month"
-          badge="SAVE 50%"/>
+          price={t('plan.yearlyPrice')}
+          sub={t('plan.yearlySub')}
+          badge={t('plan.yearlyBadge')}/>
         <PlanCard
           selected={plan === 'monthly'}
           onPress={() => setPlan('monthly')}
-          price="$4.99 / month"/>
+          price={t('plan.monthlyPrice')}/>
       </View>
 
       <View className="px-6 pt-12">
-        <PrimaryButton onPress={() => go('today')}>Continue</PrimaryButton>
+        <PrimaryButton onPress={() => go('today')}>{t('common:continue')}</PrimaryButton>
       </View>
 
       <View className="items-center pt-4">
         <Pressable>
-          <Text className="font-ui text-[14px] text-muted p-2">Restore</Text>
+          <Text className="font-ui text-[14px] text-muted p-2">{t('restore')}</Text>
         </Pressable>
       </View>
 
@@ -76,7 +78,7 @@ export default function PaywallScreen({ go }) {
         <View className="w-[60%] h-px bg-soft"/>
       </View>
 
-      <Text className="font-ui text-[12px] text-subtle text-center mt-5">Terms · Privacy</Text>
+      <Text className="font-ui text-[12px] text-subtle text-center mt-5">{t('termsPrivacy')}</Text>
     </ScrollView>
   );
 }
