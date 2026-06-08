@@ -11,18 +11,27 @@
 
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import ScorePill from './ScorePill';
 
 // Short labels for the per-card pill — design-ref screenshot shows
 // "Exceptional" / "Strong" not the verbose "Exceptional moment" /
 // "Highly favorable" used on MomentDetail. Different surface, different copy
-// weight; keeping it per-callsite rather than baking into ScorePill.
+// weight; keeping the Results variants as DISTINCT voice keys (voice.moment.
+// results.*) rather than reusing the MomentDetail grade words.
+// VOICE (en-only) — ruling-flavored grade words; traversed with keySeparator '.'
+// (global config sets keySeparator:false).
+// REVIEW: grade words carry a traditional-astrology register — values pending
+// native + astrology-literate review pre-launch.
 function gradeLabel(grade) {
-  if (grade === 'exceptional') return 'Exceptional';
-  if (grade === 'strong' || grade === 'good') return 'Strong';
-  if (grade === 'fair') return 'Favorable';
-  if (grade === 'caution') return 'Move with care';
-  return 'Not recommended';
+  const key =
+    grade === 'exceptional' ? 'exceptional'
+      : grade === 'strong' || grade === 'good' ? 'strong'
+      : grade === 'fair' ? 'favorable'
+      : grade === 'caution' ? 'caution'
+      : 'poor';
+  return i18n.t(`moment.results.${key}`, { ns: 'voice', keySeparator: '.' });
 }
 
 // `kind` mapping mirrors gradeToScorePill in MomentDetailScreen — keep them
@@ -57,12 +66,13 @@ function tagline(w) {
 }
 
 export default function ResultsListView({ cards, onCardPress, onAdjustSearch }) {
+  const { t } = useTranslation('moment');
   if (!cards || cards.length === 0) {
     return <ListEmptyState onAdjustSearch={onAdjustSearch} />;
   }
   return (
     <View>
-      <Text className="font-ui text-[14px] text-muted">Strongest moments first</Text>
+      <Text className="font-ui text-[14px] text-muted">{t('results.lead')}</Text>
       <View className="gap-3 mt-4">
         {cards.map((c, i) => (
           <Card
@@ -77,6 +87,7 @@ export default function ResultsListView({ cards, onCardPress, onAdjustSearch }) 
 }
 
 function Card({ card, onPress }) {
+  const { t } = useTranslation('moment');
   const { representative: w, count, dateText, timePrimary, timeSecondary } = card;
 
   return (
@@ -110,7 +121,7 @@ function Card({ card, onPress }) {
       ) : null}
       {count > 1 ? (
         <Text className="font-ui text-[12px] text-muted mt-[6px]">
-          {count} moments today · tap for the strongest
+          {t('results.countMore', { count })}
         </Text>
       ) : null}
       <Text
@@ -123,18 +134,19 @@ function Card({ card, onPress }) {
 }
 
 function ListEmptyState({ onAdjustSearch }) {
+  const { t } = useTranslation('moment');
   return (
     <View className="pt-8 items-center gap-4">
       <Text className="font-display-reg text-[22px] leading-[30px] text-cream text-center max-w-[300px]">
-        No viable windows in your range
+        {t('results.emptyTitle')}
       </Text>
       <Text className="font-ui text-[14px] leading-5 text-muted text-center max-w-[280px]">
-        Try widening your search or moving to a different month.
+        {t('results.emptyBody')}
       </Text>
       <Pressable
         onPress={onAdjustSearch}
         className="mt-4 py-3 px-8 rounded-full border border-glow active:opacity-[0.85]">
-        <Text className="font-ui-med text-[15px] text-cream">Adjust search</Text>
+        <Text className="font-ui-med text-[15px] text-cream">{t('results.adjust')}</Text>
       </Pressable>
     </View>
   );

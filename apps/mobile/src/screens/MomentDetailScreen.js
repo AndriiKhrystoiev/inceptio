@@ -5,6 +5,8 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Share2, ChevronRight, Bookmark } from 'lucide-react-native';
 import HeroGradient from '../components/HeroGradient';
@@ -55,22 +57,32 @@ function buildRequest() {
   return { activity, start: today, end: endDate, ...locationToRequestFields(loc) };
 }
 
+// Grade-word lookup (VOICE, en-only — ruling-flavored, stays English this phase).
+// REVIEW: grade words carry a traditional-astrology register (favorable / move
+// with care) — values pending native + astrology-literate review pre-launch.
+// Nested under voice.moment.grade.*, traversed with an explicit keySeparator '.'
+// (global config sets keySeparator:false).
+function gradeVoice(key) {
+  return i18n.t(`moment.grade.${key}`, { ns: 'voice', keySeparator: '.' });
+}
+
 // Grade → ScorePill props mapping. The `kind` names align 1:1 with
 // ScorePill.STYLE_BY_KIND so colors track the API grade directly.
 // API's 'good' (observed on score 75-81 windows) maps to the visual 'strong'
-// tier per CLAUDE.md's score-grade calibration.
+// tier per CLAUDE.md's score-grade calibration. Labels resolve via gradeVoice.
 function gradeToScorePill(grade) {
-  if (grade === 'exceptional')               return { kind: 'exceptional', label: 'Exceptional moment' };
-  if (grade === 'strong' || grade === 'good') return { kind: 'strong',      label: 'Highly favorable' };
-  if (grade === 'fair')                       return { kind: 'fair',        label: 'Favorable' };
-  if (grade === 'caution')                    return { kind: 'caution',     label: 'Move with care' };
-  if (grade === 'poor')                       return { kind: 'poor',        label: 'Not recommended' };
+  if (grade === 'exceptional')               return { kind: 'exceptional', label: gradeVoice('exceptional') };
+  if (grade === 'strong' || grade === 'good') return { kind: 'strong',      label: gradeVoice('strong') };
+  if (grade === 'fair')                       return { kind: 'fair',        label: gradeVoice('favorable') };
+  if (grade === 'caution')                    return { kind: 'caution',     label: gradeVoice('caution') };
+  if (grade === 'poor')                       return { kind: 'poor',        label: gradeVoice('poor') };
   // Defensive: unknown grade → neutral favorable. Should not happen with
   // the current Worker grade values, but the Zod schema is permissive.
-  return { kind: 'fair', label: 'Favorable' };
+  return { kind: 'fair', label: gradeVoice('favorable') };
 }
 
 export default function MomentDetailScreen({ go }) {
+  const { t } = useTranslation('moment');
   const [showTechnical, setShowTechnical] = useState(false);
   const [cardOpen, setCardOpen] = useState(false);
 
@@ -99,7 +111,7 @@ export default function MomentDetailScreen({ go }) {
     return (
       <View className="flex-1 bg-base items-center justify-center gap-6">
         <Pulse />
-        <Text className="font-ui text-[14px] text-muted">Reading this moment...</Text>
+        <Text className="font-ui text-[14px] text-muted">{t('reading')}</Text>
       </View>
     );
   }
@@ -118,14 +130,14 @@ export default function MomentDetailScreen({ go }) {
     return (
       <View className="flex-1 bg-base items-center justify-center px-8">
         <Text className="font-display-reg text-[22px] leading-[30px] text-cream text-center">
-          No window data available. Try searching again.
+          {t('noWindow')}
         </Text>
       </View>
     );
   }
 
   const displayable = w.displayable ?? {};
-  const headline = displayable.headline ?? w.rationale ?? 'A moment to consider.';
+  const headline = displayable.headline ?? w.rationale ?? t('fallback.headline');
   const pillProps = gradeToScorePill(w.grade);
 
   // Time display — variant-driven, always derived from the API window
@@ -173,18 +185,18 @@ export default function MomentDetailScreen({ go }) {
       headline,
       saved_at: new Date().toISOString(),
     });
-    showToast('Saved to Your moments');
+    showToast(t('toast.saved'));
   }
 
   async function handleAddToCalendar() {
     if (!w) return;
     const result = await addWindowToCalendar(w, activity, city);
     if (result.ok) {
-      showToast('Added to your phone calendar');
+      showToast(t('toast.calendarAdded'));
     } else if (result.reason === 'permission') {
-      showToast('Calendar access denied. Enable it in Settings.', 'warn');
+      showToast(t('toast.calendarDenied'), 'warn');
     } else {
-      showToast(`Couldn't add: ${result.message}`, 'warn');
+      showToast(t('toast.calendarError', { message: result.message }), 'warn');
     }
   }
 
@@ -202,7 +214,7 @@ export default function MomentDetailScreen({ go }) {
         <Starfield density="heavy" />
         <SafeAreaView edges={['top']}>
           <View className="px-4 pt-2 flex-row items-center justify-between">
-            <IconBtn onPress={() => go('calendar')} label="Back">
+            <IconBtn onPress={() => go('calendar')} label={t('common:back')}>
               <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5} />
             </IconBtn>
             {/* Single share affordance: the footer Save/Share action row (below).
@@ -238,7 +250,7 @@ export default function MomentDetailScreen({ go }) {
         </Text>
         <View className="flex-1">
           <StatusLine score="" grade={w.grade} />
-          <Text className="font-ui text-[12px] text-subtle mt-[6px]">moment score · out of 100</Text>
+          <Text className="font-ui text-[12px] text-subtle mt-[6px]">{t('scoreCaption')}</Text>
         </View>
       </View>
 
@@ -252,7 +264,7 @@ export default function MomentDetailScreen({ go }) {
           weight_class filter for fails, synthetic-window fallback). */}
       {!showTechnical && (
         <View className="px-6 pt-8">
-          <Text className="font-ui-med text-[13px] text-muted">Why this moment</Text>
+          <Text className="font-ui-med text-[13px] text-muted">{t('whyThis')}</Text>
           <View className="mt-4 gap-4">
             {narrative.length > 0 ? (
               narrative.map((p, i) => (
@@ -273,7 +285,7 @@ export default function MomentDetailScreen({ go }) {
               <Pressable
                 onPress={() => setShowTechnical(true)}
                 className="flex-row items-center gap-[6px] p-2">
-                <Text className="font-ui-med text-[14px] text-muted">See technical details</Text>
+                <Text className="font-ui-med text-[14px] text-muted">{t('seeTechnical')}</Text>
                 <ChevronRight color="#B8B0CC" size={14} strokeWidth={1.5} />
               </Pressable>
             </View>
@@ -284,11 +296,11 @@ export default function MomentDetailScreen({ go }) {
       {/* L3 Technical view — factor_id, weight_class, status, contribution, observation, details */}
       {showTechnical && (
         <View className="px-6 pt-8">
-          <Text className="font-ui-med text-[13px] text-muted">Technical details</Text>
+          <Text className="font-ui-med text-[13px] text-muted">{t('technicalTitle')}</Text>
           <View className="mt-4 gap-4">
             {rawFactors.length === 0 ? (
               <Text className="font-ui text-base leading-[26px] text-cream">
-                No factor data is available for this day. The summary view shows everything we have.
+                {t('technical.noFactors')}
               </Text>
             ) : (
               rawFactors.map((f, i) => (
@@ -311,26 +323,26 @@ export default function MomentDetailScreen({ go }) {
             <Pressable
               onPress={() => setShowTechnical(false)}
               className="flex-row items-center gap-[6px] p-2">
-              <Text className="font-ui-med text-[14px] text-muted">Back to summary</Text>
+              <Text className="font-ui-med text-[14px] text-muted">{t('backToSummary')}</Text>
             </Pressable>
           </View>
         </View>
       )}
 
       <View className="px-6 mt-12">
-        <PrimaryButton onPress={handleAddToCalendar}>Add to phone calendar</PrimaryButton>
+        <PrimaryButton onPress={handleAddToCalendar}>{t('addToCalendar')}</PrimaryButton>
         <View className="flex-row gap-2 mt-3">
           <SecondaryButton
             style={{ flex: 1 }}
             icon={<Bookmark color="#F5EFE4" size={16} strokeWidth={1.5} />}
             onPress={handleSave}>
-            Save
+            {t('common:save')}
           </SecondaryButton>
           <SecondaryButton
             style={{ flex: 1 }}
             icon={<Share2 color="#F5EFE4" size={16} strokeWidth={1.5} />}
             onPress={handleShare}>
-            Share
+            {t('common:share')}
           </SecondaryButton>
         </View>
       </View>

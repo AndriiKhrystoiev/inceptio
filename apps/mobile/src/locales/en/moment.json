@@ -1,1 +1,22 @@
-{}
+{
+  "reading": "Reading this moment…",
+  "noWindow": "No window data available. Try searching again.",
+  "fallback.headline": "A moment to consider.",
+  "scoreCaption": "moment score · out of 100",
+  "whyThis": "Why this moment",
+  "seeTechnical": "See technical details",
+  "technicalTitle": "Technical details",
+  "technical.noFactors": "No factor data is available for this day. The summary view shows everything we have.",
+  "backToSummary": "Back to summary",
+  "addToCalendar": "Add to phone calendar",
+  "toast.saved": "Saved to Your moments",
+  "toast.calendarAdded": "Added to your phone calendar",
+  "toast.calendarDenied": "Calendar access denied. Enable it in Settings.",
+  "toast.calendarError": "Couldn't add: {{message}}",
+  "results.lead": "Strongest moments first",
+  "results.countMore_one": "{{count}} moment today · tap for the strongest",
+  "results.countMore_other": "{{count}} moments today · tap for the strongest",
+  "results.emptyTitle": "No viable windows in your range",
+  "results.emptyBody": "Try widening your search or moving to a different month.",
+  "results.adjust": "Adjust search"
+}

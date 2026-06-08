@@ -1,1 +1,22 @@
-{}
+{
+  "reading": "Leyendo este momento…",
+  "noWindow": "No hay datos de ventana disponibles. Conviene buscar de nuevo.",
+  "fallback.headline": "Un momento para considerar.",
+  "scoreCaption": "puntaje del momento · sobre 100",
+  "whyThis": "Por qué este momento",
+  "seeTechnical": "Ver detalles técnicos",
+  "technicalTitle": "Detalles técnicos",
+  "technical.noFactors": "No hay datos de factores para este día. La vista de resumen muestra todo lo que tenemos.",
+  "backToSummary": "Volver al resumen",
+  "addToCalendar": "Agregar al calendario del teléfono",
+  "toast.saved": "Guardado en Tus momentos",
+  "toast.calendarAdded": "Agregado al calendario del teléfono",
+  "toast.calendarDenied": "Acceso al calendario denegado. Conviene activarlo en Ajustes.",
+  "toast.calendarError": "No se pudo agregar: {{message}}",
+  "results.lead": "Los momentos más fuertes primero",
+  "results.countMore_one": "{{count}} momento hoy · tocar para el más fuerte",
+  "results.countMore_other": "{{count}} momentos hoy · tocar para el más fuerte",
+  "results.emptyTitle": "Sin ventanas favorables en tu rango",
+  "results.emptyBody": "Conviene ampliar la búsqueda o pasar a otro mes.",
+  "results.adjust": "Ajustar búsqueda"
+}

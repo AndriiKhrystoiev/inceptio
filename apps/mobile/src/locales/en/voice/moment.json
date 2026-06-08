@@ -1,1 +1,16 @@
-{}
+{
+  "grade": {
+    "exceptional": "Exceptional moment",
+    "strong": "Highly favorable",
+    "favorable": "Favorable",
+    "caution": "Move with care",
+    "poor": "Not recommended"
+  },
+  "results": {
+    "exceptional": "Exceptional",
+    "strong": "Strong",
+    "favorable": "Favorable",
+    "caution": "Move with care",
+    "poor": "Not recommended"
+  }
+}

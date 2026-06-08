@@ -1,1 +1,22 @@
-{}
+{
+  "reading": "Dieser Moment wird gelesen…",
+  "noWindow": "Keine Fensterdaten verfügbar. Versuche eine neue Suche.",
+  "fallback.headline": "Ein Moment zum Nachdenken.",
+  "scoreCaption": "Moment-Wert · von 100",
+  "whyThis": "Warum dieser Moment",
+  "seeTechnical": "Technische Details ansehen",
+  "technicalTitle": "Technische Details",
+  "technical.noFactors": "Für diesen Tag liegen keine Faktordaten vor. Die Übersicht zeigt alles, was wir haben.",
+  "backToSummary": "Zurück zur Übersicht",
+  "addToCalendar": "Zum Telefonkalender hinzufügen",
+  "toast.saved": "In Deinen Momenten gespeichert",
+  "toast.calendarAdded": "Zu Deinem Telefonkalender hinzugefügt",
+  "toast.calendarDenied": "Kalenderzugriff verweigert. Aktiviere ihn in den Einstellungen.",
+  "toast.calendarError": "Konnte nicht hinzugefügt werden: {{message}}",
+  "results.lead": "Stärkste Momente zuerst",
+  "results.countMore_one": "{{count}} Moment heute · tippe für den stärksten",
+  "results.countMore_other": "{{count}} Momente heute · tippe für den stärksten",
+  "results.emptyTitle": "Keine geeigneten Fenster in Deinem Zeitraum",
+  "results.emptyBody": "Erweitere Deine Suche oder wähle einen anderen Monat.",
+  "results.adjust": "Suche anpassen"
+}
