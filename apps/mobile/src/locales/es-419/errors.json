@@ -1,1 +1,9 @@
-{}
+{
+  "network": "No podemos alcanzar el cielo en este momento. Conviene revisar la conexión.",
+  "timeout": "El cielo está tardando más de lo habitual. Mejor reintentar en un momento.",
+  "rateLimit": "Ya se usaron las búsquedas de hoy. A medianoche se abre un nuevo conjunto.",
+  "quota": "El observatorio del cielo está lleno hoy. Mejor reintentar más tarde.",
+  "schema": "Llegó algo inesperado. Conviene reintentar.",
+  "dateRange": "Ese rango de fechas es demasiado largo. Mejor probar con un año o menos.",
+  "server": "Algo salió mal. Conviene reintentar."
+}

@@ -1,1 +1,9 @@
-{}
+{
+  "network": "Nous ne pouvons pas joindre le ciel pour l'instant. Vérifie ta connexion.",
+  "timeout": "Le ciel prend plus de temps que d'habitude. Réessaie dans un instant.",
+  "rateLimit": "Tu as utilisé les recherches d'aujourd'hui. Une nouvelle série s'ouvre à minuit.",
+  "quota": "L'observatoire du ciel est complet aujourd'hui. Réessaie plus tard.",
+  "schema": "Une réponse inattendue est arrivée. Réessaie.",
+  "dateRange": "Cette plage de dates est trop longue. Essaie un an ou moins.",
+  "server": "Une erreur s'est produite. Réessaie."
+}

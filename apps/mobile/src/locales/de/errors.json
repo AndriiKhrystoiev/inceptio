@@ -1,1 +1,9 @@
-{}
+{
+  "network": "Wir erreichen den Himmel gerade nicht. Prüfe deine Verbindung.",
+  "timeout": "Der Himmel braucht länger als sonst. Versuche es gleich noch einmal.",
+  "rateLimit": "Du hast die heutigen Suchen genutzt. Um Mitternacht öffnet sich ein neuer Satz.",
+  "quota": "Die Sternwarte des Himmels ist heute voll. Bitte versuche es später noch einmal.",
+  "schema": "Es kam etwas Unerwartetes zurück. Bitte versuche es noch einmal.",
+  "dateRange": "Dieser Zeitraum ist zu lang. Versuche es mit einem Jahr oder weniger.",
+  "server": "Etwas ist schiefgelaufen. Bitte versuche es noch einmal."
+}

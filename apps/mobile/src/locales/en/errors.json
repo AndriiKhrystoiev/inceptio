@@ -1,1 +1,9 @@
-{}
+{
+  "network": "We can't reach the sky right now. Check your connection.",
+  "timeout": "The sky is taking longer than usual. Try again in a moment.",
+  "rateLimit": "You've used today's searches. A new set opens at midnight.",
+  "quota": "The sky's observatory is full today. Please try again later.",
+  "schema": "Something unexpected came back. Please try again.",
+  "dateRange": "That date range is too long. Try one year or less.",
+  "server": "Something went wrong. Please try again."
+}

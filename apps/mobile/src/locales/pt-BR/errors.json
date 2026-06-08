@@ -1,1 +1,9 @@
-{}
+{
+  "network": "Não conseguimos alcançar o céu agora. Confira a sua conexão.",
+  "timeout": "O céu está demorando mais que o normal. Tente novamente em um instante.",
+  "rateLimit": "Você já usou as buscas de hoje. Um novo conjunto abre à meia-noite.",
+  "quota": "O observatório do céu está cheio hoje. Tente novamente mais tarde.",
+  "schema": "Veio algo inesperado. Tente novamente.",
+  "dateRange": "Esse intervalo de datas é longo demais. Tente um ano ou menos.",
+  "server": "Algo deu errado. Tente novamente."
+}
