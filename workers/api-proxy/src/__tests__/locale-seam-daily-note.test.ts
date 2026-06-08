@@ -125,6 +125,34 @@ describe('handleDailyNote — X-Locale accept + validate + ignore', () => {
     expect([...a.store.keys()]).toEqual([...b.store.keys()]);
   });
 
+  it('strong-form O2: locale-A (pt-BR) vs locale-B (de) write IDENTICAL cache key sets', async () => {
+    // The strong inverse the VOICE phase will deliberately flip: two requests
+    // identical except X-Locale (pt-BR vs de), same lat/lng/tz/device/activity,
+    // must produce the SAME written KV key set today (locale is header-only and
+    // never enters the key). The existing test covers with-locale vs no-header;
+    // this asserts locale-A vs locale-B so a future per-locale key split fails
+    // here loudly rather than silently passing the absent-vs-present case.
+    const a = makeEnv();
+    const resA = await handleDailyNote(
+      makeRequest('lat=50.45&lng=30.52&tz=UTC', {
+        'X-Device-Id': 'd1',
+        'X-Locale': 'pt-BR',
+      }),
+      a.env,
+    );
+    const b = makeEnv();
+    const resB = await handleDailyNote(
+      makeRequest('lat=50.45&lng=30.52&tz=UTC', {
+        'X-Device-Id': 'd1',
+        'X-Locale': 'de',
+      }),
+      b.env,
+    );
+    expect(resA.status).toBe(200);
+    expect(resB.status).toBe(200);
+    expect([...a.store.keys()]).toEqual([...b.store.keys()]);
+  });
+
   it('the ?tz= query param remains the tz transport (locale is header-only, O2)', async () => {
     // The O2 invariant: locale rides as a header and must NEVER enter the cache
     // key; tz stays the only transport that shapes the key. Assert that directly
