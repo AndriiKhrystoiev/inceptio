@@ -10,6 +10,7 @@
 // month — there's no useful data behind it.
 
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, ScrollView, StyleSheet, Pressable, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Share2, ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -38,7 +39,8 @@ const FALLBACK_LOCATION = {
   city: 'Kyiv',
 };
 
-const DAY_LABELS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+// Day-column order (Monday-first). Labels are localized via t('day.<key>').
+const DAY_KEYS = ['day.mon', 'day.tue', 'day.wed', 'day.thu', 'day.fri', 'day.sat', 'day.sun'];
 
 const FMT_MONTH_YEAR = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
 const FMT_MON_DAY    = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
@@ -108,6 +110,7 @@ function classifyCell({ outOfRange, day, dayWindows }) {
 }
 
 export default function CalendarScreen({ go }) {
+  const { t } = useTranslation('calendar');
   const [sheet, setSheet] = useState(null);
 
   // 'list' | 'calendar'. Initialised from storage (persists across in-session
@@ -184,10 +187,10 @@ export default function CalendarScreen({ go }) {
   // can have 5 viable days that together yield 12 viable windows.
   const viableWindowsCount = summary?.viable_windows_count ?? 0;
   const headerCopy = noViable
-    ? 'No viable windows in this range. The closest moments still exist — see below.'
+    ? t('header.noViable')
     : viableWindowsCount < 5
-    ? `Just ${viableWindowsCount} viable window${viableWindowsCount === 1 ? '' : 's'} in your range — they're worth attention.`
-    : `${viableWindowsCount} viable windows in your range`;
+    ? t('header.few', { count: viableWindowsCount })
+    : t('header.many', { count: viableWindowsCount });
 
   // Day-level pills above the grid. Buckets mirror the cell rendering, so
   // pill totals always agree with what's drawn:
@@ -367,7 +370,7 @@ export default function CalendarScreen({ go }) {
     return (
       <View className="flex-1 bg-base items-center justify-center gap-6">
         <Pulse />
-        <Text className="font-ui text-[14px] text-muted">Reading the calendar...</Text>
+        <Text className="font-ui text-[14px] text-muted">{t('loading')}</Text>
       </View>
     );
   }
@@ -379,7 +382,7 @@ export default function CalendarScreen({ go }) {
           {friendlyMessage(error)}
         </Text>
         <Pressable onPress={() => refetch()}>
-          <Text className="font-ui-med text-[14px] text-primary-glow">Try again</Text>
+          <Text className="font-ui-med text-[14px] text-primary-glow">{t('common:tryAgain')}</Text>
         </Pressable>
       </View>
     );
@@ -392,13 +395,13 @@ export default function CalendarScreen({ go }) {
         <Starfield density="heavy" />
         <SafeAreaView edges={['top']}>
           <View className="px-4 pt-2 flex-row items-center justify-between">
-            <IconBtn onPress={() => go('today')} label="Back">
+            <IconBtn onPress={() => go('today')} label={t('common:back')}>
               <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5} />
             </IconBtn>
             <Text className="font-display text-[18px] text-cream tracking-[-0.2px]" style={{ textTransform: 'capitalize' }}>
               {activityLabel} · {cityLabel}
             </Text>
-            <IconBtn label="Share">
+            <IconBtn label={t('common:share')}>
               <Share2 color="#F5EFE4" size={20} strokeWidth={1.5} />
             </IconBtn>
           </View>
@@ -416,12 +419,12 @@ export default function CalendarScreen({ go }) {
 
           <View className="flex-row justify-center gap-2 mt-5 pb-6">
             <TogglePill
-              label="List"
+              label={t('toggle.list')}
               active={view === 'list'}
               onPress={() => handleViewChange('list')}
             />
             <TogglePill
-              label="Calendar"
+              label={t('toggle.calendar')}
               active={view === 'calendar'}
               onPress={() => handleViewChange('calendar')}
             />
@@ -463,11 +466,11 @@ export default function CalendarScreen({ go }) {
             bottom padding directly. */}
         <View className={`flex-row items-center gap-2 ${view === 'calendar' ? 'mt-5' : ''}`}>
           <Text className="font-ui-semi text-[11px] text-subtle tracking-[1px] uppercase mr-1">
-            Viable
+            {t('filter.label')}
           </Text>
-          <ViableFilterPill label="many" count={filterCounts.many} />
-          <ViableFilterPill label="few" count={filterCounts.few} />
-          <ViableFilterPill label="none" count={filterCounts.none} />
+          <ViableFilterPill label={t('filter.many')} count={filterCounts.many} />
+          <ViableFilterPill label={t('filter.few')} count={filterCounts.few} />
+          <ViableFilterPill label={t('filter.none')} count={filterCounts.none} />
         </View>
 
         {/* List view — alternate visualisation of top_windows. Same data
@@ -489,9 +492,9 @@ export default function CalendarScreen({ go }) {
         {/* Day labels */}
         {view === 'calendar' && <>
         <View className="flex-row mt-5">
-          {DAY_LABELS.map((d) => (
-            <View key={d} style={styles.cellSlot}>
-              <Text className="font-ui-med text-[12px] text-subtle text-center">{d}</Text>
+          {DAY_KEYS.map((dk) => (
+            <View key={dk} style={styles.cellSlot}>
+              <Text className="font-ui-med text-[12px] text-subtle text-center">{t(dk)}</Text>
             </View>
           ))}
         </View>
@@ -536,9 +539,9 @@ export default function CalendarScreen({ go }) {
                     duration_minutes: null,
                     factors: [],
                     displayable: {
-                      headline: 'A window worth looking at.',
+                      headline: t('closest.fallbackHeadline'),
                       factors: [],
-                      tagline: { phrase_short: 'A window worth looking at' },
+                      tagline: { phrase_short: t('closest.fallbackTagline') },
                     },
                     rank: -1,
                     _synthetic: true,
@@ -574,8 +577,12 @@ export default function CalendarScreen({ go }) {
             <View className="w-[20px] items-center">
               <Glyph name="moon-void" size={16} color="#B8B0CC" />
             </View>
+            {/* VOICE legend line — ruling-dependent astrology copy. Companion to
+                voice:reason.moon_voc (A7), which drives the blocked-sheet body.
+                The voice ns nests each sub-file under its name (voice.calendar =
+                calendar.json), so we traverse with a per-call keySeparator '.'. */}
             <Text className="flex-1 font-ui text-[14px] leading-[20px] text-muted">
-              Moon void of course — the sky is between rooms
+              {t('voice:calendar.legend.moonVoid', { keySeparator: '.' })}
             </Text>
           </View>
           <View className="flex-row items-center gap-3">
@@ -583,7 +590,7 @@ export default function CalendarScreen({ go }) {
               <Glyph name="malefic-angle" size={16} color="#B8B0CC" />
             </View>
             <Text className="flex-1 font-ui text-[14px] leading-[20px] text-muted">
-              A difficult planet rises — move with care
+              {t('voice:calendar.legend.malefic', { keySeparator: '.' })}
             </Text>
           </View>
           <View className="flex-row items-center gap-3">
@@ -594,11 +601,11 @@ export default function CalendarScreen({ go }) {
               />
             </View>
             <Text className="flex-1 font-ui text-[14px] leading-[20px] text-muted">
-              Outside your search range
+              {t('legend.outsideRange')}
             </Text>
           </View>
           <Text className="font-ui text-[12px] leading-[18px] text-muted mt-2">
-            Filled cells show available windows. Gold rings mark the strongest.
+            {t('legend.cells')}
           </Text>
         </View>
         </>}
@@ -607,7 +614,7 @@ export default function CalendarScreen({ go }) {
             In list view the cards already surface top_windows ranked. */}
         {view === 'calendar' && noViable && topWindows.length > 0 && (
           <View className="mt-7">
-            <Text className="font-display-reg text-[20px] leading-[26px] text-cream">The closest moments</Text>
+            <Text className="font-display-reg text-[20px] leading-[26px] text-cream">{t('closest.title')}</Text>
             <View className="gap-[10px] mt-3">
               {topWindows.slice(0, 3).map((w, i) => {
                 const displayable = w.displayable ?? {};
@@ -621,7 +628,7 @@ export default function CalendarScreen({ go }) {
                   <WindowCard
                     key={w.rank ?? i}
                     date={wDate}
-                    time={displayable.headline ?? w.rationale ?? 'A window to consider.'}
+                    time={displayable.headline ?? w.rationale ?? t('closest.fallbackTime')}
                     score={w.score}
                     grade={w.grade}
                     onPress={() => {
@@ -783,7 +790,13 @@ function TogglePill({ label, active, onPress }) {
 }
 
 function BlockedSheet({ sheet, onClose }) {
-  const friendly = FRIENDLY_REASON[sheet.reason] || { title: 'A pause day', body: 'The sky asks us to wait.' };
+  const { t } = useTranslation('calendar');
+  // Reason copy comes from voice:reason (A7) via FRIENDLY_REASON; the CHROME
+  // fallback here covers unknown/permissive reason ids.
+  const friendly = FRIENDLY_REASON[sheet.reason] || {
+    title: t('sheet.fallbackTitle'),
+    body: t('sheet.fallbackBody'),
+  };
   return (
     <View className="flex-1 justify-end">
       <Pressable
@@ -799,7 +812,7 @@ function BlockedSheet({ sheet, onClose }) {
             <Glyph name={reasonToGlyph(sheet.reason)} size={22} color="#B8B0CC" />
           </View>
           <View className="flex-1">
-            <Text className="font-ui-semi text-[11px] text-subtle tracking-[0.8px]">DAY {sheet.day}</Text>
+            <Text className="font-ui-semi text-[11px] text-subtle tracking-[0.8px]">{t('sheet.dayLabel', { day: sheet.day })}</Text>
             <Text className="font-display-reg text-[20px] leading-[26px] text-cream mt-1">
               {friendly.title}
             </Text>
@@ -808,7 +821,7 @@ function BlockedSheet({ sheet, onClose }) {
         <Text className="font-ui text-[14px] leading-5 text-muted mt-[14px]">{friendly.body}</Text>
         <View className="mt-5">
           <SecondaryButton onPress={onClose} style={{ width: '100%' }}>
-            Got it
+            {t('sheet.gotIt')}
           </SecondaryButton>
         </View>
       </View>
