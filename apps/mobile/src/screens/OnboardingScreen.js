@@ -3,12 +3,14 @@
 import React from 'react';
 import { View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import Moon from '../components/Moon';
 import PrimaryButton from '../components/PrimaryButton';
 
 export default function OnboardingScreen({ go }) {
+  const { t } = useTranslation('onboarding');
   return (
     <View className="flex-1 bg-base">
       <HeroGradient height={900}/>
@@ -32,10 +34,10 @@ export default function OnboardingScreen({ go }) {
         {/* Headline */}
         <View className="items-center">
           <Text className="font-display-reg text-[32px] leading-[40px] tracking-[-0.3px] text-cream text-center max-w-[320px]">
-            Every beginning has its moment.
+            {t('headline')}
           </Text>
           <Text className="font-ui text-base leading-6 text-muted text-center mt-4 max-w-[320px]">
-            Inceptio reads the sky the way astrologers have for centuries — and helps you find the right time to start what matters: a wedding, a launch, a journey, a fresh page.
+            {t('subhead')}
           </Text>
         </View>
 
@@ -44,9 +46,9 @@ export default function OnboardingScreen({ go }) {
 
         {/* Action */}
         <View className="pb-8">
-          <PrimaryButton onPress={() => go('today')}>Find your moment</PrimaryButton>
+          <PrimaryButton onPress={() => go('today')}>{t('cta')}</PrimaryButton>
           <Text className="font-ui text-[13px] text-subtle text-center mt-5">
-            No account needed
+            {t('noAccount')}
           </Text>
         </View>
       </SafeAreaView>

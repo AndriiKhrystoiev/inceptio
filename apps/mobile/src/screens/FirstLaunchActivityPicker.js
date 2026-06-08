@@ -17,6 +17,7 @@
 import React, { useState } from 'react';
 import { View, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import PrimaryButton from '../components/PrimaryButton';
@@ -32,6 +33,7 @@ const ALL_ACTIVITIES = ['wedding', 'contracts', 'business_launch', 'travel'];
  * @param {{ go: (screen: string) => void }} props
  */
 export default function FirstLaunchActivityPicker({ go }) {
+  const { t } = useTranslation('onboarding');
   // Read-once on mount: pre-select from KEY_LAST_ACTIVITY as a migration
   // courtesy. getLastActivity() returns null for fresh installs, which means
   // no preselection and Continue stays disabled until the user picks.
@@ -56,10 +58,10 @@ export default function FirstLaunchActivityPicker({ go }) {
         {/* Headline */}
         <View className="items-center">
           <Text className="font-display text-[32px] leading-[40px] tracking-[-0.3px] text-cream text-center max-w-[320px]">
-            Welcome to Inceptio
+            {t('welcome')}
           </Text>
           <Text className="font-ui text-[15px] leading-[22px] text-muted text-center mt-4 max-w-[300px]">
-            What kind of moment would you like to find first?
+            {t('prompt')}
           </Text>
         </View>
 
@@ -88,12 +90,12 @@ export default function FirstLaunchActivityPicker({ go }) {
               stable query target without touching the shared component. */}
           <View testID="first-launch-continue">
             <PrimaryButton onPress={onContinue} disabled={!selected}>
-              Continue
+              {t('common:continue')}
             </PrimaryButton>
           </View>
           {/* Hint text reassures users that this isn't permanent */}
           <Text className="font-ui text-[13px] text-muted text-center mt-5">
-            You can change this anytime in You → Settings.
+            {t('changeHint')}
           </Text>
         </View>
       </SafeAreaView>
