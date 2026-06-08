@@ -3,6 +3,7 @@
 // Shows top-3 most-frequent excluded range reason IDs with their phrases.
 
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, X, ChevronRight } from 'lucide-react-native';
@@ -61,6 +62,7 @@ function topExcludedReasons(excludedRanges) {
 }
 
 export default function NoViableScreen({ go }) {
+  const { t } = useTranslation('noviable');
   const request = useMemo(() => buildRequest(), []);
   const { data: result, isLoading, isError, error } = useElectionalSearch(request);
 
@@ -81,7 +83,7 @@ export default function NoViableScreen({ go }) {
     return (
       <View className="flex-1 bg-base items-center justify-center gap-6">
         <Pulse />
-        <Text className="font-ui text-[14px] text-muted">Reading the sky...</Text>
+        <Text className="font-ui text-[14px] text-muted">{t('reading')}</Text>
       </View>
     );
   }
@@ -93,7 +95,7 @@ export default function NoViableScreen({ go }) {
           {friendlyMessage(error)}
         </Text>
         <Pressable onPress={() => go('date')}>
-          <Text className="font-ui-med text-[14px] text-primary-glow">Try a different range</Text>
+          <Text className="font-ui-med text-[14px] text-primary-glow">{t('tryRange')}</Text>
         </Pressable>
       </View>
     );
@@ -108,7 +110,7 @@ export default function NoViableScreen({ go }) {
         </View>
         <SafeAreaView edges={['top']}>
           <View className="px-4 pt-2 flex-row items-center justify-between">
-            <IconBtn onPress={() => go('location')} label="Back">
+            <IconBtn onPress={() => go('location')} label={t('common:back')}>
               <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5} />
             </IconBtn>
             <Text
@@ -116,7 +118,7 @@ export default function NoViableScreen({ go }) {
               style={{ textTransform: 'capitalize' }}>
               {activityLabel} · {cityLabel}
             </Text>
-            <IconBtn onPress={() => go('today')} label="Close">
+            <IconBtn onPress={() => go('today')} label={t('common:close')}>
               <X color="#F5EFE4" size={22} strokeWidth={1.5} />
             </IconBtn>
           </View>
@@ -142,16 +144,18 @@ export default function NoViableScreen({ go }) {
           </View>
         )}
 
-        <Text className="font-ui text-base leading-[26px] text-cream mt-[14px]">You have a few options.</Text>
+        <Text className="font-ui text-base leading-[26px] text-cream mt-[14px]">{t('optionsLead')}</Text>
 
         <View className="mt-6 gap-[10px]">
-          <CTA onPress={() => go('date')}>Widen the range</CTA>
-          <CTA onPress={() => go('picker')}>Try a different activity</CTA>
-          <CTA onPress={() => go('location')}>Try a different location</CTA>
+          <CTA onPress={() => go('date')}>{t('widen')}</CTA>
+          <CTA onPress={() => go('picker')}>{t('tryActivity')}</CTA>
+          <CTA onPress={() => go('location')}>{t('tryLocation')}</CTA>
         </View>
 
         <Text className="font-ui text-[12px] leading-[18px] text-subtle text-center mt-8">
-          {activityLabel.charAt(0).toUpperCase() + activityLabel.slice(1)} windows are rare — Inceptio finds them, even when they're brief.
+          {t('rareNote', {
+            activity: activityLabel.charAt(0).toUpperCase() + activityLabel.slice(1),
+          })}
         </Text>
       </View>
     </ScrollView>

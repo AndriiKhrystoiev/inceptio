@@ -1,1 +1,9 @@
-{}
+{
+  "reading": "Reading the sky...",
+  "tryRange": "Try a different range",
+  "optionsLead": "You have a few options.",
+  "widen": "Widen the range",
+  "tryActivity": "Try a different activity",
+  "tryLocation": "Try a different location",
+  "rareNote": "{{activity}} windows are rare — Inceptio finds them, even when they're brief."
+}

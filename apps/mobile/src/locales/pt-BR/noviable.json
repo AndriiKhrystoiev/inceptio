@@ -1,1 +1,9 @@
-{}
+{
+  "reading": "Lendo o céu...",
+  "tryRange": "Tentar outro período",
+  "optionsLead": "Você tem algumas opções.",
+  "widen": "Ampliar o período",
+  "tryActivity": "Tentar outra atividade",
+  "tryLocation": "Tentar outro local",
+  "rareNote": "As janelas para {{activity}} são raras — o Inceptio as encontra, mesmo quando são breves."
+}

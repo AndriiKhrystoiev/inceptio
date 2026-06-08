@@ -1,1 +1,9 @@
-{}
+{
+  "reading": "Der Himmel wird gelesen...",
+  "tryRange": "Anderen Zeitraum versuchen",
+  "optionsLead": "Du hast ein paar Möglichkeiten.",
+  "widen": "Zeitraum erweitern",
+  "tryActivity": "Anderes Vorhaben versuchen",
+  "tryLocation": "Anderen Ort versuchen",
+  "rareNote": "{{activity}}-Zeitfenster sind selten — Inceptio findet sie, auch wenn sie nur kurz sind."
+}
