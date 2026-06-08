@@ -123,3 +123,5 @@ Partition: **Task 0 spine first (sequential, reserved review)** → then diction
 ## 11. Delivery
 
 Extend `i18n-chrome`; TDD; full suite + tsc green both packages; nothing ships until launch. Card-bound budget correctness is a launch gate; screen-bound overflow folds into the German layout pass.
+
+**DEPLOY NOTE (record on the Worker-prod deploy gate, for the accumulated undeployed Worker set):** bumping `TRANSLATIONS_VERSION` + `LIBRARY_VERSION` places a new version in the cache-key prefix → **invalidates the ENTIRE existing KV cache** → cold-start on first prod deploy (compute + an upstream astrology-api.io request spike as the cache refills). Not a plan issue; sequence/announce the deploy accordingly and check upstream-quota / cap-metrics headroom for the refill spike.
