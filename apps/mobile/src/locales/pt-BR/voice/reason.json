@@ -1,0 +1,46 @@
+{
+  "moon_voc": {
+    "title": "A Lua está entre os signos",
+    "body": "Decisões iniciadas agora tendem a se perder. Espere até a Lua entrar no próximo signo."
+  },
+  "moon_via_combusta": {
+    "title": "A Lua percorre um trecho delicado",
+    "body": "Um caminho do céu tradicionalmente frágil. É melhor deixar este dia passar."
+  },
+  "mercury_retrograde": {
+    "title": "Mercúrio está dormindo",
+    "body": "Palavras e acordos feitos agora costumam precisar de revisão. Tenha paciência."
+  },
+  "mercury_combust": {
+    "title": "Mercúrio está oculto pelo Sol",
+    "body": "As palavras não alcançam longe neste trecho. Guarde as conversas importantes."
+  },
+  "venus_retrograde": {
+    "title": "Vênus está descansando",
+    "body": "Um dia ruim para votos ou compromissos do coração."
+  },
+  "mars_retrograde": {
+    "title": "Marte está hesitando",
+    "body": "Gestos ousados não têm a mesma força agora. Pause as iniciativas."
+  },
+  "jupiter_retrograde": {
+    "title": "Júpiter se volta para dentro",
+    "body": "O crescimento pede paciência neste trecho. Planeje agora e expanda depois."
+  },
+  "saturn_retrograde": {
+    "title": "Saturno olha para dentro",
+    "body": "A estrutura está instável. Evite alicerces lançados hoje."
+  },
+  "eclipse_window": {
+    "title": "Dentro de uma janela de eclipse",
+    "body": "O céu fica volátil por duas semanas ao redor de um eclipse. A pausa começa agora."
+  },
+  "fixed_star_on_angle": {
+    "title": "Uma estrela fixa está sobre um ângulo",
+    "body": "Uma influência penetrante se ergue hoje. É melhor esperar passar."
+  },
+  "malefic_on_angle": {
+    "title": "Um planeta difícil se ergue hoje",
+    "body": "Uma posição tradicionalmente dura está em destaque. Aguarde."
+  }
+}

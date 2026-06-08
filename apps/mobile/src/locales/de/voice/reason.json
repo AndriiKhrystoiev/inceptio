@@ -1,0 +1,46 @@
+{
+  "moon_voc": {
+    "title": "Der Mond steht zwischen den Zeichen",
+    "body": "Jetzt begonnene Entscheidungen verlieren leicht den Halt. Warte, bis der Mond in sein nächstes Zeichen eintritt."
+  },
+  "moon_via_combusta": {
+    "title": "Der Mond geht durch eine empfindliche Strecke",
+    "body": "Ein traditionell heikler Himmelsabschnitt. Lass diesen Tag besser vorübergehen."
+  },
+  "mercury_retrograde": {
+    "title": "Merkur schläft",
+    "body": "Worte und Abmachungen von jetzt müssen oft noch einmal überdacht werden. Hab Geduld."
+  },
+  "mercury_combust": {
+    "title": "Merkur ist von der Sonne verdeckt",
+    "body": "Worte tragen in dieser Strecke nicht weit. Verschiebe die wichtigen Gespräche."
+  },
+  "venus_retrograde": {
+    "title": "Venus ruht",
+    "body": "Ein ungünstiger Tag für Versprechen oder Bindungen des Herzens."
+  },
+  "mars_retrograde": {
+    "title": "Mars zögert",
+    "body": "Mutige Schritte tragen gerade nicht dieselbe Kraft. Halte Vorhaben an."
+  },
+  "jupiter_retrograde": {
+    "title": "Jupiter wendet sich nach innen",
+    "body": "Wachstum braucht in dieser Strecke Geduld. Plane jetzt, entfalte später."
+  },
+  "saturn_retrograde": {
+    "title": "Saturn blickt nach innen",
+    "body": "Die Struktur ist instabil. Vermeide Fundamente, die heute gelegt werden."
+  },
+  "eclipse_window": {
+    "title": "Innerhalb eines Finsternis-Fensters",
+    "body": "Rund um eine Finsternis ist der Himmel zwei Wochen lang unruhig. Die Pause beginnt jetzt."
+  },
+  "fixed_star_on_angle": {
+    "title": "Ein Fixstern steht auf einer Achse",
+    "body": "Ein durchdringender Einfluss steigt heute auf. Warte ihn besser ab."
+  },
+  "malefic_on_angle": {
+    "title": "Ein schwieriger Planet steigt heute auf",
+    "body": "Eine traditionell harte Stellung ist prominent. Halte dich zurück."
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "grade": {
+    "exceptional": "Außergewöhnlicher Moment",
+    "strong": "Sehr günstig",
+    "favorable": "Günstig",
+    "caution": "Mit Bedacht vorgehen",
+    "poor": "Nicht empfohlen"
+  },
+  "results": {
+    "exceptional": "Außergewöhnlich",
+    "strong": "Stark",
+    "favorable": "Günstig",
+    "caution": "Mit Bedacht vorgehen",
+    "poor": "Nicht empfohlen"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "moon_voc": {
+    "title": "La Luna está entre signos",
+    "body": "Las decisiones que se inician ahora tienden a perder rumbo. Conviene esperar a que la Luna entre en su próximo signo."
+  },
+  "moon_via_combusta": {
+    "title": "La Luna atraviesa un tramo delicado",
+    "body": "Un trecho del cielo tradicionalmente frágil. Es mejor dejar pasar este día."
+  },
+  "mercury_retrograde": {
+    "title": "Mercurio duerme",
+    "body": "Las palabras y los acuerdos de ahora suelen necesitar una revisión. Conviene tener paciencia."
+  },
+  "mercury_combust": {
+    "title": "Mercurio está oculto por el Sol",
+    "body": "Las palabras no llegan lejos en este tramo. Mejor reservar las conversaciones importantes."
+  },
+  "venus_retrograde": {
+    "title": "Venus descansa",
+    "body": "Un mal día para votos o compromisos del corazón."
+  },
+  "mars_retrograde": {
+    "title": "Marte vacila",
+    "body": "Los movimientos audaces no tienen la misma fuerza ahora. Conviene pausar las iniciativas."
+  },
+  "jupiter_retrograde": {
+    "title": "Júpiter se vuelve hacia adentro",
+    "body": "El crecimiento pide paciencia en este tramo. Mejor planear ahora y expandir más adelante."
+  },
+  "saturn_retrograde": {
+    "title": "Saturno mira hacia adentro",
+    "body": "La estructura es inestable. Conviene evitar las bases que se asienten hoy."
+  },
+  "eclipse_window": {
+    "title": "Dentro de una ventana de eclipse",
+    "body": "El cielo está volátil durante dos semanas alrededor de un eclipse. La pausa comienza ahora."
+  },
+  "fixed_star_on_angle": {
+    "title": "Una estrella fija está sobre un ángulo",
+    "body": "Una influencia penetrante surge hoy. Es mejor esperar a que pase."
+  },
+  "malefic_on_angle": {
+    "title": "Un planeta difícil surge hoy",
+    "body": "Una posición tradicionalmente dura está prominente. Conviene aguardar."
+  }
+}
