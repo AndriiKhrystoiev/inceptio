@@ -151,11 +151,17 @@ export default function MomentDetailScreen({ go }) {
 
   const rawFactors = w.factors ?? []; // L3 technical view shows ALL raw factors
 
-  const windowDate = w.start
-    ? new Intl.DateTimeFormat(toIntlLocale(activeBundle()), { weekday: 'long', month: 'long', day: 'numeric' })
-        .format(new Date(w.start))
-        .replace(', ', ',\n')
-    : '';
+  // Weekday on its own line above the date. Split the formatters rather than
+  // string-replacing ", " — that separator is en/de-style; fr ("samedi 20 juin")
+  // has no comma, so a .replace would silently leave the weekday un-wrapped.
+  const windowDate = (() => {
+    if (!w.start) return '';
+    const d = new Date(w.start);
+    const loc = toIntlLocale(activeBundle());
+    const weekday = new Intl.DateTimeFormat(loc, { weekday: 'long' }).format(d);
+    const monthDay = new Intl.DateTimeFormat(loc, { month: 'long', day: 'numeric' }).format(d);
+    return `${weekday}\n${monthDay}`;
+  })();
   const city = getLastLocation()?.city ?? FALLBACK_LOCATION.city;
 
   // Toast state — single message at a time. Toast component handles its own

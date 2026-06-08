@@ -12,4 +12,6 @@
 
 **Fix:** apply the same pattern used in `time-of-day.ts` — render off `parseLocalInstant(rep.start).localAsUtc` with `{ ...FULL_DATE_OPTS, timeZone: 'UTC' }`. The `lib/card/iso-local.ts` `parseLocalInstant` helper already exists. Add a test with a window whose event-local date differs from UTC.
 
+**Also affected:** `apps/mobile/src/screens/MomentDetailScreen.js` `windowDate` formats `new Date(w.start)` with no `timeZone`, same device-tz off-by-one class. Same fix applies. (Its `.replace`-based weekday-wrap was made locale-robust during i18n Wave 4, but the device-tz date issue remains.)
+
 **Discovered:** 2026-06-08, during i18n-chrome branch Wave 3 review (A1). Independent reviewer flagged as W2.
