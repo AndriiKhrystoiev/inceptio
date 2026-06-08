@@ -6,6 +6,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react-native';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
@@ -16,13 +17,14 @@ import { getDraft } from '../lib/draft-store';
 import { friendlyMessage } from '../lib/error-messages';
 
 const STAGES = [
-  { from:  0, to:  5,  copy: 'Looking at the sky for you…' },
-  { from:  5, to: 15,  copy: 'Reading the planets’ positions…' },
-  { from: 15, to: 30,  copy: 'Considering each window…' },
-  { from: 30, to: 999, copy: 'Almost there — the sky takes its time…' },
+  { from:  0, to:  5,  key: 'stage1' },
+  { from:  5, to: 15,  key: 'stage2' },
+  { from: 15, to: 30,  key: 'stage3' },
+  { from: 30, to: 999, key: 'stage4' },
 ];
 
 export default function LoadingScreen({ go }) {
+  const { t } = useTranslation('loading');
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(Date.now());
 
@@ -79,7 +81,7 @@ export default function LoadingScreen({ go }) {
         </View>
         <SafeAreaView className="flex-1 px-6">
           <View className="flex-row items-center justify-between pt-1">
-            <IconBtn onPress={() => go('location')} label="Close">
+            <IconBtn onPress={() => go('location')} label={t('common:close')}>
               <X color="#F5EFE4" size={22} strokeWidth={1.5} />
             </IconBtn>
           </View>
@@ -94,7 +96,7 @@ export default function LoadingScreen({ go }) {
                 refetch();
               }}
               className="py-3 px-8 rounded-full border border-glow">
-              <Text className="font-ui-med text-[15px] text-cream">Try again</Text>
+              <Text className="font-ui-med text-[15px] text-cream">{t('common:tryAgain')}</Text>
             </Pressable>
           </View>
         </SafeAreaView>
@@ -111,7 +113,7 @@ export default function LoadingScreen({ go }) {
       <SafeAreaView className="flex-1 px-6">
         {/* Top bar */}
         <View className="flex-row items-center justify-between pt-1">
-          <IconBtn onPress={() => go('location')} label="Close">
+          <IconBtn onPress={() => go('location')} label={t('common:close')}>
             <X color="#F5EFE4" size={22} strokeWidth={1.5} />
           </IconBtn>
           <Text className="font-ui text-[13px] text-subtle">{Math.floor(elapsed)}s</Text>
@@ -126,7 +128,7 @@ export default function LoadingScreen({ go }) {
             {STAGES.map((s, i) => (
               <Fade key={i} active={i === stageIndex}>
                 <Text className="font-display-reg italic text-[22px] leading-[30px] text-cream text-center px-6">
-                  {s.copy}
+                  {t(s.key)}
                 </Text>
               </Fade>
             ))}
