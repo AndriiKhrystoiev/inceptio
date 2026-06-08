@@ -1,1 +1,21 @@
-{}
+{
+  "whereSuffix": "{{activity}} · where",
+  "searchTitle": "Where will it happen?",
+  "searchSubtitle": "The location of the event — not where you are now.",
+  "placeholder": "Search city",
+  "typeMore": "Type two or more letters to find a city.",
+  "noResults": "No cities found. Try a different spelling.",
+  "geocoderBusy": "Maps are busy right now. Wait a moment and try again.",
+  "geocoderUnreachable": "Couldn't reach the maps. Check your connection.",
+  "useCurrent": "Use current location",
+  "useCurrentLoading": "Finding your location…",
+  "currentNoCity": "Couldn't find a city for your location. Search manually.",
+  "currentUnreachable": "Couldn't reach your location. Search manually.",
+  "permissionTitle": "Location access needed",
+  "permissionBody": "To use your current location, allow access in Settings.",
+  "openSettings": "Open Settings",
+  "skyView": "The sky's view depends on where you are.",
+  "findMoments": "Find moments",
+  "defaultHeading": "Where do you usually start from?",
+  "skipForNow": "Skip for now"
+}

@@ -8,6 +8,7 @@
 // default_location + (conditionally) mark onboarding status.
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, Text, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import HeroGradient from '../components/HeroGradient';
@@ -20,9 +21,13 @@ import {
 
 export default function SetDefaultLocationScreen({
   go,
-  dismissLabel = 'Cancel',
+  dismissLabel,
   onDismissStatus = null,
 }) {
+  const { t } = useTranslation('location');
+  // Parents may pass an explicit dismissLabel; absent, fall back to the
+  // shared localized Cancel CTA.
+  const resolvedDismissLabel = dismissLabel ?? t('common:cancel');
   const handleConfirm = (loc) => {
     setDefaultLocation(loc);
     // Onboarding entry (onDismissStatus='skipped') wants 'completed' on confirm.
@@ -51,14 +56,14 @@ export default function SetDefaultLocationScreen({
       <SafeAreaView className="flex-1">
         <View className="flex-row justify-between items-center px-6 py-4">
           <Text className="font-display-reg text-[20px] leading-[28px] text-cream max-w-[240px]">
-            Where do you usually start from?
+            {t('defaultHeading')}
           </Text>
           <Pressable
             onPress={handleDismiss}
             hitSlop={20}
             style={{ minHeight: 44, justifyContent: 'center' }}
           >
-            <Text className="font-ui text-base text-muted">{dismissLabel}</Text>
+            <Text className="font-ui text-base text-muted">{resolvedDismissLabel}</Text>
           </Pressable>
         </View>
         <View className="flex-1">

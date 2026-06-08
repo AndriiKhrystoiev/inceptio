@@ -1,1 +1,21 @@
-{}
+{
+  "whereSuffix": "{{activity}} · local",
+  "searchTitle": "Onde vai acontecer?",
+  "searchSubtitle": "O local do evento — não onde você está agora.",
+  "placeholder": "Buscar cidade",
+  "typeMore": "Digite duas letras ou mais para encontrar uma cidade.",
+  "noResults": "Nenhuma cidade encontrada. Tente outra grafia.",
+  "geocoderBusy": "Os mapas estão ocupados agora. Espere um instante e tente de novo.",
+  "geocoderUnreachable": "Não foi possível acessar os mapas. Verifique sua conexão.",
+  "useCurrent": "Usar localização atual",
+  "useCurrentLoading": "Buscando sua localização…",
+  "currentNoCity": "Não encontramos uma cidade para sua localização. Busque manualmente.",
+  "currentUnreachable": "Não foi possível acessar sua localização. Busque manualmente.",
+  "permissionTitle": "Acesso à localização necessário",
+  "permissionBody": "Para usar sua localização atual, permita o acesso nos Ajustes.",
+  "openSettings": "Abrir Ajustes",
+  "skyView": "A vista do céu depende de onde você está.",
+  "findMoments": "Encontrar momentos",
+  "defaultHeading": "De onde você costuma começar?",
+  "skipForNow": "Pular por enquanto"
+}

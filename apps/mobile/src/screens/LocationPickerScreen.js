@@ -4,6 +4,7 @@
 // and the in-flight draft via patchDraft(). "Find moments" navigates to loading.
 
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   View,
   Text,
@@ -32,17 +33,18 @@ import {
   reverseGeocode,
 } from '../lib/nominatim';
 
-function errorMessage(err) {
+function errorMessage(err, t) {
   if (err instanceof NominatimRateLimitError) {
-    return "Maps are busy right now. Wait a moment and try again.";
+    return t('geocoderBusy');
   }
   if (err instanceof NominatimError) {
-    return "Couldn't reach the maps. Check your connection.";
+    return t('geocoderUnreachable');
   }
-  return "Couldn't reach the maps. Check your connection.";
+  return t('geocoderUnreachable');
 }
 
 export default function LocationPickerScreen({ go, onConfirm, embedded = false }) {
+  const { t } = useTranslation('location');
   // Pre-fill the search query from the user's last saved city as a typing
   // shortcut. Selection is intentionally NOT restored — the "Find moments"
   // button stays disabled until the user explicitly taps a result row in
@@ -99,11 +101,11 @@ export default function LocationPickerScreen({ go, onConfirm, embedded = false }
       if (perm.status !== 'granted') {
         if (!perm.canAskAgain) {
           Alert.alert(
-            'Location access needed',
-            'To use your current location, allow access in Settings.',
+            t('permissionTitle'),
+            t('permissionBody'),
             [
-              { text: 'Cancel', style: 'cancel' },
-              { text: 'Open Settings', onPress: () => Linking.openSettings() },
+              { text: t('common:cancel'), style: 'cancel' },
+              { text: t('openSettings'), onPress: () => Linking.openSettings() },
             ],
           );
         }
@@ -119,7 +121,7 @@ export default function LocationPickerScreen({ go, onConfirm, embedded = false }
 
       const result = await reverseGeocode(latitude, longitude);
       if (!result) {
-        showToast("Couldn't find a city for your location. Search manually.", 'warn');
+        showToast(t('currentNoCity'), 'warn');
         return;
       }
 
@@ -133,7 +135,7 @@ export default function LocationPickerScreen({ go, onConfirm, embedded = false }
       handleSelect({ ...result, lat: latitude, lng: longitude });
     } catch (err) {
       if (__DEV__) console.log('[location] error:', err);
-      showToast("Couldn't reach your location. Search manually.", 'warn');
+      showToast(t('currentUnreachable'), 'warn');
     } finally {
       setLoadingLocation(false);
     }
@@ -169,23 +171,23 @@ export default function LocationPickerScreen({ go, onConfirm, embedded = false }
         <SafeAreaView edges={['top']}>
           {!embedded && (
             <View className="px-4 pt-2 flex-row items-center justify-between">
-              <IconBtn onPress={() => go('date')} label="Back">
+              <IconBtn onPress={() => go('date')} label={t('common:back')}>
                 <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5} />
               </IconBtn>
               <Text className="font-display text-[18px] text-cream tracking-[-0.2px]" style={{ textTransform: 'capitalize' }}>
-                {actLabel} · where
+                {t('whereSuffix', { activity: actLabel })}
               </Text>
-              <IconBtn onPress={() => go('today')} label="Close">
+              <IconBtn onPress={() => go('today')} label={t('common:close')}>
                 <X color="#F5EFE4" size={22} strokeWidth={1.5} />
               </IconBtn>
             </View>
           )}
           <View className="px-6 pt-6 pb-9">
             <Text className="font-display text-[32px] leading-[38px] tracking-[-0.3px] text-cream">
-              Where will it happen?
+              {t('searchTitle')}
             </Text>
             <Text className="font-ui text-[14px] leading-5 text-muted mt-3">
-              The location of the event — not where you are now.
+              {t('searchSubtitle')}
             </Text>
           </View>
         </SafeAreaView>
@@ -212,7 +214,7 @@ export default function LocationPickerScreen({ go, onConfirm, embedded = false }
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search city"
+            placeholder={t('placeholder')}
             placeholderTextColor="#7A7195"
             autoCorrect={false}
             autoCapitalize="words"
@@ -229,19 +231,19 @@ export default function LocationPickerScreen({ go, onConfirm, embedded = false }
       <View className="px-6 pt-6 min-h-[120px]">
         {showHelper && (
           <Text className="font-ui italic text-[13px] leading-[18px] text-subtle text-center py-6 px-2">
-            Type two or more letters to find a city.
+            {t('typeMore')}
           </Text>
         )}
 
         {error && (
           <Text className="font-ui text-[14px] leading-5 text-difficult text-center py-6 px-2">
-            {errorMessage(error)}
+            {errorMessage(error, t)}
           </Text>
         )}
 
         {showEmptyResults && (
           <Text className="font-ui text-[14px] text-muted text-center py-6">
-            No cities found. Try a different spelling.
+            {t('noResults')}
           </Text>
         )}
 
@@ -275,13 +277,13 @@ export default function LocationPickerScreen({ go, onConfirm, embedded = false }
             <Locate color="#F5EFE4" size={16} strokeWidth={1.5} />
           )}
           <Text className="font-ui-med text-[15px] text-cream">
-            {loadingLocation ? 'Finding your location…' : 'Use current location'}
+            {loadingLocation ? t('useCurrentLoading') : t('useCurrent')}
           </Text>
         </Pressable>
       </View>
 
       <Text className="font-ui text-[12px] leading-[18px] text-subtle text-center mt-8 px-6">
-        The sky's view depends on where you are.
+        {t('skyView')}
       </Text>
 
       <View className="px-6 pt-8">
@@ -289,7 +291,7 @@ export default function LocationPickerScreen({ go, onConfirm, embedded = false }
             handles the dead-state visual (no glow, muted gradient, dimmed
             label) so we don't need to thread opacity at the call-site. */}
         <PrimaryButton onPress={handleContinue} disabled={!selectedPick}>
-          Find moments
+          {t('findMoments')}
         </PrimaryButton>
       </View>
     </ScrollView>
