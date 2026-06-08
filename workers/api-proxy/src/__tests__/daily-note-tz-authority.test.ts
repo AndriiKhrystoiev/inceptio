@@ -26,6 +26,7 @@ vi.mock('../routes/search', () => ({
 }));
 
 import { handleDailyNote } from '../routes/daily-note';
+import { COUNTER_TTL_SECONDS } from '../lib/kv-counter';
 
 import type { Env } from '../env';
 
@@ -107,9 +108,6 @@ async function drain(ctx: ExecutionContext): Promise<void> {
   const pending = (ctx as any).__pending as Promise<unknown>[];
   await Promise.all(pending);
 }
-
-// 14 days in seconds — must match COUNTER_TTL_SECONDS in daily-note.ts.
-const COUNTER_TTL_SECONDS = 14 * 86400;
 
 // ─── Tests ───
 

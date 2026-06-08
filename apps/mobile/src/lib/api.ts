@@ -31,7 +31,11 @@ export class TimeoutError extends ApiError {
 }
 
 export class RateLimitError extends ApiError {
-  constructor(public readonly resetAtUnix: number | null) {
+  constructor(
+    public readonly resetAtUnix: number | null,
+    public readonly limit: number | null = null,
+    public readonly used: number | null = null,
+  ) {
     super('Rate limit reached');
     this.name = 'RateLimitError';
   }
@@ -120,6 +124,7 @@ export async function searchElectional(
       headers: {
         'Content-Type': 'application/json',
         'X-Device-Id': deviceId,
+        'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
       body: JSON.stringify(parsedRequest),
     },
@@ -140,13 +145,15 @@ export async function searchElectional(
     const body = (await res.json().catch(() => ({}))) as {
       error?: string;
       reset_at_unix?: number;
+      limit?: number;
+      used?: number;
       upstream?: { detail?: { error?: { error_code?: string; message?: string } } };
     };
     const upstreamError = body.upstream?.detail?.error;
     if (upstreamError?.error_code === 'RATE_LIMIT_EXCEEDED') {
       throw new UpstreamQuotaError(upstreamError.message ?? 'Upstream quota exhausted');
     }
-    throw new RateLimitError(body.reset_at_unix ?? null);
+    throw new RateLimitError(body.reset_at_unix ?? null, body.limit ?? null, body.used ?? null);
   }
 
   if (res.status === 502) {
@@ -235,8 +242,9 @@ export interface GetDailyNoteInput {
  * part_of_day_cutoffs).
  *
  * Errors map to the existing discriminated hierarchy:
- *   - 429 rate-limited → RateLimitError (shares the per-device counter
- *     since /daily-note internally fans out to /electional/search)
+ *   - 429 rate-limited → RateLimitError (DEFENSIVE ONLY: /daily-note's internal
+ *     fan-out is metered:false, so the Worker's per-device cap is never
+ *     triggered here. Retained in case metering is ever re-enabled on this route.)
  *   - 429 upstream quota → UpstreamQuotaError
  *   - 502 → ServerError(502, ...)
  *   - Zod parse failure → SchemaMismatchError
@@ -260,13 +268,15 @@ export async function getDailyNote(
     const body = (await res.json().catch(() => ({}))) as {
       error?: string;
       reset_at_unix?: number;
+      limit?: number;
+      used?: number;
       upstream?: { detail?: { error?: { error_code?: string; message?: string } } };
     };
     const upstreamError = body.upstream?.detail?.error;
     if (upstreamError?.error_code === 'RATE_LIMIT_EXCEEDED') {
       throw new UpstreamQuotaError(upstreamError.message ?? 'Upstream quota exhausted');
     }
-    throw new RateLimitError(body.reset_at_unix ?? null);
+    throw new RateLimitError(body.reset_at_unix ?? null, body.limit ?? null, body.used ?? null);
   }
 
   if (!res.ok) {

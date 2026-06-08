@@ -16,12 +16,21 @@ export interface Env {
   ADMIN_TOKEN: string;
 }
 
-// Centralized constants. Mirror these on the mobile side via
-// apps/mobile/config/features.ts when Phase 4 (mobile integration) lands.
-// The per-environment rate-limit ceiling lives in rate-limit.ts's LIMITS table.
-export const FEATURES = {
-  FREE_SEARCH_PERIOD_DAYS: 30,
+// Entitlement tiers. The cap NUMBER lives here and nowhere else (no hardcoded
+// limit at any call site). Only `limit` is wired — the reset period is "one
+// local calendar day" by construction (the KV key is the local date), so a
+// `periodDays` field would be a lying knob and is deliberately omitted.
+export const TIERS = {
+  free: { limit: 5 },
 } as const;
+
+export type Tier = keyof typeof TIERS;
+
+// Stub: no accounts in MVP, so everyone is `free`. Seam for a future `pro`
+// tier keyed on identity — callers never hardcode a tier.
+export function resolveTier(_env: Env, _deviceId: string): Tier {
+  return 'free';
+}
 
 export const CACHE_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 export const HEALTH_CACHE_TTL_SECONDS = 60;

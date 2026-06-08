@@ -1,23 +1,41 @@
 import { z } from 'zod';
 import { ElectionalSearchRequestSchema } from '@inceptio/shared-types';
+import type { ElectionalSearchRequest } from '@inceptio/shared-types';
 import type { Env } from '../env';
 import { computeCacheKey, readCache, writeCache } from '../cache';
-import { checkAndIncrement } from '../rate-limit';
+import { meterSearch, type MeterResult } from '../rate-limit';
+import { resolveBucketTz } from '../lib/local-date';
 import { callUpstream, UpstreamError } from '../upstream';
 import { translate } from '../translations';
+import { bumpCounter } from '../lib/kv-counter';
 
+// No-op ExecutionContext default so callers/tests that omit `ctx` don't crash.
+// Public + daily-note both pass a real ctx in production.
+const NOOP_CTX: ExecutionContext = {
+  waitUntil() {},
+  passThroughOnException() {},
+  props: {},
+};
+
+/**
+ * Single reachable search entry. `meter` defaults to TRUE — fail toward
+ * protection: a caller must consciously pass `{ meter: false }` to be exempt.
+ * The public POST /electional/search route meters; daily-note's internal
+ * fan-out opts out. The cache→upstream→translate work lives in the private
+ * `searchCore` below (no exported unmetered surface).
+ *
+ * `opts.now` is an optional injectable Unix-seconds clock for deterministic
+ * tests; production omits it and meterSearch falls back to the real clock.
+ */
 export async function handleSearch(
   req: Request,
   env: Env,
+  ctx: ExecutionContext = NOOP_CTX,
+  opts: { meter?: boolean; now?: number } = {},
 ): Promise<Response> {
-  const deviceId = req.headers.get('X-Device-Id');
-  if (!deviceId) {
-    return Response.json(
-      { error: 'missing_device_id', message: 'X-Device-Id header required' },
-      { status: 400 },
-    );
-  }
+  const { meter = true, now } = opts;
 
+  // Parse + validate BEFORE metering so invalid requests never burn quota.
   let body: unknown;
   try {
     body = await req.json();
@@ -31,67 +49,101 @@ export async function handleSearch(
   const parsed = ElectionalSearchRequestSchema.safeParse(body);
   if (!parsed.success) {
     return Response.json(
-      {
-        error: 'validation_failed',
-        issues: parsed.error.issues,
-      },
+      { error: 'validation_failed', issues: parsed.error.issues },
       { status: 400 },
     );
   }
   const searchRequest = parsed.data;
 
-  const rl = await checkAndIncrement(env, deviceId);
-  if (!rl.allowed) {
-    return Response.json(
-      {
-        error: 'rate_limited',
-        message:
-          'Free tier limit reached. Try again after the period resets.',
-        limit: rl.limit,
-        reset_at_unix: rl.reset_at_unix,
-      },
-      {
-        status: 429,
-        headers: {
-          'Retry-After': String(rl.reset_at_unix - Math.floor(Date.now() / 1000)),
-          'X-RateLimit-Limit': String(rl.limit),
-          'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': String(rl.reset_at_unix),
-        },
-      },
+  let rl: MeterResult | null = null;
+  if (meter) {
+    const deviceId = req.headers.get('X-Device-Id');
+    if (!deviceId) {
+      return Response.json(
+        { error: 'missing_device_id', message: 'X-Device-Id header required' },
+        { status: 400 },
+      );
+    }
+    // Bucket the daily quota by the USER's tz (device), not the searched
+    // location's tz. Header → search-location tz → UTC, first valid wins.
+    const bucketTz = resolveBucketTz(
+      req.headers.get('X-Timezone'),
+      searchRequest.timezone,
     );
+    rl = await meterSearch(env, deviceId, bucketTz, now);
+    const nowSec = now ?? Math.floor(Date.now() / 1000);
+
+    // Aggregate-only telemetry — UTC-dated so /admin/cap-metrics's 14-day UTC
+    // window aligns (the quota bucket is device-tz; the metric date is UTC by
+    // design). NEVER put deviceId in a metric key. Best-effort via waitUntil:
+    // a metric write must never affect the response.
+    const utcDate = new Date(nowSec * 1000).toISOString().slice(0, 10);
+    ctx.waitUntil(bumpCounter(env.CACHE, `metrics:search-metered:${utcDate}`));
+    if (rl.allowed) {
+      ctx.waitUntil(bumpCounter(env.CACHE, `metrics:search-reach:${utcDate}:${rl.used}`));
+    } else {
+      ctx.waitUntil(bumpCounter(env.CACHE, `metrics:search-capped:${utcDate}`));
+    }
+
+    if (!rl.allowed) {
+      const retryAfter = rl.reset_at_unix - nowSec;
+      return Response.json(
+        {
+          error: 'rate_limited',
+          message: 'Daily search limit reached. Resets at local midnight.',
+          limit: rl.limit,
+          used: rl.used,
+          reset_at_unix: rl.reset_at_unix,
+        },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.max(0, retryAfter)),
+            'X-RateLimit-Limit': String(rl.limit),
+            // Intentionally 0: this request was blocked. The success path
+            // computes remaining as `limit - used` in searchCore.
+            'X-RateLimit-Remaining': '0',
+            'X-RateLimit-Reset': String(rl.reset_at_unix),
+          },
+        },
+      );
+    }
   }
+
+  return searchCore(searchRequest, env, rl);
+}
+
+/**
+ * PRIVATE — not exported. The unmetered search core. There is no external call
+ * surface, so no caller can accidentally bypass metering: the only way in is
+ * through `handleSearch` (which meters unless `meter:false`).
+ * Returns the translated v3 envelope `{ data: { top_windows, excluded_ranges,
+ * summary }, ... }` byte-identically to the pre-refactor handler.
+ */
+async function searchCore(
+  searchRequest: ElectionalSearchRequest,
+  env: Env,
+  rl: MeterResult | null,
+): Promise<Response> {
+  const rlHeaders: Record<string, string> = rl
+    ? {
+        'X-RateLimit-Limit': String(rl.limit),
+        'X-RateLimit-Remaining': String(rl.limit - rl.used),
+      }
+    : {};
 
   const cacheKey = await computeCacheKey(searchRequest);
   const cached = await readCache<unknown>(env.CACHE, cacheKey);
   if (cached) {
-    return Response.json(cached, {
-      headers: {
-        'X-Cache': 'HIT',
-        'X-RateLimit-Limit': String(rl.limit),
-        'X-RateLimit-Remaining': String(rl.limit - rl.count),
-      },
-    });
+    return Response.json(cached, { headers: { 'X-Cache': 'HIT', ...rlHeaders } });
   }
 
   try {
     const upstream = await callUpstream(env, searchRequest);
     const translated = translate(upstream, searchRequest.activity);
-    // Cache the translated response. Cache key is already versioned by
-    // TRANSLATIONS_VERSION (see cache.ts), so dictionary updates invalidate
-    // stale entries naturally.
     await writeCache(env.CACHE, cacheKey, translated);
-    return Response.json(translated, {
-      headers: {
-        'X-Cache': 'MISS',
-        'X-RateLimit-Limit': String(rl.limit),
-        'X-RateLimit-Remaining': String(rl.limit - rl.count),
-      },
-    });
+    return Response.json(translated, { headers: { 'X-Cache': 'MISS', ...rlHeaders } });
   } catch (err) {
-    // ZodError thrown from inside callUpstream() means upstream response did
-    // not match our schema. Log issues in full so we can see exactly which
-    // fields the API returned that we did not anticipate.
     if (err instanceof z.ZodError) {
       console.error('[search] upstream response failed schema validation');
       console.error('[search] zod issues:', JSON.stringify(err.issues, null, 2));
@@ -106,10 +158,6 @@ export async function handleSearch(
     }
     if (err instanceof UpstreamError) {
       console.error('[search] upstream error:', err.status, err.message);
-      // For 4xx, forward the upstream's structured error body so the mobile
-      // app can show a specific message (e.g. INVALID_DATE_RANGE) instead of
-      // a generic 'Something went wrong'. The upstream body is JSON shaped as
-      // `{ detail: { success: false, error: { error_code, message, ... }}}`.
       let upstreamPayload: unknown;
       if (err.upstreamBody) {
         try { upstreamPayload = JSON.parse(err.upstreamBody); } catch { /* keep undefined */ }
@@ -124,17 +172,10 @@ export async function handleSearch(
         { status: err.status >= 500 ? 502 : err.status },
       );
     }
-    // Unknown error — most likely a bug in translate() or cache write. Log
-    // the full error so the wrangler dev console shows the stack.
     console.error('[search] unexpected error:', err);
-    if (err instanceof Error && err.stack) {
-      console.error('[search] stack:', err.stack);
-    }
+    if (err instanceof Error && err.stack) console.error('[search] stack:', err.stack);
     return Response.json(
-      {
-        error: 'internal_error',
-        message: err instanceof Error ? err.message : String(err),
-      },
+      { error: 'internal_error', message: err instanceof Error ? err.message : String(err) },
       { status: 500 },
     );
   }

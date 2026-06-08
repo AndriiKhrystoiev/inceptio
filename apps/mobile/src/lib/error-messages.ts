@@ -18,7 +18,7 @@ export function friendlyMessage(err: unknown): string {
   if (err instanceof TimeoutError)
     return "The sky is taking longer than usual. Try again in a moment.";
   if (err instanceof RateLimitError)
-    return "You've explored 10 moments this month. Try again in a few days.";
+    return "You've used today's searches. A new set opens at midnight.";
   if (err instanceof UpstreamQuotaError)
     return "The sky's observatory is full today. Please try again later.";
   if (err instanceof SchemaMismatchError)

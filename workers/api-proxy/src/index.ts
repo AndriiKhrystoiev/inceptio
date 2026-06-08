@@ -3,7 +3,7 @@ import { handleHealth } from './routes/health';
 import { handleSearch } from './routes/search';
 import { handleDailyNote } from './routes/daily-note';
 import { handleAlertAck } from './routes/alert-ack';
-import { handleActivityMissingRate } from './routes/admin';
+import { handleActivityMissingRate, handleCapMetrics } from './routes/admin';
 
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -14,7 +14,7 @@ export default {
     }
 
     if (url.pathname === '/electional/search' && req.method === 'POST') {
-      return handleSearch(req, env);
+      return handleSearch(req, env, ctx);
     }
 
     if (url.pathname === '/daily-note' && req.method === 'GET') {
@@ -33,6 +33,10 @@ export default {
     // ships with the staging deploy, not as a separate Worker.
     if (url.pathname === '/admin/activity-missing-rate' && req.method === 'GET') {
       return handleActivityMissingRate(req, env);
+    }
+
+    if (url.pathname === '/admin/cap-metrics' && req.method === 'GET') {
+      return handleCapMetrics(req, env);
     }
 
     return Response.json(

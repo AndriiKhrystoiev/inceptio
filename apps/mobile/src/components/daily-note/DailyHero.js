@@ -27,6 +27,7 @@ import Moon from '../Moon';
 import Pulse from '../Pulse';
 import { MOOD_TOKENS, haloColorSolid, parseHaloAlpha } from './mood-tokens';
 import { friendlyMessage } from '../../lib/error-messages';
+import { RateLimitError } from '../../lib/api';
 
 function HeroBackdrop({ children }) {
   return (
@@ -97,15 +98,18 @@ export function LoadingHero() {
  * Same backdrop, centered friendlyMessage + retry pressable, no moon.
  */
 export function ErrorHero({ error, onRetry }) {
+  const isCapped = error instanceof RateLimitError;
   return (
     <HeroBackdrop>
       <View className="items-center justify-center px-4" style={{ minHeight: 160 }}>
         <Text className="font-display-reg text-[20px] leading-7 text-cream text-center">
           {friendlyMessage(error)}
         </Text>
-        <Pressable onPress={onRetry} className="mt-3">
-          <Text className="font-ui-med text-[14px] text-primary-glow">Try again</Text>
-        </Pressable>
+        {!isCapped && (
+          <Pressable onPress={onRetry} className="mt-3">
+            <Text className="font-ui-med text-[14px] text-primary-glow">Try again</Text>
+          </Pressable>
+        )}
       </View>
     </HeroBackdrop>
   );

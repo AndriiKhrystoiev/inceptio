@@ -13,6 +13,8 @@ import type {
 import { handleSearch } from './search';
 import tzLookup from '@photostructure/tz-lookup';
 import { tzEquivalent } from '../lib/tz-aliases';
+import { formatDateInTz } from '../lib/local-date';
+import { bumpCounter } from '../lib/kv-counter';
 
 /**
  * GET /daily-note?lat=<n>&lng=<n>&tz=<iana>
@@ -49,37 +51,6 @@ import { tzEquivalent } from '../lib/tz-aliases';
  * own saved-search statuses using local data (or via a future endpoint that
  * accepts saved searches in a POST body).
  */
-/**
- * Best-effort KV counter used by the Phase A activity-missing rate metric.
- * Read-modify-write — not atomic, but Workers KV doesn't expose atomic
- * increment and a single-digit miss rate on a 14-day rolling counter
- * is well within the accuracy needed at Checkpoint 3 (gate is "did the
- * mobile rollout actually happen?", not exact arithmetic).
- *
- * Errors are swallowed: a KV outage MUST NOT bubble up and 5xx a
- * user-facing /daily-note request just because a metric write failed.
- */
-const COUNTER_TTL_SECONDS = 14 * 86400;
-
-async function bumpCounter(kv: KVNamespace, key: string): Promise<void> {
-  try {
-    const prev = await kv.get(key);
-    const prevNum = prev !== null ? Number(prev) : 0;
-    // Guard against corruption: if KV ever returns a non-numeric string
-    // (e.g. literal 'NaN' from an earlier corrupt write, or a stray
-    // non-digit value), Number(prev) yields NaN. Without this guard,
-    // NaN + 1 = NaN → String(NaN) = 'NaN' written back to KV — the
-    // counter would then stay stuck at 'NaN' for the full 14-day TTL.
-    // Treat non-finite reads as zero and reset cleanly on the next bump.
-    const base = Number.isFinite(prevNum) ? prevNum : 0;
-    const next = String(base + 1);
-    await kv.put(key, next, { expirationTtl: COUNTER_TTL_SECONDS });
-  } catch {
-    // Best-effort: swallow KV errors so the user request still succeeds.
-    // The counter is monitoring infrastructure, not load-bearing.
-  }
-}
-
 /**
  * @photostructure/tz-lookup throws on invalid coords ('invalid coordinates').
  * Wrap defensively so the authority logic can null-coalesce to client tz on
@@ -343,14 +314,17 @@ export async function handleDailyNote(
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        // Pass the device id through so handleSearch's rate-limit fires
-        // against the same counter as a direct /electional/search call.
-        // The X-Device-Id presence is guarded at the top of this handler.
+        // X-Device-Id is forwarded for parity with the public search contract,
+        // but the fan-out is metered:false (exempt), so it is NOT used for
+        // rate attribution. daily-note's OWN top-level X-Device-Id gate stays.
         'X-Device-Id': deviceId,
       },
       body: JSON.stringify(searchBody),
     });
-    const searchRes = await handleSearch(internalReq, env);
+    // meter:false — the daily note is a free retention hook and MUST NOT
+    // consume the per-user search cap. handleSearch defaults to meter:true,
+    // so this conscious opt-out is the exemption (see usage-cap spec §5).
+    const searchRes = await handleSearch(internalReq, env, ctx, { meter: false });
     if (!searchRes.ok) {
       return Response.json(
         { error: 'upstream_failure', message: 'electional/search failed' },
@@ -432,15 +406,4 @@ export async function handleDailyNote(
   };
 
   return Response.json(response);
-}
-
-function formatDateInTz(d: Date, tz: string): string {
-  // Intl.DateTimeFormat with `en-CA` produces YYYY-MM-DD natively.
-  const fmt = new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  return fmt.format(d);
 }
