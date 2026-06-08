@@ -7,6 +7,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
 import HeroGradient from '../components/HeroGradient';
@@ -21,6 +22,7 @@ import { getDeviceId, clearDeviceId } from '../lib/device-id';
 
 
 export default function YouScreen({ go }) {
+  const { t } = useTranslation('settings');
   // Toast state — mirrors the pattern from MomentDetailScreen.
   const [toast, setToast] = useState(null);
   const showToast = useCallback((message, tone = 'neutral') => {
@@ -35,9 +37,9 @@ export default function YouScreen({ go }) {
   const handleAboutLongPress = useCallback(() => {
     if (__DEV__ && !showDebug) {
       setShowDebug(true);
-      Alert.alert('Debug mode on', 'Developer section is now visible.');
+      Alert.alert(t('debugMode.title'), t('debugMode.body'));
     }
-  }, [showDebug]);
+  }, [showDebug, t]);
 
   // Preferences read once on mount + on each "tick" so Reset operations
   // re-render the row values without a full screen remount.
@@ -49,7 +51,7 @@ export default function YouScreen({ go }) {
     hydrationStatus === 'set' && activity
       ? getActivityLabel(activity)
       : hydrationStatus === 'unset'
-      ? 'Not set'
+      ? t('detail.notSet')
       : '...'; // 'loading' — Phase 6 gate makes this unreachable in practice
   // Subscribe to the default location so the row value + Clear affordance
   // stay in sync with any write (SetDefaultLocationScreen, onboarding, etc.)
@@ -62,7 +64,7 @@ export default function YouScreen({ go }) {
   // 'set' branch is the steady state.
   const locationDetail =
     locationHydrationStatus === 'set'
-      ? defaultLocation?.city ?? 'Not set'
+      ? defaultLocation?.city ?? t('detail.notSet')
       : '...';
 
   // Change-sheet state for the Default activity Row.
@@ -93,31 +95,31 @@ export default function YouScreen({ go }) {
 
   // -- Handlers --------------------------------------------------------------
 
-  const comingSoon = useCallback(() => showToast('Coming soon'), [showToast]);
+  const comingSoon = useCallback(() => showToast(t('toast.comingSoon')), [showToast, t]);
 
   async function copyDeviceId() {
     if (!deviceId) return;
     try {
       await Clipboard.setStringAsync(deviceId);
-      showToast('Device ID copied');
+      showToast(t('toast.deviceIdCopied'));
     } catch {
-      showToast("Couldn't copy. Long-press the value to select.", 'warn');
+      showToast(t('toast.copyFailed'), 'warn');
     }
   }
 
   function confirmResetDeviceId() {
     Alert.alert(
-      'Reset device ID?',
-      'This clears your rate-limit counter on the Worker and treats you as a new device. Useful for development testing.',
+      t('resetDeviceId.title'),
+      t('resetDeviceId.body'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common:cancel'), style: 'cancel' },
         {
-          text: 'Reset',
+          text: t('resetDeviceId.confirm'),
           style: 'destructive',
           onPress: () => {
             clearDeviceId();
             bumpTick();
-            showToast('Device ID reset');
+            showToast(t('toast.deviceIdReset'));
           },
         },
       ],
@@ -126,16 +128,16 @@ export default function YouScreen({ go }) {
 
   function confirmClearSavedMoments() {
     Alert.alert(
-      'Clear all saved moments?',
-      'This removes everything from Your Moments tab. Cannot be undone.',
+      t('clearMoments.title'),
+      t('clearMoments.body'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common:cancel'), style: 'cancel' },
         {
-          text: 'Clear',
+          text: t('clearMoments.confirm'),
           style: 'destructive',
           onPress: () => {
             clearSavedMoments();
-            showToast('Saved moments cleared');
+            showToast(t('toast.savedMomentsCleared'));
           },
         },
       ],
@@ -146,7 +148,7 @@ export default function YouScreen({ go }) {
     ? deviceId.length > 16
       ? `${deviceId.slice(0, 16)}…`
       : deviceId
-    : 'loading…';
+    : t('deviceIdLoading');
 
   return (
     <View className="flex-1">
@@ -159,19 +161,19 @@ export default function YouScreen({ go }) {
           <SafeAreaView edges={['top']}>
             <View className="px-6 pt-6 pb-8">
               <Text className="font-display text-[32px] leading-[38px] tracking-[-0.3px] text-cream">
-                You
+                {t('title')}
               </Text>
               <Text className="font-ui text-[14px] leading-5 text-muted mt-[10px]">
-                A quiet kind of timing.
+                {t('subtitle')}
               </Text>
             </View>
           </SafeAreaView>
         </View>
 
-        <Section title="Your preferences" />
-        <Row label="Default activity" detail={activityDetail} onPress={openActivityChangeSheet} />
+        <Section title={t('section.preferences')} />
+        <Row label={t('row.defaultActivity')} detail={activityDetail} onPress={openActivityChangeSheet} />
         <Row
-          label="Default location"
+          label={t('row.defaultLocation')}
           detail={locationDetail}
           onPress={() => go('set-default-location')}
         />
@@ -186,7 +188,7 @@ export default function YouScreen({ go }) {
             hitSlop={20}
             style={{ minHeight: 44, justifyContent: 'center' }}>
             <Text className="font-ui text-[13px] text-muted">
-              Clear — your recent locations are still available
+              {t('clearLocationHint')}
             </Text>
           </Pressable>
         )}
@@ -195,29 +197,29 @@ export default function YouScreen({ go }) {
             below. In production builds (__DEV__ === false), the long-press
             is a no-op — the Debug section never renders regardless. */}
         <Pressable onLongPress={handleAboutLongPress} delayLongPress={3000}>
-          <Section title="About Inceptio" />
+          <Section title={t('section.about')} />
         </Pressable>
-        <Row label="Version" detail={appVersion} />
-        <Row label="Privacy" detail="" onPress={comingSoon} />
-        <Row label="Terms" detail="" onPress={comingSoon} />
+        <Row label={t('row.version')} detail={appVersion} />
+        <Row label={t('row.privacy')} detail="" onPress={comingSoon} />
+        <Row label={t('row.terms')} detail="" onPress={comingSoon} />
 
         {__DEV__ && showDebug && (
           <>
-            <Section title="Debug" />
+            <Section title={t('section.debug')} />
             <Row
-              label="Device ID"
+              label={t('row.deviceId')}
               detail={truncatedDeviceId}
               onPress={copyDeviceId}
-              hint="Tap to copy"
+              hint={t('copyHint')}
             />
             <Row
-              label="Reset device ID"
+              label={t('row.resetDeviceId')}
               detail=""
               destructive
               onPress={confirmResetDeviceId}
             />
             <Row
-              label="Clear saved moments"
+              label={t('row.clearSavedMoments')}
               detail=""
               destructive
               onPress={confirmClearSavedMoments}
