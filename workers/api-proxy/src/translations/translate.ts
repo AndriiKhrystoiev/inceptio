@@ -20,29 +20,81 @@ import { EXCLUDED_REASONS } from './dictionary/excluded-reasons';
 // an upstream enum-drift event (a recurring occurrence), so a non-en user must
 // not see English on every drift. en-filled-everywhere here; D-tasks fill the
 // non-en values. Resolved via `localize(.., locale)` at the call site.
-const FALLBACK_REASON_PHRASE: Localized = 'The sky asks for stillness here.';
-const FALLBACK_FACTOR_PHRASING: {
+// EXPORTED so voice-leaf-coverage asserts these are Localized (all 5 locales) —
+// they are user-facing on upstream enum-drift (unknown reason_id / factor_id),
+// the guaranteed-rendered surface the permissive policy exists to soften.
+export const FALLBACK_REASON_PHRASE: Localized = {
+  en: 'The sky asks for stillness here.',
+  de: 'Der Himmel bittet hier um Stille.',
+  fr: 'Le ciel demande du calme ici.',
+  'es-419': 'El cielo pide quietud aquí.',
+  'pt-BR': 'O céu pede quietude aqui.',
+};
+export const FALLBACK_FACTOR_PHRASING: {
   phrase_short: Localized;
   phrase_full: Localized;
 } = {
-  phrase_short: 'A subtle influence',
-  phrase_full: 'The sky brings a subtle influence to this moment.',
+  phrase_short: {
+    en: 'A subtle influence',
+    de: 'Ein feiner Einfluss',
+    fr: 'Une influence subtile',
+    'es-419': 'Una influencia sutil',
+    'pt-BR': 'Uma influência sutil',
+  },
+  phrase_full: {
+    en: 'The sky brings a subtle influence to this moment.',
+    de: 'Der Himmel bringt diesem Moment einen feinen Einfluss.',
+    fr: 'Le ciel apporte une influence subtile à ce moment.',
+    'es-419': 'El cielo aporta una influencia sutil a este momento.',
+    'pt-BR': 'O céu traz uma influência sutil a este momento.',
+  },
 };
 
 // Inline hour-band tags moved off the function body into a localized constant
 // (VOICE spec §5.2). en-filled for now; D-tasks fill the non-en values.
-const CONTEXTUAL_TAGS: {
+// EXPORTED for voice-leaf-coverage. Renders as the card tagline → user-facing.
+export const CONTEXTUAL_TAGS: {
   default: Localized;
   morning: Localized;
   afternoon: Localized;
   evening: Localized;
   late_night: Localized;
 } = {
-  default: 'A window worth looking at',
-  morning: 'A morning moment',
-  afternoon: 'An afternoon moment',
-  evening: 'An evening moment',
-  late_night: 'A late-night moment',
+  default: {
+    en: 'A window worth looking at',
+    de: 'Ein Fenster, das einen Blick wert ist',
+    fr: 'Une fenêtre qui mérite un regard',
+    'es-419': 'Una ventana que vale la pena mirar',
+    'pt-BR': 'Uma janela que vale a pena olhar',
+  },
+  morning: {
+    en: 'A morning moment',
+    de: 'Ein Moment am Morgen',
+    fr: 'Un moment du matin',
+    'es-419': 'Un momento de la mañana',
+    'pt-BR': 'Um momento da manhã',
+  },
+  afternoon: {
+    en: 'An afternoon moment',
+    de: 'Ein Moment am Nachmittag',
+    fr: "Un moment de l'après-midi",
+    'es-419': 'Un momento de la tarde',
+    'pt-BR': 'Um momento da tarde',
+  },
+  evening: {
+    en: 'An evening moment',
+    de: 'Ein Moment am Abend',
+    fr: 'Un moment du soir',
+    'es-419': 'Un momento al atardecer',
+    'pt-BR': 'Um momento ao entardecer',
+  },
+  late_night: {
+    en: 'A late-night moment',
+    de: 'Ein Moment in der späten Nacht',
+    fr: 'Un moment de fin de soirée',
+    'es-419': 'Un momento de la noche',
+    'pt-BR': 'Um momento tarde da noite',
+  },
 };
 import weddingOverrides from './activity-overrides/wedding';
 import contractsOverrides from './activity-overrides/contracts';

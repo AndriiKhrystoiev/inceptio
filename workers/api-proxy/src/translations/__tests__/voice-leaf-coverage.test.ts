@@ -11,6 +11,11 @@ import weddingOverrides from '../activity-overrides/wedding';
 import contractsOverrides from '../activity-overrides/contracts';
 import businessLaunchOverrides from '../activity-overrides/business-launch';
 import travelOverrides from '../activity-overrides/travel';
+import {
+  FALLBACK_REASON_PHRASE,
+  FALLBACK_FACTOR_PHRASING,
+  CONTEXTUAL_TAGS,
+} from '../translate';
 import type { Locale } from '../types';
 import type { Activity } from '@inceptio/shared-types';
 
@@ -301,73 +306,46 @@ describe('server voice-leaf coverage — every user-facing leaf is Localized (Re
     }
   });
 
-  // ── 8. translate.ts — contextualTag constants + enum-fallback strings ───────
+  // ── 8. translate.ts — FALLBACK_REASON_PHRASE + FALLBACK_FACTOR_PHRASING + CONTEXTUAL_TAGS ──
   //
-  // These are imported by name from translate.ts. They are currently plain
-  // strings (the FactorPhrasing-gap class that this test is designed to catch
-  // after D-tasks fill them).  If any of the following tests FAIL, it means the
-  // corresponding constant in translate.ts is still a bare string (en-only)
-  // and must be converted to a Localized Record.
+  // These are imported directly from translate.ts (they are now exported).
+  // All three are Localized Records — they are the ONLY strings rendered on
+  // upstream enum-drift events, so a non-en user must never see English fallback.
+  //
+  // Previously tested via behavioral proxy only (translateFactor / translateExcludedReason
+  // called with an unknown id). Now directly asserted as Localized Records with all 5
+  // locale keys present and non-empty, closing the "behavioral proxy only" gap.
 
-  describe('translate.ts — CONTEXTUAL_TAGS + enum-fallback strings', () => {
-    // Dynamic import so we can introspect the internal-ish constants.  These are
-    // NOT exported from translate.ts, so we need to reach them via the module
-    // internals.  However the spec asks us to test them.  We test via their
-    // _behavioral_ proxy: translateExcludedReason and translateFactor for an
-    // unknown id return a localized string from the fallback constants; and for
-    // contextualTag we test indirectly via the translate output.
-    //
-    // A simpler approach (and the one the spec intends): export the constants or
-    // test their presence by importing them. Since they are NOT exported, we
-    // instead document the gap here and test what IS observable: the translate
-    // module exported helpers use the correct localized fallback when called with
-    // a non-en locale on an unknown id.
-
-    it('translateFactor for unknown factor_id returns a non-empty string (exercises FALLBACK_FACTOR_PHRASING)', async () => {
-      const { translateFactor } = await import('../translate');
-      // If FALLBACK_FACTOR_PHRASING is a bare string, all locales return the
-      // same English value. We verify the function at least returns a non-empty
-      // string for every locale (a partial guard — the full non-Localized check
-      // is in the unit below via exported constants if they become exported).
-      for (const locale of ALL_LOCALES) {
-        const result = translateFactor('__unknown_test_id__', 'pass', 'wedding', locale);
-        expect(typeof result.phrase_short).toBe('string');
-        expect(result.phrase_short.length).toBeGreaterThan(0);
-        expect(typeof result.phrase_full).toBe('string');
-        expect(result.phrase_full.length).toBeGreaterThan(0);
-      }
+  describe('translate.ts — FALLBACK_REASON_PHRASE (Localized, all 5 locales)', () => {
+    it('FALLBACK_REASON_PHRASE is a Localized Record with all 5 locales', () => {
+      assertLocalizedLeaf(FALLBACK_REASON_PHRASE, 'FALLBACK_REASON_PHRASE');
     });
+  });
 
-    it('translateExcludedReason for unknown reason_id returns a non-empty string (exercises FALLBACK_REASON_PHRASE)', async () => {
-      const { translateExcludedReason } = await import('../translate');
-      for (const locale of ALL_LOCALES) {
-        const result = translateExcludedReason('__unknown_reason_test__', locale);
-        expect(typeof result).toBe('string');
-        expect(result.length).toBeGreaterThan(0);
-      }
+  describe('translate.ts — FALLBACK_FACTOR_PHRASING (phrase_short + phrase_full, all 5 locales)', () => {
+    it('FALLBACK_FACTOR_PHRASING.phrase_short is a Localized Record with all 5 locales', () => {
+      assertLocalizedLeaf(FALLBACK_FACTOR_PHRASING.phrase_short, 'FALLBACK_FACTOR_PHRASING.phrase_short');
     });
+    it('FALLBACK_FACTOR_PHRASING.phrase_full is a Localized Record with all 5 locales', () => {
+      assertLocalizedLeaf(FALLBACK_FACTOR_PHRASING.phrase_full, 'FALLBACK_FACTOR_PHRASING.phrase_full');
+    });
+  });
 
-    // NOTE: CONTEXTUAL_TAGS and the enum fallback Localized Records are internal
-    // to translate.ts and not currently exported. If they are converted to
-    // exported constants in a follow-up, add direct assertLocalizedLeaf calls
-    // here (they will then surface the bare-string failure correctly).
-    // The guard above (translateFactor / translateExcludedReason) exercises the
-    // fallback code paths but cannot distinguish "Localized Record returning en
-    // for all locales" from "plain string returning en for all locales".
-    //
-    // DECISION-BEARING: CONTEXTUAL_TAGS and FALLBACK_* in translate.ts are
-    // currently plain strings (not yet Localized Records). Task T requires they
-    // be Localized. They are not exported, so the non-Localized check below can
-    // only verify them if they become exported. Flag: these 3 constants (5
-    // values: default/morning/afternoon/evening/late_night + phrase_short +
-    // phrase_full) are the one gap in the isLocalizedRecord coverage.
-    it('(documentation) CONTEXTUAL_TAGS constants are internal — flag for export + localize in D-translate task', () => {
-      // This test always passes; it documents the known gap.
-      // When CONTEXTUAL_TAGS is exported from translate.ts:
-      //   1. Import it here.
-      //   2. Replace this test body with assertLocalizedLeaf calls for each tag.
-      //   3. Delete this documentation comment.
-      expect(true).toBe(true);
+  describe('translate.ts — CONTEXTUAL_TAGS (default/morning/afternoon/evening/late_night, all 5 locales)', () => {
+    it('CONTEXTUAL_TAGS.default is a Localized Record with all 5 locales', () => {
+      assertLocalizedLeaf(CONTEXTUAL_TAGS.default, 'CONTEXTUAL_TAGS.default');
+    });
+    it('CONTEXTUAL_TAGS.morning is a Localized Record with all 5 locales', () => {
+      assertLocalizedLeaf(CONTEXTUAL_TAGS.morning, 'CONTEXTUAL_TAGS.morning');
+    });
+    it('CONTEXTUAL_TAGS.afternoon is a Localized Record with all 5 locales', () => {
+      assertLocalizedLeaf(CONTEXTUAL_TAGS.afternoon, 'CONTEXTUAL_TAGS.afternoon');
+    });
+    it('CONTEXTUAL_TAGS.evening is a Localized Record with all 5 locales', () => {
+      assertLocalizedLeaf(CONTEXTUAL_TAGS.evening, 'CONTEXTUAL_TAGS.evening');
+    });
+    it('CONTEXTUAL_TAGS.late_night is a Localized Record with all 5 locales', () => {
+      assertLocalizedLeaf(CONTEXTUAL_TAGS.late_night, 'CONTEXTUAL_TAGS.late_night');
     });
   });
 });
