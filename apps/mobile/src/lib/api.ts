@@ -6,6 +6,25 @@ import {
 import type { ApiEnvelope } from '@inceptio/shared-types';
 import { API_CONFIG } from '../config/api';
 import { getDeviceId } from './device-id';
+import { activeBundle } from '../i18n/locale';
+
+/**
+ * Shared per-request metadata headers sent on every Worker call.
+ *
+ * `X-Locale` carries the active i18next bundle key (e.g. `es-419`, `pt-BR`) so
+ * the Worker can later thread it into composed/localized copy. This phase the
+ * Worker only validates + ignores it (see workers/api-proxy X-Locale seam).
+ *
+ * Note: this deliberately does NOT include `X-Timezone`. Search adds that
+ * header itself; /daily-note carries timezone via its `?tz=` query param (O2 —
+ * locale-only on this route), so no tz header is sent there.
+ */
+async function requestMetaHeaders(): Promise<Record<string, string>> {
+  return {
+    'X-Device-Id': await getDeviceId(),
+    'X-Locale': activeBundle(),
+  };
+}
 
 // Discriminated error hierarchy — call sites can `instanceof` against the
 // specific subclass to pick a message, instead of inspecting strings or codes.
@@ -115,7 +134,6 @@ export async function searchElectional(
   // the network roundtrip and produces a typed error rather than a 400.
   const parsedRequest = ElectionalSearchRequestSchema.parse(request);
 
-  const deviceId = await getDeviceId();
   const url = `${API_CONFIG.baseUrl}/electional/search`;
   const res = await fetchWithTimeout(
     url,
@@ -123,7 +141,7 @@ export async function searchElectional(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-Device-Id': deviceId,
+        ...(await requestMetaHeaders()),
         'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
       body: JSON.stringify(parsedRequest),
@@ -252,14 +270,14 @@ export interface GetDailyNoteInput {
 export async function getDailyNote(
   input: GetDailyNoteInput,
 ): Promise<DailyNoteResult> {
-  const deviceId = await getDeviceId();
   const url = `${API_CONFIG.baseUrl}/daily-note?lat=${input.lat}&lng=${input.lng}&tz=${encodeURIComponent(input.tz)}&activity=${input.activity}`;
 
   const res = await fetchWithTimeout(
     url,
     {
       method: 'GET',
-      headers: { 'X-Device-Id': deviceId },
+      // O2: locale-only. tz stays a query param; no X-Timezone header here.
+      headers: await requestMetaHeaders(),
     },
     API_CONFIG.timeout,
   );
