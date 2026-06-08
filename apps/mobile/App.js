@@ -8,7 +8,7 @@ import 'react-native-gesture-handler';
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { I18nextProvider } from 'react-i18next';
@@ -42,6 +42,25 @@ import SetDefaultLocationScreen from './src/screens/SetDefaultLocationScreen';
 import TabBar from './src/components/TabBar';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+
+// __DEV__-only locale switcher bar. Renders at the very top of the root view,
+// ABOVE any screen's SafeAreaView, so it must apply the top safe-area inset
+// itself or the middle pills sit under the notch / Dynamic Island and can't be
+// tapped. Lives inside SafeAreaProvider (rendered within withProviders), so the
+// insets hook resolves.
+function DevLocaleBar({ value, onChange }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ paddingTop: insets.top }}>
+      <StatePicker
+        label="locale"
+        options={SUPPORTED.map((b) => [b, b])}
+        value={value}
+        onChange={onChange}
+      />
+    </View>
+  );
+}
 
 const SCREENS = {
   onboarding: OnboardingScreen,
@@ -146,12 +165,7 @@ export default function App() {
           <View style={styles.root} onLayout={onLayoutRoot}>
             <StatusBar style="light"/>
             {__DEV__ && (
-              <StatePicker
-                label="locale"
-                options={SUPPORTED.map((b) => [b, b])}
-                value={devLocale}
-                onChange={onDevLocale}
-              />
+              <DevLocaleBar value={devLocale} onChange={onDevLocale} />
             )}
             {node}
           </View>
