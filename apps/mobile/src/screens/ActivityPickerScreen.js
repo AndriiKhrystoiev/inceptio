@@ -6,20 +6,25 @@ import { View, Text, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowLeft, X, ChevronRight } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import IconBtn from '../components/IconBtn';
 import { patchDraft, setLastActivity } from '../lib/draft-store';
 import { ACTIVITY_LABELS } from '../lib/activities';
 
+// Activity title comes from the shared ACTIVITY_LABELS map; the subtitle is a
+// localized chrome string keyed by activity id (`subtitle.<id>` in activity ns).
 const CARDS = [
-  { id: 'wedding',        emoji: '💍', title: ACTIVITY_LABELS.wedding,         subtitle: 'Lasting commitments and unions',  tint: 'rgba(249,181,200,0.10)', tintDeep: 'rgba(249,181,200,0.18)' },
-  { id: 'contracts',      emoji: '📋', title: ACTIVITY_LABELS.contracts,       subtitle: 'Important signatures and deals', tint: 'rgba(244,193,154,0.10)', tintDeep: 'rgba(244,193,154,0.18)' },
-  { id: 'business_launch',emoji: '🚀', title: ACTIVITY_LABELS.business_launch, subtitle: 'New ventures and openings',      tint: 'rgba(229,199,125,0.10)', tintDeep: 'rgba(229,199,125,0.18)' },
-  { id: 'travel',         emoji: '✈️', title: ACTIVITY_LABELS.travel,          subtitle: 'Journeys and relocations',       tint: 'rgba(103,232,199,0.10)', tintDeep: 'rgba(103,232,199,0.18)' },
+  { id: 'wedding',        emoji: '💍', title: ACTIVITY_LABELS.wedding,         tint: 'rgba(249,181,200,0.10)', tintDeep: 'rgba(249,181,200,0.18)' },
+  { id: 'contracts',      emoji: '📋', title: ACTIVITY_LABELS.contracts,       tint: 'rgba(244,193,154,0.10)', tintDeep: 'rgba(244,193,154,0.18)' },
+  { id: 'business_launch',emoji: '🚀', title: ACTIVITY_LABELS.business_launch, tint: 'rgba(229,199,125,0.10)', tintDeep: 'rgba(229,199,125,0.18)' },
+  { id: 'travel',         emoji: '✈️', title: ACTIVITY_LABELS.travel,          tint: 'rgba(103,232,199,0.10)', tintDeep: 'rgba(103,232,199,0.18)' },
 ];
 
 export default function ActivityPickerScreen({ go }) {
+  const { t } = useTranslation('activity');
+
   function handleSelect(activityId) {
     // Persist to both the draft (for the current search flow) and the last-activity
     // mirror (so Today screen reuses it for the single-day query on next open).
@@ -36,11 +41,11 @@ export default function ActivityPickerScreen({ go }) {
         <SafeAreaView edges={['top']}>
           {/* Top bar */}
           <View className="px-4 pt-2 flex-row items-center justify-between">
-            <IconBtn onPress={() => go('today')} label="Back">
+            <IconBtn onPress={() => go('today')} label={t('common:back')}>
               <ArrowLeft color="#F5EFE4" size={22} strokeWidth={1.5} />
             </IconBtn>
-            <Text className="font-display text-[18px] text-cream tracking-[-0.2px]">New moment</Text>
-            <IconBtn onPress={() => go('today')} label="Close">
+            <Text className="font-display text-[18px] text-cream tracking-[-0.2px]">{t('topBarTitle')}</Text>
+            <IconBtn onPress={() => go('today')} label={t('common:close')}>
               <X color="#F5EFE4" size={22} strokeWidth={1.5} />
             </IconBtn>
           </View>
@@ -48,10 +53,10 @@ export default function ActivityPickerScreen({ go }) {
           {/* Hero */}
           <View className="px-6 pt-6 pb-9">
             <Text className="font-display text-[32px] leading-[38px] tracking-[-0.3px] text-cream">
-              What are you planning?
+              {t('title')}
             </Text>
             <Text className="font-ui text-[14px] leading-5 text-muted mt-3">
-              We'll find your best windows in the sky.
+              {t('subtitle')}
             </Text>
           </View>
         </SafeAreaView>
@@ -59,18 +64,18 @@ export default function ActivityPickerScreen({ go }) {
 
       <View className="px-6 mt-10 gap-3">
         {CARDS.map((c) => (
-          <Card key={c.id} c={c} onPress={() => handleSelect(c.id)} />
+          <Card key={c.id} c={c} subtitle={t(`subtitle.${c.id}`)} onPress={() => handleSelect(c.id)} />
         ))}
       </View>
 
       <Text className="font-ui text-[12px] text-subtle text-center mt-10">
-        Eight more activities coming soon
+        {t('comingSoon')}
       </Text>
     </ScrollView>
   );
 }
 
-function Card({ c, onPress }) {
+function Card({ c, subtitle, onPress }) {
   return (
     <Pressable
       onPress={onPress}
@@ -113,7 +118,7 @@ function Card({ c, onPress }) {
 
         <View className="flex-1">
           <Text className="font-ui-med text-[17px] leading-[22px] text-cream">{c.title}</Text>
-          <Text className="font-ui text-[13px] leading-[18px] text-muted mt-[3px]">{c.subtitle}</Text>
+          <Text className="font-ui text-[13px] leading-[18px] text-muted mt-[3px]">{subtitle}</Text>
         </View>
 
         <ChevronRight color="#7A7195" size={18} strokeWidth={1.5} />

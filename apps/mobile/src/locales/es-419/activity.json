@@ -1,1 +1,10 @@
-{}
+{
+  "topBarTitle": "Nuevo momento",
+  "title": "¿Qué vas a planear?",
+  "subtitle": "Vamos a encontrar tus mejores ventanas en el cielo.",
+  "comingSoon": "Ocho actividades más muy pronto",
+  "subtitle.wedding": "Compromisos y uniones duraderas",
+  "subtitle.contracts": "Firmas y acuerdos importantes",
+  "subtitle.business_launch": "Nuevos proyectos y aperturas",
+  "subtitle.travel": "Viajes y mudanzas"
+}
