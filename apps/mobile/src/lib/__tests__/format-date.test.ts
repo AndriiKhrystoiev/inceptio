@@ -1,4 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// format-date now reads the active bundle, which pulls expo-localization
+// transitively (unparseable in the node test env). Empty device list -> 'en',
+// the locale these assertions expect.
+vi.mock('expo-localization', () => ({ getLocales: () => [] }));
+
 import { formatDailyEyebrow } from '../format-date';
 
 describe('formatDailyEyebrow', () => {

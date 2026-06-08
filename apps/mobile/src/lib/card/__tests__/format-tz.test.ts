@@ -1,4 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// format-tz now reads the active bundle for the locale arg, which pulls
+// expo-localization transitively (unparseable in the node test env). Empty
+// device list -> 'en', the locale these assertions expect.
+vi.mock('expo-localization', () => ({ getLocales: () => [] }));
+
 import { exactClock, tzAbbrev } from '../format-tz';
 
 const ISO = '2026-06-20T15:24:00+03:00';

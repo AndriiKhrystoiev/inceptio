@@ -9,6 +9,7 @@
 // view-model composes `weekday + t(band)`. Weekday/date names come from Intl with
 // timeZone:'UTC' — the one zone every engine supports — on the local-as-UTC instant.
 import { parseLocalInstant } from './iso-local';
+import { activeBundle, toIntlLocale } from '../../i18n/locale';
 
 export type Band = 'morning' | 'afternoon' | 'evening' | 'night';
 
@@ -21,12 +22,14 @@ export function timeOfDayBand(iso: string): Band {
 }
 
 export function weekday(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', { weekday: 'long', timeZone: 'UTC' })
+  // Locale-aware day name; timeZone:'UTC' is the deliberate Hermes-safe trick on
+  // the local-as-UTC instant (see file header) — do NOT introduce a device tz.
+  return new Intl.DateTimeFormat(toIntlLocale(activeBundle()), { weekday: 'long', timeZone: 'UTC' })
     .format(parseLocalInstant(iso).localAsUtc);
 }
 
 export function monthDay(iso: string): string {
-  return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' })
+  return new Intl.DateTimeFormat(toIntlLocale(activeBundle()), { month: 'long', day: 'numeric', timeZone: 'UTC' })
     .format(parseLocalInstant(iso).localAsUtc);
 }
 

@@ -36,11 +36,30 @@ export function getDurationVariant(
   return 'unknown';
 }
 
-const FMT_TIME = new Intl.DateTimeFormat('en-US', {
+import { activeBundle, toIntlLocale } from '../i18n/locale';
+
+// Locale-memoized DateTimeFormat. The active bundle resolves at call time (not
+// at import), so a __setLocaleOverride or device-locale change is honored. Cache
+// keyed by Intl-locale + options so es-419/pt-BR map to es/pt before reaching
+// Intl (Hermes/ICU has no M49 `419` data).
+const _fmtCache = new Map<string, Intl.DateTimeFormat>();
+function fmt(opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const loc = toIntlLocale(activeBundle());
+  const key = loc + JSON.stringify(opts);
+  let f = _fmtCache.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(loc, opts);
+    _fmtCache.set(key, f);
+  }
+  return f;
+}
+
+// Display clock: no explicit hour12 — the locale decides (de/fr/es-419/pt-BR
+// render 24h; en keeps its default).
+const TIME_OPTS: Intl.DateTimeFormatOptions = {
   hour: 'numeric',
   minute: '2-digit',
-  hour12: false,
-});
+};
 
 function formatDuration(minutes: number): string {
   const h = Math.floor(minutes / 60);
@@ -61,7 +80,7 @@ export function formatWindowTime(window: WindowLike): FormattedWindowTime {
   if (!window.start) return { primary: '', secondary: null };
 
   const variant = getDurationVariant(window.duration_minutes);
-  const startStr = FMT_TIME.format(new Date(window.start));
+  const startStr = fmt(TIME_OPTS).format(new Date(window.start));
 
   // Synthesized windows (heatmap cells without a top_windows[] entry) carry
   // duration_minutes=null and end=start. Show only the start time + an honest
@@ -73,7 +92,9 @@ export function formatWindowTime(window: WindowLike): FormattedWindowTime {
     };
   }
 
-  const endStr = window.end ? FMT_TIME.format(new Date(window.end)) : startStr;
+  const endStr = window.end
+    ? fmt(TIME_OPTS).format(new Date(window.end))
+    : startStr;
   const minutes = window.duration_minutes as number;
 
   switch (variant) {

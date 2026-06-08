@@ -1,4 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// card-view-model -> time-of-day/format-tz now read the active bundle, which
+// pulls expo-localization transitively (unparseable in the node test env).
+// Empty device list -> 'en', the locale these assertions expect.
+vi.mock('expo-localization', () => ({ getLocales: () => [] }));
+
 import { buildCardViewModel, defaultShowIntent } from '../card-view-model';
 
 const TZ = 'Europe/Kyiv';

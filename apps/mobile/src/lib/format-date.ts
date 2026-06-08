@@ -13,8 +13,12 @@
  * MomentDetailScreen, CalendarScreen, current TodayScreen). Broader
  * consolidation is deferred to a separate codebase-hygiene pass.
  */
+import { activeBundle, toIntlLocale } from '../i18n/locale';
+
 export function formatDailyEyebrow(dateIso: string): string {
-  return new Intl.DateTimeFormat('en-US', {
+  // Locale resolves at call time so a locale change is honored. es-419/pt-BR
+  // map to es/pt before reaching Intl (Hermes/ICU has no M49 `419` data).
+  return new Intl.DateTimeFormat(toIntlLocale(activeBundle()), {
     weekday: 'long',
     month: 'short',
     day: 'numeric',

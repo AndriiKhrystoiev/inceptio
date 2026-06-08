@@ -1,4 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// time-of-day now reads the active bundle for the locale arg, which pulls
+// expo-localization transitively (unparseable in the node test env). Empty
+// device list -> 'en', the locale these assertions expect.
+vi.mock('expo-localization', () => ({ getLocales: () => [] }));
+
 import { timeOfDayBand, weekday, monthDay, weekdayMonthDay } from '../time-of-day';
 
 // 2026-06-20 is a Saturday. 15:24 local (+03:00) = afternoon. The helpers read

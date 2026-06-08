@@ -15,6 +15,7 @@
 // ("best at 21:30") to avoid implying the entire 6-hour gap is favorable.
 
 import { formatWindowTime } from './format-window';
+import { activeBundle, toIntlLocale } from '../i18n/locale';
 
 interface Factor {
   factor_id: string;
@@ -53,16 +54,32 @@ export interface ListCard {
   windows: Window[];
 }
 
-const FMT_FULL_DATE = new Intl.DateTimeFormat('en-US', {
+// Locale-memoized DateTimeFormat — the active bundle resolves at call time so a
+// locale change is honored (module constants would lock 'en-US' at import).
+// es-419/pt-BR map to es/pt before reaching Intl (Hermes/ICU has no M49 `419`).
+const _fmtCache = new Map<string, Intl.DateTimeFormat>();
+function fmt(opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const loc = toIntlLocale(activeBundle());
+  const key = loc + JSON.stringify(opts);
+  let f = _fmtCache.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(loc, opts);
+    _fmtCache.set(key, f);
+  }
+  return f;
+}
+
+const FULL_DATE_OPTS: Intl.DateTimeFormatOptions = {
   weekday: 'long',
   month: 'long',
   day: 'numeric',
-});
-const FMT_TIME = new Intl.DateTimeFormat('en-US', {
+};
+// Display clock: no explicit hour12 — the locale decides (24h for
+// de/fr/es-419/pt-BR; en keeps its default).
+const TIME_OPTS: Intl.DateTimeFormatOptions = {
   hour: 'numeric',
   minute: '2-digit',
-  hour12: false,
-});
+};
 
 // Threshold deciding "tight stretch" (show a range) vs "spread across the
 // day" (point to the strongest). 90 minutes covers the API's 15-min sampling
@@ -98,7 +115,7 @@ export function clusterWindows(windows: Window[]): ListCard[] {
     );
     const rep = byScore[0]!;
     const dateText = rep.start
-      ? FMT_FULL_DATE.format(new Date(rep.start))
+      ? fmt(FULL_DATE_OPTS).format(new Date(rep.start))
       : '';
 
     let timePrimary: string;
@@ -117,12 +134,12 @@ export function clusterWindows(windows: Window[]): ListCard[] {
         // Start times are local-at-location (the offset in the ISO string
         // encodes the zone), so Intl formatting here behaves predictably
         // even when the device is in a different timezone.
-        timePrimary = `${FMT_TIME.format(new Date(firstStart))} → ${FMT_TIME.format(new Date(lastStart))}`;
+        timePrimary = `${fmt(TIME_OPTS).format(new Date(firstStart))} → ${fmt(TIME_OPTS).format(new Date(lastStart))}`;
       } else {
         // Spread across the day — pointing at the strongest moment is
         // honest. A range like "15:45 → 22:00" would imply the entire
         // ~6 hours are favorable when really there's a dead zone between.
-        timePrimary = `best at ${FMT_TIME.format(new Date(rep.start!))}`;
+        timePrimary = `best at ${fmt(TIME_OPTS).format(new Date(rep.start!))}`;
       }
       // The "single, pristine moment" hint contradicts a multi-moment
       // card — drop it and let the count line carry the meaning.
