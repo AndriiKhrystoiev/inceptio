@@ -4,6 +4,7 @@
 
 import React from 'react';
 import Svg, { Circle, Path, Ellipse } from 'react-native-svg';
+import i18n from '../i18n';
 
 export default function Glyph({ name, size = 18, color = '#B8B0CC' }) {
   const sw = Math.max(1, size / 12);
@@ -71,19 +72,57 @@ export function reasonToGlyph(reason) {
   return 'moon-void';
 }
 
-// Friendly copy for the blocked-day bottom sheet. New entries should track
-// KNOWN_REASON_IDS in @inceptio/shared-types. An unknown reason key returns
-// undefined here; CalendarScreen's `|| { title, body }` fallback covers it.
-export const FRIENDLY_REASON = {
-  moon_voc:            { title: 'The Moon is between signs',       body: 'Decisions started now tend to drift. Wait until the Moon enters its next sign.' },
-  moon_via_combusta:   { title: 'The Moon is in a tender stretch', body: 'A traditionally fragile path of sky. Better to let this day pass.' },
-  mercury_retrograde:  { title: 'Mercury is sleeping',              body: 'Words and agreements made now often need to be revisited. Be patient.' },
-  mercury_combust:     { title: 'Mercury is hidden by the Sun',     body: "Words don't carry far this stretch. Hold the important conversations." },
-  venus_retrograde:    { title: 'Venus is resting',                 body: 'A poor day for vows or affection-bound commitments.' },
-  mars_retrograde:     { title: 'Mars is hesitating',               body: "Bold moves don't carry the same force right now. Pause initiatives." },
-  jupiter_retrograde:  { title: 'Jupiter turns inward',             body: 'Growth needs patience this stretch. Plan, then expand later.' },
-  saturn_retrograde:   { title: 'Saturn looks inward',              body: 'Structure is unstable. Avoid foundations laid today.' },
-  eclipse_window:      { title: 'Inside an eclipse window',         body: 'The sky is volatile for two weeks around an eclipse. Pause begins now.' },
-  fixed_star_on_angle: { title: 'A fixed star sits on an angle',    body: 'A piercing influence rises today. Better to wait it out.' },
-  malefic_on_angle:    { title: 'A difficult planet rises today',   body: 'A traditionally hard placement is prominent. Hold off.' },
-};
+// Friendly copy for the blocked-day bottom sheet. Copy lives in the en-only
+// `voice:reason` i18n namespace (locales/en/voice/reason.json) — VOICE strings
+// are ruling-dependent astrology phrasing and stay English-only this phase.
+// REVIEW: traditional-astrology terms (void of course, combust, via combusta,
+// malefic on angle) — values pending native + astrology-literate review pre-launch.
+//
+// New entries should track KNOWN_REASON_IDS in @inceptio/shared-types. An unknown
+// reason key returns undefined here; CalendarScreen's `|| { title, body }`
+// fallback covers it.
+//
+// Lookup note: the voice ns nests each sub-file under its name (voice.reason =
+// reason.json), so we traverse with an explicit per-call keySeparator '.' (the
+// global config sets keySeparator:false). On a miss i18next returns the key
+// path; we map that back to undefined so the CalendarScreen fallback still fires.
+const REASON_IDS = [
+  'moon_voc',
+  'moon_via_combusta',
+  'mercury_retrograde',
+  'mercury_combust',
+  'venus_retrograde',
+  'mars_retrograde',
+  'jupiter_retrograde',
+  'saturn_retrograde',
+  'eclipse_window',
+  'fixed_star_on_angle',
+  'malefic_on_angle',
+];
+
+function reasonCopy(id) {
+  const titleKey = `reason.${id}.title`;
+  const bodyKey = `reason.${id}.body`;
+  const title = i18n.t(titleKey, { ns: 'voice', keySeparator: '.' });
+  const body = i18n.t(bodyKey, { ns: 'voice', keySeparator: '.' });
+  // Miss → i18next echoes the key path; treat as absent so callers fall back.
+  if (title === titleKey || body === bodyKey) return undefined;
+  return { title, body };
+}
+
+// Resolved lazily on access so i18n.init() (run in App.js boot, before any
+// screen renders) is guaranteed in place — a module-load-time build could race
+// ahead of init and capture empty copy. The `FRIENDLY_REASON[id]` access shape
+// and the CalendarScreen `|| { title, body }` fallback are preserved.
+export const FRIENDLY_REASON = new Proxy(
+  {},
+  {
+    get: (_t, id) => (typeof id === 'string' ? reasonCopy(id) : undefined),
+    has: (_t, id) => typeof id === 'string' && REASON_IDS.includes(id),
+    ownKeys: () => [...REASON_IDS],
+    getOwnPropertyDescriptor: (_t, id) =>
+      typeof id === 'string' && REASON_IDS.includes(id)
+        ? { enumerable: true, configurable: true, value: reasonCopy(id) }
+        : undefined,
+  },
+);
