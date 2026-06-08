@@ -110,7 +110,7 @@ describe('handleDailyNote — X-Locale accept + validate + ignore', () => {
     expect(res.status).toBe(200);
   });
 
-  it('well-formed X-Locale (pt-BR): same response body, DIFFERENT cache key vs no header (FLIPPED)', async () => {
+  it('well-formed X-Locale (pt-BR): DIFFERENT body AND different cache key vs no header (VOICE)', async () => {
     const a = makeEnv();
     const resWith = await handleDailyNote(
       makeRequest('lat=50.45&lng=30.52&tz=UTC', {
@@ -126,11 +126,11 @@ describe('handleDailyNote — X-Locale accept + validate + ignore', () => {
     );
     expect(resWith.status).toBe(200);
     expect(resWithout.status).toBe(200);
-    // Body is still equal: dictionaries are all-English at this commit, so the
-    // composed copy is byte-identical (only the cache KEY namespace changed).
-    expect(await resWith.json()).toEqual(await resWithout.json());
-    // FLIPPED (VOICE Task 0): pt-BR keys under :pt-BR, absent → :en. The written
-    // key SETS now DIFFER. (CHROME asserted .toEqual here.)
+    // VOICE phase: the daily-note copy is now composed in the request locale, so
+    // the pt-BR body DIFFERS from the en (no-header) body. (Task-0 phase asserted
+    // .toEqual here, when dictionaries were still English.)
+    expect(await resWith.json()).not.toEqual(await resWithout.json());
+    // Keys also differ: pt-BR entries under :pt-BR, absent → :en.
     expect([...a.store.keys()]).not.toEqual([...b.store.keys()]);
   });
 

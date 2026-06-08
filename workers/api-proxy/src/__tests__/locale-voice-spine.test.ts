@@ -120,17 +120,20 @@ describe('daily-note cache key carries locale (strong form)', () => {
   });
 });
 
-describe('translate threads locale and stays all-English via localize', () => {
-  it('runs with a non-en locale without throwing and returns en leaf strings', () => {
+describe('translate composes in the request locale (VOICE)', () => {
+  it('produces a DIFFERENT composition for de vs en (dictionaries now localized)', () => {
     const de = translate(viableEnvelope(), 'wedding', 'de');
     const en = translate(viableEnvelope(), 'wedding', 'en');
-    // Dictionaries are still plain English → de output is byte-identical to en.
-    expect(de).toEqual(en);
-    const factor = de.data.top_windows[0]!.displayable.factors[0]!;
-    // Wedding activity-override on Venus.pass → "Venus brings tenderness"
-    // (the base FACTORS phrase is "Venus brings warmth"). Either way it's the
-    // EN string resolved through localize() — proving the de path runs and the
-    // leaf resolves without throwing.
-    expect(factor.phrase_short).toBe('Venus brings tenderness');
+    // VOICE phase: dictionaries are localized → de output differs from en.
+    // (Task-0 phase asserted the inverse, when dictionaries were still English.)
+    expect(de).not.toEqual(en);
+
+    const deFactor = de.data.top_windows[0]!.displayable.factors[0]!;
+    const enFactor = en.data.top_windows[0]!.displayable.factors[0]!;
+    // Wedding activity-override on venus_dignified pass: en "Venus brings
+    // tenderness" → de "Venus bringt Zärtlichkeit" (D-overrides). Proves the de
+    // leaf resolves through localize() to the German value.
+    expect(enFactor.phrase_short).toBe('Venus brings tenderness');
+    expect(deFactor.phrase_short).toBe('Venus bringt Zärtlichkeit');
   });
 });
