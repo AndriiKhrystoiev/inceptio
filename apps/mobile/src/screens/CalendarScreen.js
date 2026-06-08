@@ -29,6 +29,7 @@ import { friendlyMessage } from '../lib/error-messages';
 import { setSelectedWindow } from '../lib/nav-params';
 import { storage } from '../lib/storage';
 import { clusterWindows } from '../lib/cluster-windows';
+import { activeBundle, toIntlLocale } from '../i18n/locale';
 
 const VIEW_KEY = 'inceptio.results_view'; // 'list' | 'calendar'
 
@@ -42,8 +43,24 @@ const FALLBACK_LOCATION = {
 // Day-column order (Monday-first). Labels are localized via t('day.<key>').
 const DAY_KEYS = ['day.mon', 'day.tue', 'day.wed', 'day.thu', 'day.fri', 'day.sat', 'day.sun'];
 
-const FMT_MONTH_YEAR = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' });
-const FMT_MON_DAY    = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+// Locale-memoized DateTimeFormat. The active bundle resolves at call time (not
+// at module import, which would lock 'en-US' before locale resolves). Cache
+// keyed by Intl-locale + options; bundle keys (es-419/pt-BR) map to es/pt via
+// toIntlLocale before reaching Intl (Hermes/ICU has no M49 `419` data).
+const _fmtCache = new Map();
+function fmt(opts) {
+  const loc = toIntlLocale(activeBundle());
+  const key = loc + JSON.stringify(opts);
+  let f = _fmtCache.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(loc, opts);
+    _fmtCache.set(key, f);
+  }
+  return f;
+}
+
+const MONTH_YEAR_OPTS = { month: 'long', year: 'numeric' };
+const MON_DAY_OPTS    = { month: 'short', day: 'numeric' };
 
 function isoDate(d) {
   const y = d.getFullYear();
@@ -285,14 +302,14 @@ export default function CalendarScreen({ go }) {
   // Month name in the grid header tracks the visible month. The "Jun 27 →
   // Aug 29" range row tracks the picker's selection (i.e., the search range).
   const monthLabel = useMemo(
-    () => FMT_MONTH_YEAR.format(new Date(viewMonth.year, viewMonth.month - 1, 1)),
+    () => fmt(MONTH_YEAR_OPTS).format(new Date(viewMonth.year, viewMonth.month - 1, 1)),
     [viewMonth],
   );
   const rangeLabel = useMemo(() => {
     if (!searchStartYMD || !searchEndYMD) return '';
     const first = new Date(searchStartYMD.year, searchStartYMD.month - 1, searchStartYMD.day);
     const last = new Date(searchEndYMD.year, searchEndYMD.month - 1, searchEndYMD.day);
-    return `${FMT_MON_DAY.format(first)} → ${FMT_MON_DAY.format(last)}`;
+    return `${fmt(MON_DAY_OPTS).format(first)} → ${fmt(MON_DAY_OPTS).format(last)}`;
   }, [searchStartYMD, searchEndYMD]);
 
   // Grid scaffolding
@@ -619,7 +636,7 @@ export default function CalendarScreen({ go }) {
               {topWindows.slice(0, 3).map((w, i) => {
                 const displayable = w.displayable ?? {};
                 const wDate = w.start
-                  ? new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+                  ? new Intl.DateTimeFormat(toIntlLocale(activeBundle()), { weekday: 'short', month: 'short', day: 'numeric' })
                       .format(new Date(w.start))
                       .replace(',', ' ·')
                       .toLowerCase()

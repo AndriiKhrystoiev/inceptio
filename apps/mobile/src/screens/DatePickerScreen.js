@@ -14,6 +14,7 @@ import Starfield from '../components/Starfield';
 import IconBtn from '../components/IconBtn';
 import PrimaryButton from '../components/PrimaryButton';
 import { patchDraft, getDraft } from '../lib/draft-store';
+import { activeBundle, toIntlLocale } from '../i18n/locale';
 
 function isoDate(d) {
   const y = d.getFullYear();
@@ -66,9 +67,25 @@ function durationLabel(t, startDate, endDate) {
   });
 }
 
-const FMT_FULL_DATE = new Intl.DateTimeFormat('en-US', {
+// Locale-memoized DateTimeFormat. The active bundle resolves at call time (not
+// at module import, which would lock 'en-US' before locale resolves). Cache
+// keyed by Intl-locale + options; bundle keys (es-419/pt-BR) map to es/pt via
+// toIntlLocale before reaching Intl (Hermes/ICU has no M49 `419` data).
+const _fmtCache = new Map();
+function fmt(opts) {
+  const loc = toIntlLocale(activeBundle());
+  const key = loc + JSON.stringify(opts);
+  let f = _fmtCache.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat(loc, opts);
+    _fmtCache.set(key, f);
+  }
+  return f;
+}
+
+const FULL_DATE_OPTS = {
   weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-});
+};
 
 const PRESETS = [
   { key: 'preset.nextMonth',  months: 1 },
@@ -157,8 +174,8 @@ export default function DatePickerScreen({ go }) {
     go('location');
   }
 
-  const fromLabel = FMT_FULL_DATE.format(startDate);
-  const toLabel   = FMT_FULL_DATE.format(endDate);
+  const fromLabel = fmt(FULL_DATE_OPTS).format(startDate);
+  const toLabel   = fmt(FULL_DATE_OPTS).format(endDate);
   const durLabel  = durationLabel(t, startDate, endDate);
   const activity  = getDraft().activity ?? 'wedding';
   const actLabel  = activity.replace('_', ' ');

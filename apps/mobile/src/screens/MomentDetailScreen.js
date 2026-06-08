@@ -27,6 +27,7 @@ import { friendlyMessage } from '../lib/error-messages';
 import { getSelectedWindow } from '../lib/nav-params';
 import { formatWindowTime, getDurationVariant, buildNarrative } from '../lib/format-window';
 import { moonPhaseForIso } from '../lib/card/moon-phase';
+import { activeBundle, toIntlLocale } from '../i18n/locale';
 import { addWindowToCalendar } from '../lib/calendar-export';
 
 const FALLBACK_LOCATION = {
@@ -151,7 +152,7 @@ export default function MomentDetailScreen({ go }) {
   const rawFactors = w.factors ?? []; // L3 technical view shows ALL raw factors
 
   const windowDate = w.start
-    ? new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    ? new Intl.DateTimeFormat(toIntlLocale(activeBundle()), { weekday: 'long', month: 'long', day: 'numeric' })
         .format(new Date(w.start))
         .replace(', ', ',\n')
     : '';
