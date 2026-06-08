@@ -1,1 +1,8 @@
-{}
+{
+  "card.genericIntent": "Ein Moment, um zu beginnen",
+  "card.watermark": "Inceptio",
+  "card.band.morning": "Morgen",
+  "card.band.afternoon": "Nachmittag",
+  "card.band.evening": "Abend",
+  "card.band.night": "Nacht"
+}
