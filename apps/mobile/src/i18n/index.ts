@@ -105,12 +105,36 @@ import ptBR_card from '../locales/pt-BR/card.json';
 import ptBR_errors from '../locales/pt-BR/errors.json';
 import ptBR_share from '../locales/pt-BR/share.json';
 
-// --- VOICE (en only, by design — no de/fr/es-419/pt-BR voice entries) ---
+// --- VOICE (all 5 locales — de/fr/es-419/pt-BR files exist and are translated) ---
 import en_voice_card from '../locales/en/voice/card.json';
 import en_voice_reason from '../locales/en/voice/reason.json';
 import en_voice_calendar from '../locales/en/voice/calendar.json';
 import en_voice_moment from '../locales/en/voice/moment.json';
 import en_voice_moments from '../locales/en/voice/moments.json';
+
+import de_voice_card from '../locales/de/voice/card.json';
+import de_voice_reason from '../locales/de/voice/reason.json';
+import de_voice_calendar from '../locales/de/voice/calendar.json';
+import de_voice_moment from '../locales/de/voice/moment.json';
+import de_voice_moments from '../locales/de/voice/moments.json';
+
+import fr_voice_card from '../locales/fr/voice/card.json';
+import fr_voice_reason from '../locales/fr/voice/reason.json';
+import fr_voice_calendar from '../locales/fr/voice/calendar.json';
+import fr_voice_moment from '../locales/fr/voice/moment.json';
+import fr_voice_moments from '../locales/fr/voice/moments.json';
+
+import es419_voice_card from '../locales/es-419/voice/card.json';
+import es419_voice_reason from '../locales/es-419/voice/reason.json';
+import es419_voice_calendar from '../locales/es-419/voice/calendar.json';
+import es419_voice_moment from '../locales/es-419/voice/moment.json';
+import es419_voice_moments from '../locales/es-419/voice/moments.json';
+
+import ptBR_voice_card from '../locales/pt-BR/voice/card.json';
+import ptBR_voice_reason from '../locales/pt-BR/voice/reason.json';
+import ptBR_voice_calendar from '../locales/pt-BR/voice/calendar.json';
+import ptBR_voice_moment from '../locales/pt-BR/voice/moment.json';
+import ptBR_voice_moments from '../locales/pt-BR/voice/moments.json';
 
 type Json = Record<string, unknown>;
 
@@ -154,13 +178,43 @@ const resources = {
   ),
 };
 
-// VOICE namespace is en-only by design (no de/fr/es-419/pt-BR entries):
+// VOICE namespace — all 5 locales. Files were created and translated in the
+// C-voice task; index.ts now registers them so every client voice.* string
+// resolves to its locale at runtime (not a silent en fallback).
 (resources.en as Record<string, Json>).voice = {
   card: en_voice_card,
   reason: en_voice_reason,
   calendar: en_voice_calendar,
   moment: en_voice_moment,
   moments: en_voice_moments,
+};
+(resources.de as Record<string, Json>).voice = {
+  card: de_voice_card,
+  reason: de_voice_reason,
+  calendar: de_voice_calendar,
+  moment: de_voice_moment,
+  moments: de_voice_moments,
+};
+(resources.fr as Record<string, Json>).voice = {
+  card: fr_voice_card,
+  reason: fr_voice_reason,
+  calendar: fr_voice_calendar,
+  moment: fr_voice_moment,
+  moments: fr_voice_moments,
+};
+(resources['es-419'] as Record<string, Json>).voice = {
+  card: es419_voice_card,
+  reason: es419_voice_reason,
+  calendar: es419_voice_calendar,
+  moment: es419_voice_moment,
+  moments: es419_voice_moments,
+};
+(resources['pt-BR'] as Record<string, Json>).voice = {
+  card: ptBR_voice_card,
+  reason: ptBR_voice_reason,
+  calendar: ptBR_voice_calendar,
+  moment: ptBR_voice_moment,
+  moments: ptBR_voice_moments,
 };
 
 export function initI18n() {

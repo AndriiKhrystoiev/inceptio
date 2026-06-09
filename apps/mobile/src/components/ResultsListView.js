@@ -15,12 +15,11 @@ import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import ScorePill from './ScorePill';
 
-// Short labels for the per-card pill — design-ref screenshot shows
-// "Exceptional" / "Strong" not the verbose "Exceptional moment" /
-// "Highly favorable" used on MomentDetail. Different surface, different copy
-// weight; keeping the Results variants as DISTINCT voice keys (voice.moment.
-// results.*) rather than reusing the MomentDetail grade words.
-// VOICE (en-only) — ruling-flavored grade words; traversed with keySeparator '.'
+// Grade label for the per-card pill. Resolved from voice:moment.grade.* — the
+// canonical grade family shared with MomentDetail and StatusLine. The badge form
+// (short, single-word per locale) is achieved via the `exceptional` key
+// shortening (e.g. "Exceptional" not "Exceptional moment").
+// VOICE — ruling-flavored grade words; traversed with keySeparator '.'
 // (global config sets keySeparator:false).
 // REVIEW: grade words carry a traditional-astrology register — values pending
 // native + astrology-literate review pre-launch.
@@ -31,7 +30,7 @@ function gradeLabel(grade) {
       : grade === 'fair' ? 'favorable'
       : grade === 'caution' ? 'caution'
       : 'poor';
-  return i18n.t(`moment.results.${key}`, { ns: 'voice', keySeparator: '.' });
+  return i18n.t(`moment.grade.${key}`, { ns: 'voice', keySeparator: '.' });
 }
 
 // `kind` mapping mirrors gradeToScorePill in MomentDetailScreen — keep them

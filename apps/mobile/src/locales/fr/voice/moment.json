@@ -1,14 +1,7 @@
 {
   "grade": {
-    "exceptional": "Moment exceptionnel",
-    "strong": "Très favorable",
-    "favorable": "Favorable",
-    "caution": "Avance avec soin",
-    "poor": "Déconseillé"
-  },
-  "results": {
     "exceptional": "Exceptionnel",
-    "strong": "Fort",
+    "strong": "Très favorable",
     "favorable": "Favorable",
     "caution": "Avance avec soin",
     "poor": "Déconseillé"

@@ -31,14 +31,21 @@ describe('moment ns', () => {
     }
   });
 
-  it('voice/moment grade-words exist in en only', () => {
-    // Grade words live under grade.* (MomentDetail) and results.* (list view).
-    const grade = enVoice.grade as Record<string, string>;
-    const results = enVoice.results as Record<string, string>;
-    expect(Object.keys(grade).length).toBeGreaterThan(0);
-    expect(Object.keys(results).length).toBeGreaterThan(0);
+  it('voice/moment grade-words exist in all 5 locales', () => {
+    // Grade words live under grade.* only — the results.* block was removed
+    // when ResultsListView was consolidated onto the canonical grade family.
+    // grade.exceptional is now the short badge form ("Exceptional", not
+    // "Exceptional moment") since all surfaces share the same key.
+    const enGrade = enVoice.grade as Record<string, string>;
+    expect(Object.keys(enGrade)).toHaveLength(5);
     for (const k of ['exceptional', 'strong', 'favorable', 'caution', 'poor']) {
-      expect(grade).toHaveProperty(k);
+      expect(enGrade).toHaveProperty(k);
+    }
+    // grade.exceptional is the shortened badge form (no "moment" suffix).
+    expect(enGrade.exceptional).toBe('Exceptional');
+    // No results.* block remains in any locale.
+    for (const voiceObj of [enVoice]) {
+      expect(voiceObj).not.toHaveProperty('results');
     }
     // No voice grade-words leak into the chrome locale files.
     for (const loc of [en, de, fr, es419, ptBR]) {

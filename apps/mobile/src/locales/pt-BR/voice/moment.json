@@ -1,14 +1,7 @@
 {
   "grade": {
-    "exceptional": "Momento excepcional",
-    "strong": "Muito favorável",
-    "favorable": "Favorável",
-    "caution": "Siga com cuidado",
-    "poor": "Não recomendado"
-  },
-  "results": {
     "exceptional": "Excepcional",
-    "strong": "Forte",
+    "strong": "Muito favorável",
     "favorable": "Favorável",
     "caution": "Siga com cuidado",
     "poor": "Não recomendado"
