@@ -211,10 +211,15 @@ function Section({ children }) {
 
 function StatusPill({ status, past }) {
   const { t } = useTranslation('moments');
+  // voice/moments.json registers under the `moments` voice sub-namespace with
+  // flat `pill.*` keys, so the resolved path is `moments.pill.*` (keySeparator
+  // '.'). The bare `voice:pill.*` form echoed the raw key in every locale — a
+  // pre-existing bug (pill stays its own 3-tier saved-moment vocab, not the
+  // canonical grade family: "Moderate" softens caution+poor for saved moments).
   const styleMap = {
-    highly: { fgClass: 'text-gold-glow', bg: 'rgba(229,199,125,0.18)', br: 'rgba(240,216,154,0.45)', label: t('voice:pill.highlyFavorable'), sparkle: true },
-    favorable: { fgClass: 'text-gold-muted', bg: 'rgba(212,184,114,0.10)', br: 'rgba(212,184,114,0.30)', label: t('voice:pill.favorable') },
-    moderate: { fgClass: 'text-primary-glow', bg: 'rgba(139,111,232,0.10)', br: 'rgba(139,111,232,0.30)', label: t('voice:pill.moderate') },
+    highly: { fgClass: 'text-gold-glow', bg: 'rgba(229,199,125,0.18)', br: 'rgba(240,216,154,0.45)', label: t('voice:moments.pill.highlyFavorable', { keySeparator: '.' }), sparkle: true },
+    favorable: { fgClass: 'text-gold-muted', bg: 'rgba(212,184,114,0.10)', br: 'rgba(212,184,114,0.30)', label: t('voice:moments.pill.favorable', { keySeparator: '.' }) },
+    moderate: { fgClass: 'text-primary-glow', bg: 'rgba(139,111,232,0.10)', br: 'rgba(139,111,232,0.30)', label: t('voice:moments.pill.moderate', { keySeparator: '.' }) },
   };
   const pill =
     styleMap[status] ?? {
