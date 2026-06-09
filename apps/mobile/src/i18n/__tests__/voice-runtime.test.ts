@@ -70,7 +70,7 @@ function vt(ns: string, key: string): string {
 // No separate vtFlat needed — all lookups use keySeparator '.' since the voice
 // namespace is a nested object (sub-files are top-level keys: card, reason,
 // calendar, moment, moments). pill keys live at voice.moments['pill.*'], so
-// the correct path is 'moments.pill.highlyFavorable' — not a flat lookup.
+// the correct path is 'moments.pill.moderate' — not a flat lookup.
 
 beforeAll(() => {
   initI18n();
@@ -89,12 +89,12 @@ describe('de voice — all 5 sub-namespaces resolve to locale JSON values', () =
     expect(resolved).toBe((deVoiceMoment.grade as Record<string, string>).favorable);
   });
 
-  it('moments.pill.highlyFavorable resolves to de locale value', async () => {
+  it('moments.pill.moderate resolves to de locale value', async () => {
     await i18n.changeLanguage('de');
     // pill.* lives under the 'moments' sub-file, so the correct path is
-    // moments.pill.highlyFavorable (keySeparator '.').
-    const resolved = vt('voice', 'moments.pill.highlyFavorable');
-    const key = 'pill.highlyFavorable' as keyof typeof deVoiceMoments;
+    // moments.pill.moderate (keySeparator '.').
+    const resolved = vt('voice', 'moments.pill.moderate');
+    const key = 'pill.moderate' as keyof typeof deVoiceMoments;
     expect(resolved).toBe(deVoiceMoments[key]);
   });
 
@@ -126,10 +126,10 @@ describe('fr voice — all 5 sub-namespaces resolve to locale JSON values', () =
     expect(resolved).toBe((frVoiceMoment.grade as Record<string, string>).favorable);
   });
 
-  it('moments.pill.highlyFavorable resolves to fr locale value', async () => {
+  it('moments.pill.moderate resolves to fr locale value', async () => {
     await i18n.changeLanguage('fr');
-    const resolved = vt('voice', 'moments.pill.highlyFavorable');
-    const key = 'pill.highlyFavorable' as keyof typeof frVoiceMoments;
+    const resolved = vt('voice', 'moments.pill.moderate');
+    const key = 'pill.moderate' as keyof typeof frVoiceMoments;
     expect(resolved).toBe(frVoiceMoments[key]);
   });
 
@@ -161,10 +161,10 @@ describe('es-419 voice — all 5 sub-namespaces resolve to locale JSON values', 
     expect(resolved).toBe((es419VoiceMoment.grade as Record<string, string>).favorable);
   });
 
-  it('moments.pill.highlyFavorable resolves to es-419 locale value', async () => {
+  it('moments.pill.moderate resolves to es-419 locale value', async () => {
     await i18n.changeLanguage('es-419');
-    const resolved = vt('voice', 'moments.pill.highlyFavorable');
-    const key = 'pill.highlyFavorable' as keyof typeof es419VoiceMoments;
+    const resolved = vt('voice', 'moments.pill.moderate');
+    const key = 'pill.moderate' as keyof typeof es419VoiceMoments;
     expect(resolved).toBe(es419VoiceMoments[key]);
   });
 
@@ -196,10 +196,10 @@ describe('pt-BR voice — all 5 sub-namespaces resolve to locale JSON values', (
     expect(resolved).toBe((ptBRVoiceMoment.grade as Record<string, string>).favorable);
   });
 
-  it('moments.pill.highlyFavorable resolves to pt-BR locale value', async () => {
+  it('moments.pill.moderate resolves to pt-BR locale value', async () => {
     await i18n.changeLanguage('pt-BR');
-    const resolved = vt('voice', 'moments.pill.highlyFavorable');
-    const key = 'pill.highlyFavorable' as keyof typeof ptBRVoiceMoments;
+    const resolved = vt('voice', 'moments.pill.moderate');
+    const key = 'pill.moderate' as keyof typeof ptBRVoiceMoments;
     expect(resolved).toBe(ptBRVoiceMoments[key]);
   });
 
