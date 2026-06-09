@@ -1,5 +1,13 @@
 # Inceptio — Backlog / Known Issues
 
+## i18n layout-pass items (German-first, screen-soft — verify on device)
+
+### LAYOUT-001 · StatusLine grade badge sized for short words, now holds phrasal canonical labels
+The grade-vocab harmonization routed the canonical `voice:moment.grade.*` labels into the terse `StatusLine` badge via `.toUpperCase()`. Originals were short (STRONG/CAUTION/POOR, ≤7 chars); the canonical family is phrasal and uppercased German/Spanish run long: **de "MIT BEDACHT VORGEHEN" (20)**, es-419 "AVANZAR CON CUIDADO" (19), en "HIGHLY FAVORABLE" (16). The badge pill wasn't sized for phrase-length labels → likely overflow/wrap. Screen-soft (wraps, not a launch blocker) but **verify per locale on device (German first)** during the layout pass; resize the badge or shorten the badge form if it clips.
+
+### LAYOUT-002 · 30 screen-soft daily-note overflows (tracked allowlist)
+The translated daily-note variants/fallbacks exceed the 48/140 screen budget in 30 spots (de/fr/es-419 heavy — `closed-eclipse-window`, `mixed-moon-steady-sky-thin` worst). Tracked in `KNOWN_LAYOUT_PASS_OVERFLOWS` (worker `lint-library.test.ts`); they wrap on the Today hero / 03b. Trim during the layout pass + native review; remove ids from the allowlist as fixed.
+
 ## Bugs
 
 ### BUG-001 · cluster-windows renders window DATE in device tz, not event tz (off-by-one across date-line) · **pre-launch candidate**
