@@ -4,7 +4,7 @@
 // that is what makes per-session attempt dedup work without a separate guard.
 
 import { storage } from '../storage';
-import type { RatingHistory } from './eligibility';
+import { MS_PER_DAY, type RatingHistory } from './eligibility';
 
 const K = {
   distinctDayCount: 'rating.distinctDayCount',
@@ -15,8 +15,6 @@ const K = {
   attemptsInWindow: 'rating.attemptsInWindow',
   lastFrustrationAt: 'rating.lastFrustrationAt',
 } as const;
-
-const MS_PER_DAY = 86_400_000;
 
 function getInt(key: string): number {
   const raw = storage.getString(key);
@@ -111,7 +109,10 @@ export function resetRatingState(): void {
 
 const _lastKey: Record<string, string | undefined> = {};
 export function oncePerKey(bucket: string, key: string): boolean {
-  if (key && _lastKey[bucket] === key) return false;
+  // Dedupe ANY string (including ''); the prior `key &&` guard let empty keys
+  // bypass dedup entirely. Real call sites pass searchKeyOf(...) which is never
+  // empty, but the guard was semantically wrong.
+  if (_lastKey[bucket] === key) return false;
   _lastKey[bucket] = key;
   return true;
 }

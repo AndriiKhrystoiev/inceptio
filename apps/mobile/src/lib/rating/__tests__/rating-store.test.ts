@@ -68,6 +68,20 @@ describe('rating-store', () => {
     expect(oncePerKey('b', 'k2')).toBe(true);
   });
 
+  it('oncePerKey: empty string is deduped like any other key', () => {
+    expect(oncePerKey('b', '')).toBe(true);
+    expect(oncePerKey('b', '')).toBe(false);
+  });
+
+  it('pruneAttempts: silently drops non-ISO / NaN entries', () => {
+    expect(pruneAttempts(['not-a-date', '', 'garbage'], NOW)).toEqual([]);
+  });
+
+  it('recordActiveDay: first-ever call (no prior key) sets count to 1', () => {
+    recordActiveDay(NOW);
+    expect(loadHistory(NOW).distinctDayCount).toBe(1);
+  });
+
   it('searchKeyOf: deterministic from request identity', () => {
     const r = { activity: 'wedding', start: '2026-06-09', end: '2026-07-09', lat: 50.4, lng: 30.5 };
     expect(searchKeyOf(r)).toBe(searchKeyOf({ ...r }));

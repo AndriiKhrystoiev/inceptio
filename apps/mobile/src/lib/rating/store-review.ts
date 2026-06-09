@@ -97,6 +97,7 @@ export async function openFeedback(opts: {
  *  compiled out of production builds (it lives behind __DEV__ at the call site;
  *  verified absent on a prod build per LG9). */
 export async function debugForceRequestReview(): Promise<void> {
+  if (!__DEV__) return; // belt-and-suspenders — the call site is also __DEV__-gated
   try {
     if (await StoreReview.isAvailableAsync()) await StoreReview.requestReview();
   } catch { /* swallow */ }

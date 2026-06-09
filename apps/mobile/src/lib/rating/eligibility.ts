@@ -51,7 +51,7 @@ const SUPPRESSED: ReadonlySet<RatingContext> = new Set([
   'paywall', 'onboarding', 'mid_flow',
 ]);
 
-const MS_PER_DAY = 86_400_000;
+export const MS_PER_DAY = 86_400_000;
 
 // Elapsed days between an instant and a stored ISO timestamp. Native Date math
 // (date-fns is NOT installed). NOT a calendar-day diff — see spec §5/§6 BUG-001

@@ -9,6 +9,9 @@ import {
 import { loadHistory, oncePerKey } from './rating-store';
 import { attemptNativeReview } from './store-review';
 
+// Grades arrive from the API typed as z.string() (permissive-enum policy), so
+// the screen passes `grade: string`; we cast to Grade at this boundary. A
+// non-qualifying value simply fails the grade cut in the pure fn.
 // A grade we never qualify, used when the screen has no displayable grade
 // (e.g. empty top_windows) so the pure cut returns below_grade_cut, not a throw.
 const NON_QUALIFYING: Grade = 'poor';
