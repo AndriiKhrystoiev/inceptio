@@ -25,6 +25,7 @@ import { hydrateStorage, storage } from './src/lib/storage';
 import { initActivityPreference, useActivityPreference } from './src/lib/activity-preference';
 import { initLocationPreference, useLocationPreference } from './src/lib/location-preference';
 import { migrateLocationTimezones_v1 } from './src/lib/location-storage';
+import { recordActiveDay } from './src/lib/rating/rating-store';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import TodayScreen from './src/screens/TodayScreen';
 import ActivityPickerScreen from './src/screens/ActivityPickerScreen';
@@ -126,6 +127,10 @@ export default function App() {
       // NEW: location-preference init AFTER activity-init (D14 upgrade path reads activity status).
       // Defensive D32 call inside initLocationPreference is belt-and-suspenders.
       initLocationPreference();
+      // Rating: bump the distinct-day counter once per device-local day. MUST be
+      // after hydrateStorage() (reads rating.lastActiveDay) and is the only
+      // pre-render rating read (spec EC7).
+      recordActiveDay();
       setStorageReady(true);
     });
   }, []);
