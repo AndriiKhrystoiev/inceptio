@@ -22,7 +22,8 @@ import { resolve } from 'node:path';
 //     - "every voice ns file exists in all 5 locales"
 //     - "every voice key in en is present in de/fr/es-419/pt-BR"
 //
-//   Unchanged: the onboarding:subhead CHROME exception (length-1 allowlist).
+//   The onboarding:subhead CHROME exception is now CLOSED (allowlist empty) —
+//   L38's 4.3-final wording is locked and translated in all 5 locales.
 //
 // fs is fine here — vitest runs in the node env (see vitest.config.ts) with cwd
 // = apps/mobile. No i18n/polyfills import, so no @formatjs export-map trouble.
@@ -88,10 +89,11 @@ const VOICE_NS = existsSync(EN_VOICE_DIR)
       .sort()
   : [];
 
-// Single named, length-asserted exception (4.3-framing pending — see A4 launch
-// checklist). The ONLY CHROME key allowed to hold its en value in non-en bundles.
-// Hardcoded so it cannot silently grow.
-const TRANSLATION_DEFERRED = [{ ns: 'onboarding', key: 'subhead' }] as const;
+// Translation-deferred allowlist — keys permitted to hold their en value in
+// non-en bundles. NOW EMPTY: onboarding:subhead (the L38 4.3-sensitive line) was
+// the sole exception; the owner locked the 4.3-final wording and it's translated
+// in all 5 locales, so the allowlist closes to zero. Hardcoded so it cannot grow.
+const TRANSLATION_DEFERRED: ReadonlyArray<{ ns: string; key: string }> = [];
 
 describe('consolidated CHROME coverage', () => {
   it('finds the expected 17 CHROME namespaces in en', () => {
@@ -188,23 +190,16 @@ describe('voice all-5-locale invariant (Task T flip)', () => {
 });
 
 describe('translation-deferred allowlist', () => {
-  it('contains exactly one entry (cannot silently grow)', () => {
-    expect(TRANSLATION_DEFERRED).toHaveLength(1);
-    expect(TRANSLATION_DEFERRED[0]).toEqual({ ns: 'onboarding', key: 'subhead' });
+  it('is EMPTY — zero CHROME keys may hold their en value in non-en (L38 closed)', () => {
+    // onboarding:subhead was the only ever-deferred key; the 4.3-final wording is
+    // locked and translated in all 5 locales, so the allowlist is now empty.
+    expect(TRANSLATION_DEFERRED).toHaveLength(0);
   });
 
-  it('the single deferred key is the place non-en==en is allowed', () => {
-    // Confirm the allowlisted key genuinely holds the en value in every non-en
-    // locale (the 4.3-pending state). This pins WHY the exception exists; we do
-    // NOT broadly assert non-en!=en elsewhere (OK / "Inceptio" are legitimately
-    // identical across locales — too many false positives).
-    const { ns, key } = TRANSLATION_DEFERRED[0];
-    const en = readJson(resolve(EN_DIR, `${ns}.json`));
-    const enVal = en[key];
-    expect(typeof enVal).toBe('string');
-    for (const loc of NON_EN) {
-      const locObj = readJson(resolve(LOCALES_DIR, loc, `${ns}.json`));
-      expect(locObj[key], `${loc}:${ns}:${key} should still hold the en value`).toBe(enVal);
-    }
+  it('onboarding:subhead is now genuinely translated (de differs from en)', () => {
+    const en = readJson(resolve(EN_DIR, 'onboarding.json')).subhead as string;
+    const de = readJson(resolve(LOCALES_DIR, 'de', 'onboarding.json')).subhead as string;
+    expect(typeof en).toBe('string');
+    expect(de).not.toBe(en);
   });
 });

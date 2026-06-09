@@ -5,10 +5,11 @@ import fr from '../../locales/fr/onboarding.json';
 import es419 from '../../locales/es-419/onboarding.json';
 import ptBR from '../../locales/pt-BR/onboarding.json';
 
-// Exactly one CHROME key may legitimately equal its en value across non-en
-// locales: onboarding:subhead is 4.3-framing-sensitive and translated LAST
-// (see A4 launch checklist). A named single-key exception, NOT a pattern.
-const EN_EQ_ALLOWED = new Set(['subhead']);
+// No CHROME key may equal its en value across non-en locales anymore:
+// onboarding:subhead (the 4.3-sensitive line, formerly translated LAST) had its
+// 4.3-final wording locked by the owner and is now translated in all 5 locales,
+// so this exception set is EMPTY.
+const EN_EQ_ALLOWED = new Set<string>([]);
 
 describe('onboarding ns', () => {
   it('CHROME keys exist in all 5 locales', () => {
@@ -27,7 +28,7 @@ describe('onboarding ns', () => {
     }
   });
 
-  it('every non-en value is genuinely translated except onboarding:subhead', () => {
+  it('every non-en value is genuinely translated (no exceptions)', () => {
     const enMap = en as Record<string, string>;
     for (const k of Object.keys(enMap)) {
       if (EN_EQ_ALLOWED.has(k)) continue;
@@ -37,10 +38,10 @@ describe('onboarding ns', () => {
     }
   });
 
-  it('onboarding:subhead temporarily holds the en string in every non-en locale', () => {
+  it('onboarding:subhead is translated in every non-en locale (L38 closed)', () => {
     const enSub = (en as Record<string, string>).subhead;
     for (const loc of [de, fr, es419, ptBR]) {
-      expect((loc as Record<string, string>).subhead).toBe(enSub);
+      expect((loc as Record<string, string>).subhead).not.toBe(enSub);
     }
   });
 });
