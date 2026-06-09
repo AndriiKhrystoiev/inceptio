@@ -9,7 +9,7 @@
 // Month chevrons mutate viewMonth. The back arrow is disabled at the current
 // month — there's no useful data behind it.
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, ScrollView, StyleSheet, Pressable, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -31,6 +31,8 @@ import { storage } from '../lib/storage';
 import { clusterWindows } from '../lib/cluster-windows';
 import { casedForBundle } from '../lib/format-date';
 import { activeBundle, toIntlLocale } from '../i18n/locale';
+import { maybePromptAfterView } from '../lib/rating/prompt-triggers';
+import { searchKeyOf } from '../lib/rating/rating-store';
 
 const VIEW_KEY = 'inceptio.results_view'; // 'list' | 'calendar'
 
@@ -198,6 +200,20 @@ export default function CalendarScreen({ go }) {
   const topWindows = envelope?.data?.top_windows ?? [];
   const summary = envelope?.data?.summary;
   const noViable = summary?.no_viable_windows ?? false;
+
+  // Rating trigger (b): viewing a qualifying-grade result on a return day is a
+  // natural positive break. Fire-and-forget; idempotent per search (oncePerKey
+  // inside maybePromptAfterView) so cache-hit remounts don't re-attempt (EC10).
+  // noViable routes here too (calendar "closest moments") — pass it so the pure
+  // fn suppresses it. Best grade = rank-ordered top_windows[0].grade (RAW).
+  useEffect(() => {
+    if (!result) return;
+    void maybePromptAfterView({
+      grade: topWindows[0]?.grade,
+      noViable,
+      searchKey: searchKeyOf(request),
+    });
+  }, [result]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Header copy reflects the picker's full range. Uses the API's true window
   // count (summary.viable_windows_count = total viable windows across the
