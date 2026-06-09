@@ -15,6 +15,9 @@ import Pulse from '../components/Pulse';
 import { useElectionalSearch } from '../hooks/useElectionalSearch';
 import { getDraft } from '../lib/draft-store';
 import { friendlyMessage } from '../lib/error-messages';
+import {
+  recordSuccessfulSearch, recordFrustration, oncePerKey, searchKeyOf,
+} from '../lib/rating/rating-store';
 
 const STAGES = [
   { from:  0, to:  5,  key: 'stage1' },
@@ -49,6 +52,12 @@ export default function LoadingScreen({ go }) {
     refetch,
   } = useElectionalSearch(request);
 
+  // Stable per-search key so the success/error recorders fire once per result,
+  // even if React remounts this screen on a cache hit (EC10 funnel). request is
+  // rebuilt each render from getDraft(), but searchKeyOf returns a deterministic
+  // STRING from the field values — identical across renders for the same search.
+  const ratingSearchKey = searchKeyOf(request);
+
   // Tick the elapsed counter while loading
   useEffect(() => {
     if (!isLoading) return;
@@ -59,16 +68,32 @@ export default function LoadingScreen({ go }) {
     return () => clearInterval(id);
   }, [isLoading]);
 
-  // Navigate on success
+  // Navigate on success — and record the search outcome ONCE per result. This
+  // is the SINGLE funnel for successful-search + no_viable frustration. The
+  // search hook is TanStack v5 with no onSuccess, and per-screen render-time
+  // isError would double-count on cache-hit remounts — so recording lives here,
+  // in effects gated by oncePerKey.
   useEffect(() => {
     if (!result) return;
     const noViable = result.envelope?.data?.summary?.no_viable_windows ?? false;
-    if (noViable) {
-      go('noviable');
-    } else {
-      go('calendar');
+    if (oncePerKey('search-outcome', ratingSearchKey)) {
+      if (noViable) recordFrustration();
+      else recordSuccessfulSearch();
     }
-  }, [result, go]);
+    if (noViable) go('noviable');
+    else go('calendar');
+  }, [result, go, ratingSearchKey]);
+
+  // Record search ERRORS as frustration. Per spec D4, ANY error/empty state
+  // suppresses the next positive prompt — so this fires on every isError
+  // (RateLimitError, UpstreamQuotaError, network, timeout, parse all included).
+  // We deliberately do NOT branch on instanceof: that would UNDER-cover (miss
+  // network/parse), contradicting "any error". Same funnel key as success, so a
+  // success and an error for the same search can never both fire.
+  useEffect(() => {
+    if (!isError) return;
+    if (oncePerKey('search-outcome', ratingSearchKey)) recordFrustration();
+  }, [isError, ratingSearchKey]);
 
   const stageIndex = STAGES.findIndex((s) => elapsed >= s.from && elapsed < s.to);
 
