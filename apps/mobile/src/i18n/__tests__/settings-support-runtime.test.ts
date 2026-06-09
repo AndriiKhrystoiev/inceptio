@@ -37,6 +37,15 @@ describe('support.* + common:copied resolve at runtime in all 5 locales', () => 
       expect(i18n.t('support.feedback', { ns: 'settings' })).toBe(SETTINGS[loc]['support.feedback']);
       expect(i18n.t('support.rate', { ns: 'settings' })).toBe(SETTINGS[loc]['support.rate']);
       expect(i18n.t('copied', { ns: 'common' })).toBe(COMMON[loc]['copied']);
+      if (loc !== 'en') {
+        // Guard against silent fallthrough to en (the registration-gap bug):
+        // these two keys have a DISTINCT value in EVERY non-en locale, so a
+        // fallthrough to English would make these assertions fail. (support.title
+        // / support.rate are NOT used here because some coincide with en, e.g.
+        // de "Support".)
+        expect(i18n.t('support.feedback', { ns: 'settings' })).not.toBe(SETTINGS['en']['support.feedback']);
+        expect(i18n.t('copied', { ns: 'common' })).not.toBe(COMMON['en']['copied']);
+      }
     });
   }
 });

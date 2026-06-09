@@ -116,8 +116,11 @@ export function oncePerKey(bucket: string, key: string): boolean {
   _lastKey[bucket] = key;
   return true;
 }
-export function __resetRatingDedupeForTests(): void {
+export function resetRatingDedupe(): void {
   for (const k of Object.keys(_lastKey)) delete _lastKey[k];
+}
+export function __resetRatingDedupeForTests(): void {
+  resetRatingDedupe();
 }
 
 /** Stable identity for one search (mirrors the React Query key fields). */

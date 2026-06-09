@@ -3,7 +3,7 @@
 // to 'calendar' on success (viable) or 'noviable' when no_viable_windows is true.
 // On error: shows friendly message + "Try again" CTA that calls refetch().
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -32,17 +32,22 @@ export default function LoadingScreen({ go }) {
   const startRef = useRef(Date.now());
 
   // Build request from the assembled draft. The draft is fully populated by
-  // the time the user reaches LoadingScreen (ActivityPicker → DatePicker → Location).
-  const draft = getDraft();
-  const request = {
-    activity: draft.activity,
-    start: draft.start,
-    end: draft.end,
-    lat: draft.lat,
-    lng: draft.lng,
-    timezone: draft.timezone,
-    city: draft.city,
-  };
+  // the time the user reaches LoadingScreen (ActivityPicker → DatePicker → Location)
+  // and is immutable while this screen is mounted — so memoize it. This makes the
+  // EC10 rating dedup key (searchKeyOf(request)) structurally stable across
+  // renders rather than relying on getDraft() returning identical values.
+  const request = useMemo(() => {
+    const draft = getDraft();
+    return {
+      activity: draft.activity,
+      start: draft.start,
+      end: draft.end,
+      lat: draft.lat,
+      lng: draft.lng,
+      timezone: draft.timezone,
+      city: draft.city,
+    };
+  }, []);
 
   const {
     data: result,
@@ -56,7 +61,7 @@ export default function LoadingScreen({ go }) {
   // even if React remounts this screen on a cache hit (EC10 funnel). request is
   // rebuilt each render from getDraft(), but searchKeyOf returns a deterministic
   // STRING from the field values — identical across renders for the same search.
-  const ratingSearchKey = searchKeyOf(request);
+  const ratingSearchKey = useMemo(() => searchKeyOf(request), [request]);
 
   // Tick the elapsed counter while loading
   useEffect(() => {

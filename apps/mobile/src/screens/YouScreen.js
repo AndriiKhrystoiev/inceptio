@@ -20,7 +20,7 @@ import { clearSavedMoments } from '../lib/draft-store';
 import { useLocationPreference, clearDefaultLocation } from '../lib/location-preference';
 import { getDeviceId, clearDeviceId } from '../lib/device-id';
 import { openFeedback, openStoreListing, debugForceRequestReview } from '../lib/rating/store-review';
-import { recordFrustration, resetRatingState } from '../lib/rating/rating-store';
+import { recordFrustration, resetRatingState, resetRatingDedupe } from '../lib/rating/rating-store';
 import { debugEvaluate } from '../lib/rating/prompt-triggers';
 
 
@@ -150,9 +150,9 @@ export default function YouScreen({ go }) {
   // Support — always-available unhappy-user valve. The TAP writes the
   // frustration cooldown (action-only; no sentiment is ever read). openFeedback
   // opens the mail composer, or copies the address if there's no mail client.
-  async function handleFeedback() {
+  function handleFeedback() {
     recordFrustration();
-    await openFeedback({
+    void openFeedback({
       onCopied: () => showToast(t('common:copied')),
       onError: () => showToast(t('toast.copyFailed'), 'warn'),
     });
@@ -173,6 +173,7 @@ export default function YouScreen({ go }) {
   }
   function debugResetRating() {
     resetRatingState();
+    resetRatingDedupe(); // also clear in-session dedup so the dev gets a true clean slate
     showToast('Rating state reset');
   }
 
