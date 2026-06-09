@@ -101,7 +101,7 @@ export default function YouScreen({ go }) {
     if (!deviceId) return;
     try {
       await Clipboard.setStringAsync(deviceId);
-      showToast(t('toast.deviceIdCopied'));
+      showToast(t('common:copied'));
     } catch {
       showToast(t('toast.copyFailed'), 'warn');
     }

@@ -19,7 +19,6 @@
   "debugMode.title": "Debug mode on",
   "debugMode.body": "Developer section is now visible.",
   "toast.comingSoon": "Coming soon",
-  "toast.deviceIdCopied": "Device ID copied",
   "toast.copyFailed": "Couldn't copy. Long-press the value to select.",
   "toast.deviceIdReset": "Device ID reset",
   "toast.savedMomentsCleared": "Saved moments cleared",
@@ -28,5 +27,8 @@
   "resetDeviceId.confirm": "Reset",
   "clearMoments.title": "Clear all saved moments?",
   "clearMoments.body": "This removes everything from Your Moments tab. Cannot be undone.",
-  "clearMoments.confirm": "Clear"
+  "clearMoments.confirm": "Clear",
+  "support.title": "Support",
+  "support.feedback": "Send feedback",
+  "support.rate": "Rate Inceptio"
 }

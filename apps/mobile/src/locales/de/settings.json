@@ -19,7 +19,6 @@
   "debugMode.title": "Debug-Modus an",
   "debugMode.body": "Der Entwicklerbereich ist jetzt sichtbar.",
   "toast.comingSoon": "Bald verfügbar",
-  "toast.deviceIdCopied": "Geräte-ID kopiert",
   "toast.copyFailed": "Kopieren nicht möglich. Halte den Wert gedrückt, um ihn auszuwählen.",
   "toast.deviceIdReset": "Geräte-ID zurückgesetzt",
   "toast.savedMomentsCleared": "Gespeicherte Momente gelöscht",
@@ -28,5 +27,8 @@
   "resetDeviceId.confirm": "Zurücksetzen",
   "clearMoments.title": "Alle gespeicherten Momente löschen?",
   "clearMoments.body": "Das entfernt alles aus dem Tab „Deine Momente“. Kann nicht rückgängig gemacht werden.",
-  "clearMoments.confirm": "Löschen"
+  "clearMoments.confirm": "Löschen",
+  "support.title": "Support",
+  "support.feedback": "Feedback senden",
+  "support.rate": "Inceptio bewerten"
 }

@@ -19,7 +19,6 @@
   "debugMode.title": "Modo de depuración activado",
   "debugMode.body": "La sección de desarrollo ya está visible.",
   "toast.comingSoon": "Disponible pronto",
-  "toast.deviceIdCopied": "ID del dispositivo copiado",
   "toast.copyFailed": "No se pudo copiar. Mantén pulsado el valor para seleccionarlo.",
   "toast.deviceIdReset": "ID del dispositivo restablecido",
   "toast.savedMomentsCleared": "Momentos guardados borrados",
@@ -28,5 +27,8 @@
   "resetDeviceId.confirm": "Restablecer",
   "clearMoments.title": "¿Borrar todos los momentos guardados?",
   "clearMoments.body": "Esto elimina todo de la pestaña Tus momentos. No se puede deshacer.",
-  "clearMoments.confirm": "Borrar"
+  "clearMoments.confirm": "Borrar",
+  "support.title": "Soporte",
+  "support.feedback": "Enviar comentarios",
+  "support.rate": "Calificar Inceptio"
 }
