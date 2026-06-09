@@ -29,6 +29,8 @@ import { formatWindowTime, getDurationVariant, buildNarrative } from '../lib/for
 import { moonPhaseForIso } from '../lib/card/moon-phase';
 import { activeBundle, toIntlLocale } from '../i18n/locale';
 import { addWindowToCalendar } from '../lib/calendar-export';
+import { maybePromptAfterSave } from '../lib/rating/prompt-triggers';
+import { isFirstEverSave, recordFirstSaveDone } from '../lib/rating/rating-store';
 
 const FALLBACK_LOCATION = {
   lat: 50.4501,
@@ -180,6 +182,9 @@ export default function MomentDetailScreen({ go }) {
 
   function handleSave() {
     if (!w) return;
+    // Capture BEFORE recordFirstSaveDone so the first-ever save is still blocked
+    // by the eligibility floor (D3). Order matters: read → save → mark → prompt.
+    const wasFirstSave = isFirstEverSave();
     saveMoment({
       id: `${w.start}_${activity}`,
       activity,
@@ -192,7 +197,11 @@ export default function MomentDetailScreen({ go }) {
       headline,
       saved_at: new Date().toISOString(),
     });
+    recordFirstSaveDone();
     showToast(t('toast.saved'));
+    // Fire-and-forget: reads raw w.grade (NOT gradeToScorePill, which collapses
+    // good→strong for color). Eligibility + native card are best-effort.
+    void maybePromptAfterSave({ grade: w.grade, isFirstEverSave: wasFirstSave });
   }
 
   async function handleAddToCalendar() {
