@@ -42,7 +42,6 @@ describe('settings ns', () => {
       'debugMode.title',
       'debugMode.body',
       'toast.comingSoon',
-      'toast.deviceIdCopied',
       'toast.copyFailed',
       'toast.deviceIdReset',
       'toast.savedMomentsCleared',
@@ -52,6 +51,9 @@ describe('settings ns', () => {
       'clearMoments.title',
       'clearMoments.body',
       'clearMoments.confirm',
+      'support.title',
+      'support.feedback',
+      'support.rate',
     ]) {
       expect(has(en, k)).toBe(true);
     }

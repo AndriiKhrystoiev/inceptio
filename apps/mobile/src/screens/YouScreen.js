@@ -19,6 +19,9 @@ import { ActivityChangeSheet } from '../components/ActivityChangeSheet';
 import { clearSavedMoments } from '../lib/draft-store';
 import { useLocationPreference, clearDefaultLocation } from '../lib/location-preference';
 import { getDeviceId, clearDeviceId } from '../lib/device-id';
+import { openFeedback, openStoreListing, debugForceRequestReview } from '../lib/rating/store-review';
+import { recordFrustration, resetRatingState, resetRatingDedupe } from '../lib/rating/rating-store';
+import { debugEvaluate } from '../lib/rating/prompt-triggers';
 
 
 export default function YouScreen({ go }) {
@@ -101,7 +104,7 @@ export default function YouScreen({ go }) {
     if (!deviceId) return;
     try {
       await Clipboard.setStringAsync(deviceId);
-      showToast(t('toast.deviceIdCopied'));
+      showToast(t('common:copied'));
     } catch {
       showToast(t('toast.copyFailed'), 'warn');
     }
@@ -142,6 +145,36 @@ export default function YouScreen({ go }) {
         },
       ],
     );
+  }
+
+  // Support — always-available unhappy-user valve. The TAP writes the
+  // frustration cooldown (action-only; no sentiment is ever read). openFeedback
+  // opens the mail composer, or copies the address if there's no mail client.
+  function handleFeedback() {
+    recordFrustration();
+    void openFeedback({
+      onCopied: () => showToast(t('common:copied')),
+      onError: () => showToast(t('toast.copyFailed'), 'warn'),
+    });
+  }
+
+  // User-initiated store listing. Never calls requestReview (compliance).
+  function handleRate() {
+    void openStoreListing();
+  }
+
+  // Debug (__DEV__ only — compiled out of production, verified by LG9).
+  function debugRatingEval() {
+    const d = debugEvaluate();
+    Alert.alert('Rating eval', `shouldAttempt: ${d.shouldAttempt}\nreason: ${d.reason}`);
+  }
+  function debugForceCard() {
+    void debugForceRequestReview();
+  }
+  function debugResetRating() {
+    resetRatingState();
+    resetRatingDedupe(); // also clear in-session dedup so the dev gets a true clean slate
+    showToast('Rating state reset');
   }
 
   const truncatedDeviceId = deviceId
@@ -193,6 +226,10 @@ export default function YouScreen({ go }) {
           </Pressable>
         )}
 
+        <Section title={t('support.title')} />
+        <Row label={t('support.feedback')} detail="" onPress={handleFeedback} />
+        <Row label={t('support.rate')} detail="" onPress={handleRate} />
+
         {/* Long-press the About header for 3s to reveal the Debug section
             below. In production builds (__DEV__ === false), the long-press
             is a no-op — the Debug section never renders regardless. */}
@@ -224,6 +261,9 @@ export default function YouScreen({ go }) {
               destructive
               onPress={confirmClearSavedMoments}
             />
+            <Row label="Force rating eval" detail="" onPress={debugRatingEval} />
+            <Row label="Force requestReview()" detail="" onPress={debugForceCard} />
+            <Row label="Reset rating state" detail="" destructive onPress={debugResetRating} />
           </>
         )}
       </ScrollView>

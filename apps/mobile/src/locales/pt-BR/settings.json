@@ -19,7 +19,6 @@
   "debugMode.title": "Modo de depuração ativado",
   "debugMode.body": "A seção de desenvolvimento agora está visível.",
   "toast.comingSoon": "Em breve",
-  "toast.deviceIdCopied": "ID do dispositivo copiado",
   "toast.copyFailed": "Não foi possível copiar. Mantenha o valor pressionado para selecioná-lo.",
   "toast.deviceIdReset": "ID do dispositivo redefinido",
   "toast.savedMomentsCleared": "Momentos salvos apagados",
@@ -28,5 +27,8 @@
   "resetDeviceId.confirm": "Redefinir",
   "clearMoments.title": "Apagar todos os momentos salvos?",
   "clearMoments.body": "Isso remove tudo da aba Seus momentos. Não pode ser desfeito.",
-  "clearMoments.confirm": "Apagar"
+  "clearMoments.confirm": "Apagar",
+  "support.title": "Suporte",
+  "support.feedback": "Enviar feedback",
+  "support.rate": "Avaliar o Inceptio"
 }

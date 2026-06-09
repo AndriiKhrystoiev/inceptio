@@ -41,6 +41,10 @@ const ALLOWLIST: Array<{ match: string; why: string }> = [
   // __DEV__-only StatePicker state labels (developer tooling, never shipped UI).
   { match: 'viable caution', why: '__DEV__ StatePicker dev labels' },
   { match: 'fully blocked', why: '__DEV__ StatePicker dev labels' },
+  // __DEV__-only YouScreen rating Debug rows (compiled out of prod via LG9).
+  { match: 'Force rating eval', why: '__DEV__ rating Debug row label' },
+  { match: 'Force requestReview()', why: '__DEV__ rating Debug row label' },
+  { match: 'Reset rating state', why: '__DEV__ rating Debug row label' },
 ];
 
 function isAllowlisted(lit: string): boolean {

@@ -19,7 +19,6 @@
   "debugMode.title": "Mode débogage activé",
   "debugMode.body": "La section développeur est maintenant visible.",
   "toast.comingSoon": "Bientôt disponible",
-  "toast.deviceIdCopied": "Identifiant de l'appareil copié",
   "toast.copyFailed": "Copie impossible. Appuie longuement sur la valeur pour la sélectionner.",
   "toast.deviceIdReset": "Identifiant de l'appareil réinitialisé",
   "toast.savedMomentsCleared": "Moments enregistrés effacés",
@@ -28,5 +27,8 @@
   "resetDeviceId.confirm": "Réinitialiser",
   "clearMoments.title": "Effacer tous les moments enregistrés ?",
   "clearMoments.body": "Cela supprime tout de l'onglet Tes moments. Action irréversible.",
-  "clearMoments.confirm": "Effacer"
+  "clearMoments.confirm": "Effacer",
+  "support.title": "Assistance",
+  "support.feedback": "Envoyer un commentaire",
+  "support.rate": "Évaluer Inceptio"
 }

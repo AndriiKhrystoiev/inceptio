@@ -3,7 +3,7 @@
 // to 'calendar' on success (viable) or 'noviable' when no_viable_windows is true.
 // On error: shows friendly message + "Try again" CTA that calls refetch().
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Animated, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,9 @@ import Pulse from '../components/Pulse';
 import { useElectionalSearch } from '../hooks/useElectionalSearch';
 import { getDraft } from '../lib/draft-store';
 import { friendlyMessage } from '../lib/error-messages';
+import {
+  recordSuccessfulSearch, recordFrustration, oncePerKey, searchKeyOf,
+} from '../lib/rating/rating-store';
 
 const STAGES = [
   { from:  0, to:  5,  key: 'stage1' },
@@ -29,17 +32,22 @@ export default function LoadingScreen({ go }) {
   const startRef = useRef(Date.now());
 
   // Build request from the assembled draft. The draft is fully populated by
-  // the time the user reaches LoadingScreen (ActivityPicker → DatePicker → Location).
-  const draft = getDraft();
-  const request = {
-    activity: draft.activity,
-    start: draft.start,
-    end: draft.end,
-    lat: draft.lat,
-    lng: draft.lng,
-    timezone: draft.timezone,
-    city: draft.city,
-  };
+  // the time the user reaches LoadingScreen (ActivityPicker → DatePicker → Location)
+  // and is immutable while this screen is mounted — so memoize it. This makes the
+  // EC10 rating dedup key (searchKeyOf(request)) structurally stable across
+  // renders rather than relying on getDraft() returning identical values.
+  const request = useMemo(() => {
+    const draft = getDraft();
+    return {
+      activity: draft.activity,
+      start: draft.start,
+      end: draft.end,
+      lat: draft.lat,
+      lng: draft.lng,
+      timezone: draft.timezone,
+      city: draft.city,
+    };
+  }, []);
 
   const {
     data: result,
@@ -48,6 +56,12 @@ export default function LoadingScreen({ go }) {
     error,
     refetch,
   } = useElectionalSearch(request);
+
+  // Stable per-search key so the success/error recorders fire once per result,
+  // even if React remounts this screen on a cache hit (EC10 funnel). request is
+  // rebuilt each render from getDraft(), but searchKeyOf returns a deterministic
+  // STRING from the field values — identical across renders for the same search.
+  const ratingSearchKey = useMemo(() => searchKeyOf(request), [request]);
 
   // Tick the elapsed counter while loading
   useEffect(() => {
@@ -59,16 +73,32 @@ export default function LoadingScreen({ go }) {
     return () => clearInterval(id);
   }, [isLoading]);
 
-  // Navigate on success
+  // Navigate on success — and record the search outcome ONCE per result. This
+  // is the SINGLE funnel for successful-search + no_viable frustration. The
+  // search hook is TanStack v5 with no onSuccess, and per-screen render-time
+  // isError would double-count on cache-hit remounts — so recording lives here,
+  // in effects gated by oncePerKey.
   useEffect(() => {
     if (!result) return;
     const noViable = result.envelope?.data?.summary?.no_viable_windows ?? false;
-    if (noViable) {
-      go('noviable');
-    } else {
-      go('calendar');
+    if (oncePerKey('search-outcome', ratingSearchKey)) {
+      if (noViable) recordFrustration();
+      else recordSuccessfulSearch();
     }
-  }, [result, go]);
+    if (noViable) go('noviable');
+    else go('calendar');
+  }, [result, go, ratingSearchKey]);
+
+  // Record search ERRORS as frustration. Per spec D4, ANY error/empty state
+  // suppresses the next positive prompt — so this fires on every isError
+  // (RateLimitError, UpstreamQuotaError, network, timeout, parse all included).
+  // We deliberately do NOT branch on instanceof: that would UNDER-cover (miss
+  // network/parse), contradicting "any error". Same funnel key as success, so a
+  // success and an error for the same search can never both fire.
+  useEffect(() => {
+    if (!isError) return;
+    if (oncePerKey('search-outcome', ratingSearchKey)) recordFrustration();
+  }, [isError, ratingSearchKey]);
 
   const stageIndex = STAGES.findIndex((s) => elapsed >= s.from && elapsed < s.to);
 
