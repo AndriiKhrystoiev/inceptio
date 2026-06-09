@@ -13,7 +13,7 @@
 
 **Locked owner decisions:** `emailSubject` = plumbing constant (English + locale tag, NOT a chrome key); floor = ≥2 distinct days. Store-listing URLs + support email are `// TODO(launch)` placeholder constants (two-string swap at launch; Row 2 degrades gracefully until set).
 
-> **⚠️ One deviation to surface (not in the locked spec):** the brainstorm locked **3** chrome keys (`support.title/feedback/rate`). This plan adds a **4th** — `support.emailCopied` — for the clipboard-fallback confirmation toast (a genuine user-facing string the brainstorm didn't enumerate). It is translated in all 5 locales, so the allowlist stays at 0. Flagged for owner; trivial to drop if rejected (replace the toast with the existing `toast.copyFailed` path or remove the toast).
+> **⚠️ Clipboard-toast key — reuse-first resolution (owner-directed 2026-06-09):** the brainstorm locked **3** `support.*` chrome keys (`title/feedback/rate`). The clipboard-fallback confirmation toast needs a translated "Copied" string. `common.json` has **no** existing generic copied string (only the dev-only `settings:toast.deviceIdCopied`). Per reuse-first: **generalize to a new `common:copied` key**, used by **both** the support feedback toast (production) and the (dev-only) device-ID copy toast — migrating `copyDeviceId` to `t('common:copied')` and **removing** the now-dead `settings:toast.deviceIdCopied`. No `support.`-specific 4th key. All keys in all 5 locales; allowlist stays 0. A **runtime-resolution test** confirms `support.*` + `common:copied` actually resolve per-locale (not just file presence — the registration-gap lesson).
 
 ---
 
@@ -1224,7 +1224,7 @@ After `confirmClearSavedMoments` (ends line 145), add:
   async function handleFeedback() {
     recordFrustration();
     await openFeedback({
-      onCopied: () => showToast(t('support.emailCopied')),
+      onCopied: () => showToast(t('common:copied')),
       onError: () => showToast(t('toast.copyFailed'), 'warn'),
     });
   }
