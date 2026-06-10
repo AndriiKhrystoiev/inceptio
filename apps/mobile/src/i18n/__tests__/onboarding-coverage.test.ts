@@ -23,7 +23,10 @@ describe('onboarding ns', () => {
   });
 
   it('declares the onboarding + first-launch chrome keys', () => {
-    for (const k of ['headline', 'subhead', 'cta', 'noAccount', 'welcome', 'prompt', 'changeHint']) {
+    // 'welcome' ("Welcome to Inceptio") was removed when onboarding routing was
+    // fixed: the brand welcome screen now precedes the activity picker, so the
+    // picker no longer re-greets — its header is 'prompt'.
+    for (const k of ['headline', 'subhead', 'cta', 'noAccount', 'prompt', 'changeHint']) {
       expect(en).toHaveProperty(k);
     }
   });

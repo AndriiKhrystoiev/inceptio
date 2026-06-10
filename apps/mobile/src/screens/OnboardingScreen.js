@@ -46,7 +46,7 @@ export default function OnboardingScreen({ go }) {
 
         {/* Action */}
         <View className="pb-8">
-          <PrimaryButton onPress={() => go('today')}>{t('cta')}</PrimaryButton>
+          <PrimaryButton onPress={() => go('first-launch-activity')}>{t('cta')}</PrimaryButton>
           <Text className="font-ui text-[13px] text-subtle text-center mt-5">
             {t('noAccount')}
           </Text>

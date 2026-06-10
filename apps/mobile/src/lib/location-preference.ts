@@ -130,6 +130,15 @@ export function getDefaultLocationSync(): SavedLocation | null {
   return currentDefault;
 }
 
+/**
+ * Sync read of the onboarding location-step status. Used by
+ * FirstLaunchActivityPicker to route its "next" screen through
+ * resolveLandingScreen. Returns the in-memory status; does NOT re-read storage.
+ */
+export function getOnboardingLocationStatusSync(): OnboardingLocationStatus {
+  return onboardingStatus;
+}
+
 type Snapshot = {
   hydrationStatus: HydrationStatus;
   defaultLocation: SavedLocation | null;

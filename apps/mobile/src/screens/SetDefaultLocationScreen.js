@@ -1,11 +1,16 @@
 // Generalized set-default-location flow (D22) — used by 3 entry points:
-//   1. Onboarding interceptor (dismissLabel="Skip for now", onDismissStatus="skipped")
-//   2. YouScreen Settings row (dismissLabel="Cancel", onDismissStatus={null})
-//   3. Today empty-state CTA (dismissLabel="Cancel", onDismissStatus={null} per D31)
+//   1. Onboarding interceptor (onDismissStatus="skipped")
+//   2. YouScreen Settings row (onDismissStatus={null})
+//   3. Today empty-state CTA (onDismissStatus={null} per D31)
 //
 // Renders LocationPickerScreen embedded=true as a child; supplies header
 // chrome (soft-anchor heading + dismiss button); wires onConfirm to write
 // default_location + (conditionally) mark onboarding status.
+//
+// The dismiss label tracks the dismiss semantics rather than being passed in:
+// the onboarding step (onDismissStatus="skipped") shows the localized
+// "Skip for now"; the terminal-status entries (onDismissStatus=null) show
+// "Cancel". Both use existing translated keys — no caller holds a UI string.
 
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,13 +26,12 @@ import {
 
 export default function SetDefaultLocationScreen({
   go,
-  dismissLabel,
   onDismissStatus = null,
 }) {
   const { t } = useTranslation('location');
-  // Parents may pass an explicit dismissLabel; absent, fall back to the
-  // shared localized Cancel CTA.
-  const resolvedDismissLabel = dismissLabel ?? t('common:cancel');
+  // Onboarding skip ⟺ onDismissStatus="skipped" ⟺ localized "Skip for now";
+  // every other entry dismisses as "Cancel".
+  const resolvedDismissLabel = onDismissStatus === 'skipped' ? t('skipForNow') : t('common:cancel');
   const handleConfirm = (loc) => {
     setDefaultLocation(loc);
     // Onboarding entry (onDismissStatus='skipped') wants 'completed' on confirm.

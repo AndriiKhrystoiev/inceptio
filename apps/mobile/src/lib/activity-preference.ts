@@ -90,6 +90,17 @@ export function getDefaultActivitySync(): Activity | undefined {
   return current;
 }
 
+/**
+ * Sync read of the activity hydration status. Used by FirstLaunchActivityPicker
+ * to route its "next" screen through resolveLandingScreen once setDefaultActivity
+ * has flipped the status to 'set'. Returns the in-memory status; does NOT
+ * re-read storage. Public twin of __readActivityHydrationStatusSync (which
+ * stays internal for location-preference's upgrade-path branch).
+ */
+export function getActivityHydrationStatusSync(): HydrationStatus {
+  return hydrationStatus;
+}
+
 type Snapshot = { hydrationStatus: HydrationStatus; activity: Activity | undefined };
 
 let snapshot: Snapshot = { hydrationStatus, activity: current };

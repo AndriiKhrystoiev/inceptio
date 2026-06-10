@@ -31,6 +31,7 @@ import {
   initActivityPreference,
   setDefaultActivity,
   getDefaultActivitySync,
+  getActivityHydrationStatusSync,
   __resetForTests,
   __getSubscribeAndSnapshot,
   __readActivityHydrationStatusSync,
@@ -164,5 +165,25 @@ describe('activity-preference', () => {
     __resetForTests();
     initActivityPreference();
     expect(__readActivityHydrationStatusSync()).toEqual({ hydrationStatus: 'set' });
+  });
+
+  // --- getActivityHydrationStatusSync: the contract FirstLaunchActivityPicker
+  // relies on to route its next screen via resolveLandingScreen ---
+
+  it('getActivityHydrationStatusSync reflects init state', () => {
+    expect(getActivityHydrationStatusSync()).toBe('loading');
+    initActivityPreference();
+    expect(getActivityHydrationStatusSync()).toBe('unset');
+  });
+
+  it('getActivityHydrationStatusSync returns "set" SYNCHRONOUSLY after setDefaultActivity', () => {
+    // The picker calls setDefaultActivity(x) then, on the very next line, reads
+    // getActivityHydrationStatusSync() to decide where to go. This locks that
+    // the status flips synchronously (no async/microtask gap) so the routing
+    // decision can never observe a stale 'unset'.
+    initActivityPreference();
+    expect(getActivityHydrationStatusSync()).toBe('unset');
+    setDefaultActivity('wedding');
+    expect(getActivityHydrationStatusSync()).toBe('set');
   });
 });

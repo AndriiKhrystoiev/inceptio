@@ -22,7 +22,9 @@ import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import PrimaryButton from '../components/PrimaryButton';
 import { ActivityOption } from '../components/ActivityOption';
-import { setDefaultActivity } from '../lib/activity-preference';
+import { setDefaultActivity, getActivityHydrationStatusSync } from '../lib/activity-preference';
+import { getOnboardingLocationStatusSync } from '../lib/location-preference';
+import { resolveLandingScreen } from '../lib/onboarding-route';
 import { getLastActivity } from '../lib/draft-store';
 
 const ALL_ACTIVITIES = ['wedding', 'contracts', 'business_launch', 'travel'];
@@ -43,7 +45,11 @@ export default function FirstLaunchActivityPicker({ go }) {
   function onContinue() {
     if (!selected) return;
     setDefaultActivity(selected);
-    go('today');
+    // Route the next step through the single first-run authority rather than
+    // hardcoding 'today': fresh installs still owe the location step, so this
+    // resolves to 'onboarding-location' (location pending) → location gate →
+    // Today, and lands directly on Today if the step is already done.
+    go(resolveLandingScreen(getActivityHydrationStatusSync(), getOnboardingLocationStatusSync()));
   }
 
   return (
@@ -55,12 +61,11 @@ export default function FirstLaunchActivityPicker({ go }) {
         {/* Top breathing room — mirrors OnboardingScreen's flex-1 spacer */}
         <View className="flex-1" />
 
-        {/* Headline */}
+        {/* Headline — the brand welcome now precedes this screen, so the picker
+            no longer re-greets ("Welcome to Inceptio"). The prompt is promoted
+            to the display header. */}
         <View className="items-center">
           <Text className="font-display text-[32px] leading-[40px] tracking-[-0.3px] text-cream text-center max-w-[320px]">
-            {t('welcome')}
-          </Text>
-          <Text className="font-ui text-[15px] leading-[22px] text-muted text-center mt-4 max-w-[300px]">
             {t('prompt')}
           </Text>
         </View>

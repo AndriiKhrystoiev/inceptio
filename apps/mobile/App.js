@@ -24,6 +24,7 @@ import { queryClient } from './src/lib/query-client';
 import { hydrateStorage, storage } from './src/lib/storage';
 import { initActivityPreference, useActivityPreference } from './src/lib/activity-preference';
 import { initLocationPreference, useLocationPreference } from './src/lib/location-preference';
+import { resolveLandingScreen } from './src/lib/onboarding-route';
 import { migrateLocationTimezones_v1 } from './src/lib/location-storage';
 import { recordActiveDay } from './src/lib/rating/rating-store';
 import OnboardingScreen from './src/screens/OnboardingScreen';
@@ -78,10 +79,19 @@ const SCREENS = {
   paywall:    PaywallScreen,
   'first-launch-activity': FirstLaunchActivityPicker,
   'set-default-location': SetDefaultLocationScreen,
+  // Onboarding variant of the location step (D13 interceptor sequencing:
+  // activity → location → Today). Distinct from 'set-default-location' (the
+  // Settings / Today-empty-state entry): onDismissStatus="skipped" makes the
+  // screen render the localized "Skip for now" AND write a terminal status on
+  // skip — otherwise the location status stays 'pending' and the gate re-fires
+  // on every cold launch.
+  'onboarding-location': (props) => (
+    <SetDefaultLocationScreen {...props} onDismissStatus="skipped"/>
+  ),
 };
 
 // Screens that hide the bottom tab bar (modal flows + onboarding).
-const MODAL_SCREENS = new Set(['onboarding', 'picker', 'date', 'location', 'loading', 'noviable', 'paywall', 'first-launch-activity', 'set-default-location']);
+const MODAL_SCREENS = new Set(['onboarding', 'picker', 'date', 'location', 'loading', 'noviable', 'paywall', 'first-launch-activity', 'set-default-location', 'onboarding-location']);
 
 // Tab id (one of: today / calendar / moments / you) is independent
 // of screen id so a modal flow doesn't deactivate the tab below it.
@@ -99,7 +109,12 @@ export default function App() {
     JetBrainsMono_400Regular,
   });
 
-  const [screen, setScreen] = useState('onboarding');
+  // `screen` starts null — there is NO ungated default. The screen shown before
+  // any in-session navigation is DERIVED from the two persisted onboarding flags
+  // by resolveLandingScreen (see below). This is the root-cause fix: the old
+  // useState('onboarding') default made the brand welcome appear on every cold
+  // launch for returning users while a separate gate skipped it on first run.
+  const [screen, setScreen] = useState(null);
   const [tab, setTab]       = useState('today');
   const [storageReady, setStorageReady] = useState(false);
 
@@ -214,41 +229,35 @@ export default function App() {
     );
   }
 
-  // First-launch gate: no preference set yet → mount the FirstLaunchActivityPicker
-  // as a modal-style full-screen experience (no tab bar). User selects + taps
-  // Continue → setDefaultActivity fires → hydrationStatus moves to 'set' → next
-  // render falls through to the normal screen tree.
-  if (hydrationStatus === 'unset' && screen !== 'first-launch-activity') {
-    return withProviders(
-      <View style={styles.content}>
-        <FirstLaunchActivityPicker go={go}/>
+  // Location must be hydrated before resolveLandingScreen reads
+  // onboardingLocationStatus — otherwise it reads the module default ('pending')
+  // and a returning user would flash the location gate for one frame. In
+  // practice initLocationPreference() runs before setStorageReady(true), so this
+  // is belt-and-suspenders (mirrors the old gate's `locationHydrationStatus ===
+  // 'set'` guard).
+  if (locationHydrationStatus === 'loading') {
+    return (
+      <View style={styles.boot}>
+        <ActivityIndicator color={colors.primaryGlow}/>
       </View>
     );
   }
 
-  // Second-launch location gate (NEW). Fires when activity onboarding is
-  // already done (interceptor sequencing per D13: activity → location → Today)
-  // AND the location-preference hydrated AND the user hasn't completed OR
-  // skipped the location onboarding step. Spec §7.3.
-  if (
-    hydrationStatus === 'set' &&
-    locationHydrationStatus === 'set' &&
-    onboardingLocationStatus === 'pending' &&
-    screen !== 'set-default-location'
-  ) {
-    return withProviders(
-      <View style={styles.content}>
-        <SetDefaultLocationScreen
-          go={go}
-          dismissLabel="Skip for now"
-          onDismissStatus="skipped"
-        />
-      </View>
-    );
-  }
+  // Single first-run authority. Before any in-session navigation (`screen ===
+  // null`), the active screen is DERIVED from the two persisted flags:
+  //   - activity unset            → 'onboarding' (welcome → CTA → picker)
+  //   - activity set, loc pending → 'onboarding-location' (location gate)
+  //   - activity set, loc done    → 'today'
+  // Once the user navigates, `screen` wins (the onboarding flow advances
+  // welcome → picker → location → Today via explicit go() calls, each routed
+  // through resolveLandingScreen). This replaces the old ungated default + two
+  // early-return gates that didn't compose. The welcome can no longer be
+  // skipped on first run, nor shown to returning users.
+  const landing = resolveLandingScreen(hydrationStatus, onboardingLocationStatus);
+  const active = screen ?? landing;
 
-  const Screen = SCREENS[screen] || SCREENS.today;
-  const showTabBar = !MODAL_SCREENS.has(screen);
+  const Screen = SCREENS[active] || SCREENS.today;
+  const showTabBar = !MODAL_SCREENS.has(active);
 
   return withProviders(
     <>
