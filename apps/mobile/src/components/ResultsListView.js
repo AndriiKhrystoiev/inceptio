@@ -14,6 +14,7 @@ import { View, Text, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import ScorePill from './ScorePill';
+import { resolveGrade } from '../lib/grade';
 
 // Grade label for the per-card pill. Resolved from voice:moment.grade.* — the
 // canonical grade family shared with MomentDetail and StatusLine. The badge form
@@ -88,6 +89,9 @@ export default function ResultsListView({ cards, onCardPress, onAdjustSearch }) 
 function Card({ card, onPress }) {
   const { t } = useTranslation('moment');
   const { representative: w, count, dateText, timePrimary, timeSecondary } = card;
+  // Resolve unknown grades from the score (shared with MomentDetail) so the
+  // per-card pill/label/color never contradict the score number.
+  const g = resolveGrade(w.grade, w.score);
 
   return (
     <Pressable
@@ -95,10 +99,10 @@ function Card({ card, onPress }) {
       className="border border-soft rounded-[16px] px-5 py-4 active:opacity-[0.92]"
       style={{ backgroundColor: 'rgba(31,24,56,0.50)' }}>
       <View className="flex-row items-start justify-between gap-3">
-        <ScorePill kind={gradeKind(w.grade)}>{gradeLabel(w.grade)}</ScorePill>
+        <ScorePill kind={gradeKind(g)}>{gradeLabel(g)}</ScorePill>
         <Text
           className="font-display text-[34px] leading-[36px] tracking-[-0.5px]"
-          style={{ color: scoreColor(w.grade) }}
+          style={{ color: scoreColor(g) }}
           numberOfLines={1}>
           {w.score}
         </Text>

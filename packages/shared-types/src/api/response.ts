@@ -8,9 +8,11 @@ export const ScoreSchema = z.number().int().gte(0).lte(100);
 
 // Canonical list of grades we know how to render. The schema below is
 // intentionally permissive (z.string()) so the response never fails to parse
-// when upstream introduces a new bucket — downstream consumers handle unknown
-// grades via their existing default branches (typically falling through to
-// "Not recommended"). Add new grades here once their UI mapping is decided.
+// when upstream introduces a new bucket. The mobile display layer recovers an
+// unknown/odd-cased grade from the window's SCORE (see
+// apps/mobile/src/lib/grade.ts `resolveGrade`) rather than defaulting to
+// "Not recommended" — so a high-scoring window with a not-yet-mapped grade still
+// reads as a high grade. Add new grades here once their UI mapping is decided.
 //
 // `good` was added by upstream mid-2026, sitting between `fair` and `strong`.
 // `strong`/`exceptional` are reserved for ≥75 / ≥90 — rare in real data.

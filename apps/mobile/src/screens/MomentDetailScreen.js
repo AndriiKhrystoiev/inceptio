@@ -29,6 +29,7 @@ import { formatWindowTime, getDurationVariant, buildNarrative } from '../lib/for
 import { moonPhaseForIso } from '../lib/card/moon-phase';
 import { activeBundle, toIntlLocale } from '../i18n/locale';
 import { addWindowToCalendar } from '../lib/calendar-export';
+import { resolveGrade } from '../lib/grade';
 import { maybePromptAfterSave } from '../lib/rating/prompt-triggers';
 import { isFirstEverSave, recordFirstSaveDone } from '../lib/rating/rating-store';
 
@@ -141,7 +142,11 @@ export default function MomentDetailScreen({ go }) {
 
   const displayable = w.displayable ?? {};
   const headline = displayable.headline ?? w.rationale ?? t('fallback.headline');
-  const pillProps = gradeToScorePill(w.grade);
+  // Resolve unknown / odd-cased / missing grades from the score so a high score
+  // never renders as a low grade (the "94 → NOT RECOMMENDED" bug). Known grades
+  // pass through unchanged. Drives BOTH the top pill and the StatusLine badge.
+  const displayGrade = resolveGrade(w.grade, w.score);
+  const pillProps = gradeToScorePill(displayGrade);
 
   // Time display — variant-driven, always derived from the API window
   // (no QA override; the user doesn't pick this).
@@ -265,7 +270,7 @@ export default function MomentDetailScreen({ go }) {
           {w.score}
         </Text>
         <View className="flex-1">
-          <StatusLine score="" grade={w.grade} />
+          <StatusLine score="" grade={displayGrade} />
           <Text className="font-ui text-[12px] text-subtle mt-[6px]">{t('scoreCaption')}</Text>
         </View>
       </View>
