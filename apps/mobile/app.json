@@ -6,6 +6,7 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "icon": "./assets/icon-ios.png",
     "splash": {
       "backgroundColor": "#0F0A1F",
       "resizeMode": "contain"
@@ -20,7 +21,8 @@
     "android": {
       "package": "io.inceptio.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0F0A1F"
+        "backgroundColor": "#0F0A1F",
+        "foregroundImage": "./assets/icon-android-foreground.png"
       }
     },
     "web": {
