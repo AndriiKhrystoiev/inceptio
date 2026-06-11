@@ -196,7 +196,8 @@ export default function App() {
         <SafeAreaProvider>
           <View style={styles.root} onLayout={onLayoutRoot}>
             <StatusBar style="light"/>
-            {__DEV__ && (
+            {/*TODO: Uncomment if need to test functionality */}
+            {/* {__DEV__ && (
               <DevLocaleBar value={devLocale} onChange={onDevLocale} />
             )}
             {__DEV__ && (
@@ -206,7 +207,7 @@ export default function App() {
                 value={update.devOverride ?? 'none'}
                 onChange={(v) => update.setDevOverride(v === 'none' ? null : v)}
               />
-            )}
+            )} */}
             {node}
           </View>
         </SafeAreaProvider>

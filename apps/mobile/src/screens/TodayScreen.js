@@ -62,7 +62,8 @@ export default function TodayScreen({ go }) {
         dailyNote={{ ...dailyNote, mood: renderedMood }}
       />
 
-      {__DEV__ && (
+      {/*TODO: Uncomment if need to test functionality */}
+      {/* {__DEV__ && (
         <StatePicker
           value={renderedMood}
           onChange={setMoodOverride}
@@ -73,7 +74,7 @@ export default function TodayScreen({ go }) {
             ['closed', 'D · closed'],
           ]}
         />
-      )}
+      )} */}
 
       <View className="px-6 mt-7">
         <PrimaryButton onPress={() => go('picker')}>{t('findMomentCta')}</PrimaryButton>
