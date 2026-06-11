@@ -22,12 +22,15 @@ import { LoadingHero, ErrorHero } from '../components/daily-note/DailyHero';
 import EmptyStateHero from '../components/daily-note/EmptyStateHero';
 import StatePicker from '../components/StatePicker';
 import PrimaryButton from '../components/PrimaryButton';
+import UpdateBanner from '../components/UpdateBanner';
+import { useUpdateGateContext } from '../lib/update-gate/update-gate-context';
 
 export default function TodayScreen({ go }) {
   const { t } = useTranslation('today');
   const { hydrationStatus: locationHydrationStatus } = useLocationPreference();
   const effectiveLocation = useEffectiveLocation();
   const { data, isLoading, isError, error, refetch } = useDailyNote();
+  const { state, latestVersion, storeUrl } = useUpdateGateContext();
   const [moodOverride, setMoodOverride] = useState(null);
 
   // Empty-state guard FIRST — fires when location hydration is done AND no
@@ -53,6 +56,8 @@ export default function TodayScreen({ go }) {
 
   return (
     <ScrollView className="flex-1 bg-base" contentContainerStyle={{ paddingBottom: 120 }}>
+      <UpdateBanner state={state} latestVersion={latestVersion} storeUrl={storeUrl} />
+
       <DailyNoteSection
         dailyNote={{ ...dailyNote, mood: renderedMood }}
       />
