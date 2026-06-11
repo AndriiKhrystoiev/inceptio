@@ -1,0 +1,16 @@
+{
+  "force": {
+    "title": "An update is needed",
+    "body": "This version of Inceptio is no longer supported. Update to keep choosing your moments.",
+    "action": "Update",
+    "actionHint": "Opens your app store",
+    "retry": "Try again",
+    "retryOffline": "Couldn't reach the update server. Check your connection.",
+    "openFailed": "Couldn't open the store. Try again."
+  },
+  "soft": {
+    "message": "A new version of Inceptio is ready.",
+    "action": "Update",
+    "dismiss": "Dismiss"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "force": {
+    "title": "Se necesita una actualización",
+    "body": "Esta versión de Inceptio ya no es compatible. Actualiza para seguir eligiendo tus momentos.",
+    "action": "Actualizar",
+    "actionHint": "Abre tu tienda de aplicaciones",
+    "retry": "Reintentar",
+    "retryOffline": "No se pudo conectar con el servidor de actualizaciones. Revisa tu conexión.",
+    "openFailed": "No se pudo abrir la tienda. Inténtalo de nuevo."
+  },
+  "soft": {
+    "message": "Ya está lista una nueva versión de Inceptio.",
+    "action": "Actualizar",
+    "dismiss": "Descartar"
+  }
+}

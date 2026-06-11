@@ -100,10 +100,11 @@ describe('consolidated CHROME coverage', () => {
     // Sanity floor: if someone deletes the locales dir or the glob breaks, this
     // guard would vacuously pass otherwise. (17th ns `share` added when the
     // MomentCardSheet share sheet was extracted — closing the Batch-B gap.)
-    expect(CHROME_NS.length).toBe(17);
+    expect(CHROME_NS.length).toBe(18);
     expect(CHROME_NS).toContain('common');
     expect(CHROME_NS).toContain('onboarding');
     expect(CHROME_NS).toContain('share');
+    expect(CHROME_NS).toContain('update');
   });
 
   it('every CHROME ns file exists in all 5 locales', () => {

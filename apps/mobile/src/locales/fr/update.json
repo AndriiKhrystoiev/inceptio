@@ -1,0 +1,16 @@
+{
+  "force": {
+    "title": "Une mise à jour est nécessaire",
+    "body": "Cette version d'Inceptio n'est plus prise en charge. Mettez à jour pour continuer à choisir vos moments.",
+    "action": "Mettre à jour",
+    "actionHint": "Ouvre votre boutique d'applications",
+    "retry": "Réessayer",
+    "retryOffline": "Impossible de joindre le serveur de mise à jour. Vérifiez votre connexion.",
+    "openFailed": "Impossible d'ouvrir la boutique. Réessayez."
+  },
+  "soft": {
+    "message": "Une nouvelle version d'Inceptio est disponible.",
+    "action": "Mettre à jour",
+    "dismiss": "Fermer"
+  }
+}
