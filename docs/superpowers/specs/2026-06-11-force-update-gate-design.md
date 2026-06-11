@@ -118,7 +118,7 @@ packages/shared-types/   // VersionPolicy Zod schema (single source of truth)
 ```
 
 **Shared-file edits the plan must account for (archaeology File-Touch Map):**
-- `apps/mobile/src/i18n/index.ts` — eager-import barrel with a **17-arg positional `bundle()` factory**; adding `update` (18th ns) edits the signature + 5 imports + 5 call sites. Highest blast radius — likely a sequential Task-0 in partitioning.
+- `apps/mobile/src/i18n/index.ts` — eager-import barrel with a **17-arg positional `bundle()` factory**; adding `update` (18th ns) edits the signature + 5 imports + 5 call sites. Highest blast radius — **sequential Task-0** in partitioning. **Scope-guard:** add the 18th namespace carefully *in place*; do **NOT** refactor the positional barrel to an object/map as part of this feature — that's separate tech debt, out of scope (no scope-creep).
 - `apps/mobile/App.js` (force early-return + hook), `coverage.test.ts` (17→18), `no-literal-lint.test.ts`, `workers/api-proxy/src/index.ts` (route registration), the shared-types barrel, `wrangler.toml` (no new binding needed — reuse `CACHE`).
 
 **Refinements (locked):**
@@ -216,6 +216,7 @@ export function evaluateUpdateState(
 ### 6.1 Endpoint & source of truth
 - New route `GET /version-policy`, registered in the existing `index.ts` if-ladder; handler at `src/routes/version-policy.ts`. **No auth** (public, read-only, no secrets, no credit cost).
 - **Source of truth: a single KV entry** at key **`version-policy`** in the **existing `CACHE` binding** (the one shared KV namespace; no new binding — matches the `health:upstream` reserved-key precedent). The entry holds the whole policy doc (both platforms + `forceEnabled`). Editing it is the **entire ops surface** — no deploy, no code change.
+- **Persistence (critical):** the `version-policy` key MUST be written **without an expiration TTL** and **excluded from any cache-flush/clear logic** in the `CACHE` namespace — otherwise it's evicted like an ephemeral cache entry → endpoint 503s → the gate goes **silently inert**. Protect it exactly as the `health:upstream` reserved key is protected (the plan must confirm the flush logic skips reserved keys / this key prefix).
 
 ### 6.2 Serve-time validation (Worker = second safety layer)
 Validate the KV doc against the **same shared-types Zod schema** before serving, plus a coherence check the schema can't express:
@@ -376,7 +377,7 @@ Encodes "after dismiss, stay quiet N days; re-show when latestVersion bumps agai
 - `elapsedDays` reused from rating (native `Date` math, no date-fns).
 
 ### 9.3 Cooldown floor — **N = 7 days**
-Per-version permanent-silence does the heavy anti-nag work; N is only the cross-bump floor. 7 = "at most weekly" — respectful, not silent. Post-launch dial (start at 7; loosen to 14 if telemetry shows annoyance).
+Per-version permanent-silence does the heavy anti-nag work; N is only the cross-bump floor. 7 = "at most weekly" — respectful, not silent. Post-launch dial (start at 7; loosen to 14 if it proves annoying). **Note:** the dial depends on an annoyance signal we don't yet have — **do NOT build analytics for this feature now**; the dial relies on **manual feedback** until analytics exist as a separate effort. (No telemetry is in scope here.)
 
 ### 9.4 Golden rows (TDD)
 - soft + never-dismissed → true
