@@ -47,3 +47,12 @@
   trust anchor is "real positions of the planets" + the centuries-old method.
 - Validate exact char counts + final keywords in App Store Connect at entry. This is
   en/US only — Play and other locales are a separate localization pass.
+
+## Category
+- Primary: Lifestyle  (honest fit; where the audience + editorial featuring are)
+- Secondary: Utilities  (genuine timing-tool surface, weak competition, free
+  discovery — mirrors Horaly; don't leave blank)
+- Avoid: Health & Fitness (invites 5.1.1 medical scrutiny; surgery deferred to v1.4)
+- 4.3 narrative: electional-not-horoscope + "real positions, never predictions"
+- Reality: charts/featuring are NOT the near-term channel — search + word of mouth
+  are; featuring is worth pitching but treat as bonus, not plan.
