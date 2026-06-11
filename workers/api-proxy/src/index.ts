@@ -4,6 +4,7 @@ import { handleSearch } from './routes/search';
 import { handleDailyNote } from './routes/daily-note';
 import { handleAlertAck } from './routes/alert-ack';
 import { handleActivityMissingRate, handleCapMetrics } from './routes/admin';
+import { handleVersionPolicy } from './routes/version-policy';
 
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
@@ -11,6 +12,10 @@ export default {
 
     if (url.pathname === '/health' && req.method === 'GET') {
       return handleHealth(env);
+    }
+
+    if (url.pathname === '/version-policy' && req.method === 'GET') {
+      return handleVersionPolicy(env);
     }
 
     if (url.pathname === '/electional/search' && req.method === 'POST') {
