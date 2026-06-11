@@ -1,7 +1,8 @@
 # Server-Driven Force-Update Gate + Soft Update Banner — Design Spec
 
 **Date:** 2026-06-11
-**Status:** Brainstorm complete (Sections 1–9, gated section-by-section sign-off). Awaiting owner review of this spec before writing-plans. Compound V pre-flights expected to fold in after this.
+**Status:** Brainstorm complete (Sections 1–9, gated section-by-section sign-off). **Compound V pre-flights folded in (2026-06-11)** — see §3.1. Awaiting owner review of this spec before writing-plans.
+**Pre-flight audits:** archaeology `docs/superpowers/expert/2026-06-11-force-update-gate-archaeology.md` · domain `docs/superpowers/expert/2026-06-11-force-update-gate-domain.md` (+ KB `_knowledge-base/app-store-review.md`) · library `docs/superpowers/library-audit` (inline, below). Verdicts: **forced self-update is store-compliant** (de-risks the feature); **3 must-fix corrections** (KV binding name, `accessibilityAutoFocus` not real, store-URL/`canOpenURL` trap); **release-engineering footguns** added to the runbook; dev-simulator promoted from optional to **mandatory**.
 **Branch:** TBD (suggest `feature/force-update-gate`)
 **Scope:** **CLIENT + WORKER.** Adds one new Worker endpoint (`GET /version-policy`) and a client gate/banner. Dormant until release #2 (no prior published version exists to force/notify against at first launch).
 **OTA note (load-bearing constraint):** **expo-updates / EAS Update is NOT present** in the project — `package.json` has `expo-application` + `expo-constants` but no `expo-updates`; `eas.json` configures only build/submit profiles, no `updates`/`runtimeVersion`/channel. **The gate logic itself is therefore NOT OTA-hotfixable.** A client bug that wrongly hard-locks users can only be fixed by shipping a new native build. This raises the stakes on two things: (1) the fail-open contract is the only client-side safety net, and (2) the **Worker kill-switch is the primary remediation lever** — server-side, instant, no release.
@@ -55,6 +56,28 @@ These were locked before/at the start of the brainstorm and are **boundaries**, 
 | Dev-pill pattern + prod-strip | `DevLocaleBar` + `StatePicker`, `__DEV__`-only, compiled out in prod (babel inlines `__DEV__=false` → dead-code-eliminated). Safe template for the dev-override simulator. | `apps/mobile/App.js` |
 | shared-types | Existing package for the API contract — the right home for the `VersionPolicy` Zod schema (single source of truth for Worker + app). | `packages/shared-types/` |
 
+### 3.1 Compound V pre-flight reconciliation (corrections folded into the sections below)
+
+**Code archaeology (CORRECTED / MISSING):**
+- **KV binding is `CACHE`, not `POLICY`.** One KV namespace (`CACHE`, shared by search-cache + rate-limit + health) in `wrangler.toml` / `env.ts:Env.CACHE`. No `POLICY` binding. Reuse `CACHE` with reserved key `version-policy` (matches the `health:upstream` key precedent). §6 updated.
+- **`Application.nativeApplicationVersion` returns Expo Go's version inside Expo Go** (documented at `YouScreen.js:93-96`, which is why YouScreen reads `Constants.expoConfig.version` instead). Correct only in a real standalone build. → the `__DEV__` simulator is **mandatory**, the only way to exercise the gate locally. Do **NOT** switch to `expoConfig.version` (wrong axis for a native force gate). §7.6 updated.
+- **Worker route convention is `src/routes/<name>.ts` + an `if`-ladder in `index.ts`** — file is `src/routes/version-policy.ts`, not `src/version-policy.ts`. §4 updated.
+- **`App.js` has 3 boot/hydration guards, not 2**, and guards #2/#3 return a bare `ActivityIndicator` **not** wrapped in `withProviders` — so the force gate must self-wrap (it already does, §8.4). No `localeReady` signal exists; locale resolution is synchronous and coupled to `storageReady` → treat `storageReady` as the de-facto locale-ready gate. §8 updated.
+- **Don't reuse `API_CONFIG.timeout` (60s)** for the policy fetch — own ~5s AbortController. Prod Worker `baseUrl` still TBD (`https://api.inceptio.app`). §7.1 updated.
+- **DRY:** import `elapsedDays` / `MS_PER_DAY` from `rating/eligibility.ts` (don't re-derive); reuse the `Linking.openURL` fallback story from `rating/store-review.ts:48-64`.
+- **Highest-blast-radius shared file:** `src/i18n/index.ts` is an eager-import barrel with a **17-arg positional `bundle()` factory** — the 18th namespace requires editing the signature + 5 imports + 5 call sites. Plus `App.js`, the Worker/shared-types barrels, `coverage.test.ts`, `no-literal-lint.test.ts` are shared-resource files for Phase-2 partitioning. §4/§10 updated.
+
+**Domain (compliance + release engineering):**
+- **Forced self-update is store-compliant on BOTH stores** — Apple Guideline 3.2.2(x) only bars forcing *rating/review/other-app downloads*, not updating your own app; WhatsApp/Signal precedent. (De-risks the feature; arm the owner with the citation.)
+- **MUST-FIX (release engineering), added to the §6.5 runbook:** (a) the build *under review* must never force-gate itself (chicken-and-egg → rejection); (b) phased/staged rollout makes `latestVersion` a **moving regional target** — set **both** thresholds only after 100% rollout + ≥24h in all regions; (c) "Release to All Users" (iOS) / staged-rollout-to-100% (Android) is a **prerequisite** before any emergency `min` bump.
+- **SHOULD-CONSIDER:** document why a custom gate over Google Play's first-party in-app-update flow (rationale: cross-platform, server-kill-switchable, OTA-independent). Added to §13.
+
+**Library validation (API correctness):**
+- **MUST-FIX: `accessibilityAutoFocus` is not a real RN core prop** — use `AccessibilityInfo.setAccessibilityFocus(findNodeHandle(titleRef))` in a mount effect. §11 updated.
+- **Use RN core `Linking`** (`expo-linking` is not a dependency) with **`https://` store URLs**; skip `canOpenURL` for https (avoids the iOS `itms-apps`/`LSApplicationQueriesSchemes` trap where `canOpenURL` falsely returns false and kills the only Update button). Guard on the `openURL` rejection for the `openFailed` toast. §10 updated.
+- **Kill-switch worst-case propagation ~2 min, not ≤60s** — Workers KV is eventually consistent (≤60s) and stacks with the `max-age=60` edge cache. Doc claims corrected to "≤2 min" in §6/§7. (Architecture unaffected: fail-open + degrade-to-soft already bound the blast radius.)
+- **Confirmed OK:** Zod is v3 (3.25.76, `import { z } from 'zod'`), AppState subscription `.remove()` API + states + iOS `inactive` nuance, `AbortController`+`fetch({signal})` manual `setTimeout` pattern (no `AbortSignal.timeout` in Hermes 0.83), Workers KV `get(key,'json')`, `Cache-Control` on Response, all other a11y props correctly platform-scoped.
+
 ---
 
 ## 4. Section 1 — Module architecture & file layout (APPROVED)
@@ -81,9 +104,9 @@ apps/mobile/src/lib/update-gate/
     use-update-gate.test.ts // fake-timer observable-contract tests (Section 9)
 
 workers/api-proxy/src/
-  version-policy.ts    // GET /version-policy handler: KV read + zod-validate + coherence guard
-  (route registration in the existing Worker entry)
-  __tests__/version-policy.test.ts
+  routes/version-policy.ts   // GET /version-policy handler: KV read + zod-validate + coherence guard
+                             //   (route registered in the index.ts if-ladder, per existing convention)
+  routes/__tests__/version-policy.test.ts
 
 apps/mobile/src/components/
   UpdateGateScreen.tsx     // root-level full-screen force gate (non-dismissible)
@@ -93,6 +116,10 @@ apps/mobile/src/locales/{en,de,fr,es-419,pt-BR}/update.json   // new CHROME name
 
 packages/shared-types/   // VersionPolicy Zod schema (single source of truth)
 ```
+
+**Shared-file edits the plan must account for (archaeology File-Touch Map):**
+- `apps/mobile/src/i18n/index.ts` — eager-import barrel with a **17-arg positional `bundle()` factory**; adding `update` (18th ns) edits the signature + 5 imports + 5 call sites. Highest blast radius — likely a sequential Task-0 in partitioning.
+- `apps/mobile/App.js` (force early-return + hook), `coverage.test.ts` (17→18), `no-literal-lint.test.ts`, `workers/api-proxy/src/index.ts` (route registration), the shared-types barrel, `wrangler.toml` (no new binding needed — reuse `CACHE`).
 
 **Refinements (locked):**
 
@@ -187,8 +214,8 @@ export function evaluateUpdateState(
 ## 6. Section 3 — Worker (`GET /version-policy`) (APPROVED)
 
 ### 6.1 Endpoint & source of truth
-- New route `GET /version-policy` in the existing `api-proxy` Worker. **No auth** (public, read-only, no secrets, no credit cost).
-- **Source of truth: a single KV entry** (e.g. key `version-policy`) holding the whole policy doc (both platforms + `forceEnabled`). Editing it is the **entire ops surface** — no deploy, no code change.
+- New route `GET /version-policy`, registered in the existing `index.ts` if-ladder; handler at `src/routes/version-policy.ts`. **No auth** (public, read-only, no secrets, no credit cost).
+- **Source of truth: a single KV entry** at key **`version-policy`** in the **existing `CACHE` binding** (the one shared KV namespace; no new binding — matches the `health:upstream` reserved-key precedent). The entry holds the whole policy doc (both platforms + `forceEnabled`). Editing it is the **entire ops surface** — no deploy, no code change.
 
 ### 6.2 Serve-time validation (Worker = second safety layer)
 Validate the KV doc against the **same shared-types Zod schema** before serving, plus a coherence check the schema can't express:
@@ -204,32 +231,42 @@ read KV → JSON.parse → VersionPolicySchema.safeParse
 An incoherent or corrupt KV doc can **never** leave the Worker as a force-capable response.
 
 ### 6.3 Caching / propagation — **`Cache-Control: public, max-age=60`**
-Served from KV (globally replicated, cheap) with a **60s** edge cache. Kill-switch + threshold changes propagate worldwide within **≤1 minute**; KV read volume stays low. (Chosen over 300s for fastest emergency response.)
+Served from `CACHE` KV (globally replicated, cheap) with a **60s** edge cache (use `get('version-policy','json')`). Chosen over 300s for fastest emergency response. **Worst-case kill-switch propagation is ~2 minutes per region**, not ≤60s: Workers KV is **eventually consistent** (a recently-read key can serve stale for up to ~60s) and that stacks with the `max-age=60` edge cache. The §7.4 while-gated client poll mitigates client staleness but cannot beat server-side KV/edge staleness. (Acceptable — fail-open + degrade-to-soft bound the blast radius.)
 
 ### 6.4 Kill-switch — the documented emergency lever
 Because the client can't be OTA-fixed, the runbook lever is editing one KV field:
 
 ```bash
 # Emergency: stop ALL forced gating immediately (no deploy)
-wrangler kv key put --binding=POLICY version-policy '<doc with "forceEnabled": false>'
-# propagates within ≤60s to every edge
+wrangler kv key put --binding=CACHE version-policy '<doc with "forceEnabled": false>'
+# propagates within ~2 min worldwide (KV eventual consistency + 60s edge cache)
 ```
 `forceEnabled:false` → decision returns `soft`/`none` only (the killed force degrades to a soft nudge, §5.2).
 
 ### 6.5 Validation runbook (human discipline the Worker can't auto-check)
-Documented in this spec + as a comment on the KV handler:
+Documented in this spec + as a comment on the KV handler. **No OTA escape exists — an operator error here is corrected only via this KV doc, so treat these as hard gates (consider two-person sign-off, see §13):**
 
-1. **Never set `minVersion` above the actually-published store version.** The Worker can't verify store state — this is a human pre-flight check. Setting `min` to an unreleased version = mass lockout with no OTA escape.
-2. **Lag the force behind full multi-region store propagation.** After submitting a build, a force `min` bump waits until the binary is live in **all** regions (store rollout is staggered) — otherwise late-region users are locked out of an app they cannot yet update.
-3. `min ≤ latest` always (Worker enforces; author it correctly anyway).
+1. **Never set `minVersion` above the actually-published, fully-rolled-out store version.** The Worker can't verify store state — human pre-flight. `min` above an unreleased version = mass lockout, no OTA escape.
+2. **The build currently *under review* must never force-gate itself.** If the in-review binary's own version satisfies a live `min`, App/Play Review experiences the block → rejection under the "app stops working" clause. Verify the gate is a no-op for the version being submitted.
+3. **`latestVersion` is a moving regional target under phased/staged rollout.** Apple ramps 1→100% over ~7 days; Android staged rollout is a %. Bumping `latestVersion` early sends a soft banner pointing at a build most users can't yet get (Android has no manual-download escape). **Set BOTH `min` and `latest` only after 100% rollout + ≥24h live in all regions.**
+4. **Prerequisite before any emergency `min` bump:** "Release to All Users" (iOS) / advance staged rollout to 100% (Android) first — collapses the phased window and removes the chicken-and-egg.
+5. **Lag the force behind full multi-region propagation** (store rollout is staggered) — otherwise late-region users are locked out of an app they cannot yet update.
+6. `min ≤ latest` always (Worker enforces; author it correctly anyway).
+
+### 6.6 `storeUrl` format (schema field)
+`policy[platform].storeUrl` is an **`https://`** store URL:
+- iOS: `https://apps.apple.com/app/id<APPLE_APP_ID>` (Apple App ID — TBD, §13).
+- Android: `https://play.google.com/store/apps/details?id=<ANDROID_PACKAGE_NAME>` (package name — TBD, §13).
+
+Rationale: `https` URLs open the store reliably without an iOS `LSApplicationQueriesSchemes` allowlist and need no `canOpenURL` precheck (§10.2). The Zod schema may additionally constrain `storeUrl` to `z.string().url()` so a malformed operator entry fails Worker validation (§6.2) → 503 → client fail-opens rather than rendering a dead button. Per-platform `itms-apps://` / `market://` schemes are **not** used (they require the allowlist and risk the OTA-unfixable lockout).
 
 ---
 
 ## 7. Section 4 — App fetch lifecycle (`use-update-gate.ts` + `update-store.ts`) (APPROVED)
 
 ### 7.1 Native version + fetch
-- `installed = Application.nativeApplicationVersion` (sync), read once. OTA-independent.
-- `fetchPolicy()` wraps `GET <worker>/version-policy` in an **`AbortController` timeout (~5s)**. Any failure — network error, timeout, non-200, JSON error, **Zod parse fail** — returns `null` ≡ fail-open.
+- `installed = Application.nativeApplicationVersion` (sync), read once. OTA-independent (iOS `CFBundleShortVersionString` / Android `versionName`; **not** `nativeBuildVersion`). **Caveat:** inside Expo Go this returns *Expo Go's* version, not the app's — correct only in a standalone/dev-client build. This is exactly why the `__DEV__` simulator (§7.6) is **mandatory** for local testing. Do **not** substitute `Constants.expoConfig.version` (that's the JS-bundle version — wrong axis for a native force gate).
+- `fetchPolicy()` wraps `GET <worker>/version-policy` in its **own ~5s `AbortController` timeout** — manual `setTimeout(() => c.abort(), 5000)` + `fetch(url,{signal})` (no `AbortSignal.timeout` in Hermes 0.83). Do **not** reuse `API_CONFIG.timeout` (60s — far too long for a fail-open gate fetch). Any failure — network error, timeout, non-200, JSON error, **Zod parse fail** — returns `null` ≡ fail-open.
 - **Non-blocking.** The fetch does **not** gate the splash/boot. The app renders normally; the force overlay mounts only after a successful fetch resolves to `force`.
 
 ### 7.2 When it fires
@@ -243,7 +280,7 @@ Documented in this spec + as a comment on the KV handler:
 - **Exit:** only a **successful** re-fetch re-evaluates. Still `force` → stays. Now `soft`/`none` (kill-switch flipped) → **gate clears live**.
 - In practice the legitimate exit is: user updates → store kills & relaunches → cold boot reads new `nativeApplicationVersion` → fetch → `none`. "Return from store **without** updating" re-fetches, still `< min`, stays blocked.
 - **No force is persisted to storage** (that would violate "force fires only on a fresh successful fetch"). State is in-memory only.
-- **Residual risk (accepted + documented):** a user gated by operator error who then goes **permanently offline** stays stuck — but they can neither update nor use the Worker-dependent app offline anyway; reconnect resolves it within ≤60s.
+- **Residual risk (accepted + documented):** a user gated by operator error who then goes **permanently offline** stays stuck — but they can neither update nor use the Worker-dependent app offline anyway; reconnect resolves it within ~2 min (server propagation, §6.3).
 
 ### 7.4 Kill-switch reach (locked additions)
 1. **While gated, poll** the policy every **~60s** (TTL-aligned) so a kill-switch flip reaches a user who sits on the locked screen and never backgrounds. Stop polling once cleared.
@@ -252,26 +289,30 @@ Documented in this spec + as a comment on the KV handler:
 ### 7.5 Initial state
 `update.state` initial value is **`'none'`** with an internal `pending` flag (distinguishes "not yet fetched" from "fetched → none"). **Never `'force'` pre-fetch** — the ladder cannot gate speculatively.
 
-### 7.6 Dev-override (so we never self-lock)
-- In `__DEV__`, the gate is **disabled by default** — tests/local runs can never hard-lock. (`__DEV__` is compiled out in prod → no leak.)
-- Optional `__DEV__` simulator toggle (a `StatePicker` row beside the locale bar) to force-render `force` / `soft` / `none` for manual UI/a11y testing.
+### 7.6 Dev-override (so we never self-lock) — simulator is **MANDATORY**
+- In `__DEV__`, the gate is **disabled by default** — tests/local runs can never hard-lock. (`__DEV__` is compiled out in prod via babel `__DEV__=false` → dead-code-eliminated → no leak.)
+- A `__DEV__` simulator toggle (a `StatePicker` row beside the existing `DevLocaleBar`) to force-render `force` / `soft` / `none` is **required, not optional**: because `nativeApplicationVersion` returns Expo Go's version in the dev environment (§7.1), the simulator is the **only** way to exercise the gate/banner locally. It's the documented local-QA entry point in §12.6.
 
 ---
 
 ## 8. Section 5 — Root-render integration & precedence (APPROVED)
 
 ### 8.1 The precedence ladder (top wins)
-Insertion point in `App.js`: **immediately after the fonts/storage boot guard** (earliest point where localized full-screen UI can render), **before** pref-hydration spinners and the first-run authority.
+`App.js` actually has **3 boot/hydration guards** (fonts+storage, then activity-pref `loading`, then location-pref `loading`), each a bare `ActivityIndicator` **not** wrapped in `withProviders`. Insertion point: **immediately after the first (fonts+storage) boot guard** — the earliest point where storage is hydrated and locale is resolved (locale resolution is synchronous and coupled to `storageReady`; there is **no separate `localeReady` signal**, so `storageReady` *is* the locale-ready gate). The force return must **self-wrap** in `withProviders` (the bare-spinner guards don't, and §8.4 already self-wraps).
 
 ```
-1. Boot          !fontsLoaded || !storageReady          → <ActivityIndicator/>   (existing)
-2. FORCE GATE    update.state === 'force' && localeReady → <UpdateGateScreen/>    (NEW — outranks all)
-3. Pref-hydrate  hydration/locationHydration === 'loading' → <ActivityIndicator/> (existing)
-4. First-run     resolveLandingScreen(activity, location) → onboarding / location (existing)
-5. Normal tree   Today/Calendar/Moments/You + TabBar     (existing)
-                   └─ soft banner renders inside Today    (Section 6)
+1. Boot          !fontsLoaded || !storageReady              → bare <ActivityIndicator/>   (existing)
+2. FORCE GATE    update.state === 'force'  (storageReady ⟹ locale resolved)
+                                                            → withProviders(<UpdateGateScreen/>)  (NEW — outranks all)
+3. Pref-hydrate  hydrationStatus === 'loading'              → bare <ActivityIndicator/>   (existing)
+4. Pref-hydrate  locationHydrationStatus === 'loading'      → bare <ActivityIndicator/>   (existing)
+5. First-run     resolveLandingScreen(activity, location)   → onboarding / location       (existing)
+6. Normal tree   Today/Calendar/Moments/You + TabBar        (existing)
+                   └─ soft banner renders inside Today       (Section 6)
                    └─ rating requestReview fires inside result/detail (existing)
 ```
+
+Placing the force return at step 2 (above the pref-hydrate spinners) means a too-old user is gated even before activity/location pref hydration resolves — force genuinely outranks everything.
 
 ### 8.2 Why this satisfies every precedence rule
 - **Force > onboarding/location:** the force return sits above `resolveLandingScreen` — a too-old user never sees welcome/picker/location.
@@ -283,14 +324,14 @@ Insertion point in `App.js`: **immediately after the fonts/storage boot guard** 
 `const update = useUpdateGate();` is called at the **top of `App()`**, alongside `useActivityPreference` / `useLocationPreference`, **above all conditional returns** — following the documented "Rendered more hooks than during the previous render" lesson.
 
 ### 8.4 `UpdateGateScreen` contents (copy §9-i18n, a11y §10)
-- Full-screen, `bg-deep`, centered. Warm headline + one sentence + single primary **Update** → `Linking.openURL(storeUrl)` for the current platform.
+- Full-screen, `bg-deep`, centered. Warm headline + one sentence + single primary **Update** → **RN core** `Linking.openURL(storeUrl)` for the current platform (storeUrl is an **`https://`** store URL from the policy — see §6.6). `expo-linking` is not a dep and not needed.
 - **Retry** affordance (secondary, low-emphasis): calls `update.recheck()` — lets a reconnected user clear an operator-error gate without waiting for the ≤60s poll. **Bypass-proof:** a failed recheck persists the gate; success-still-force stays; only a successful non-force result clears.
 - Wrapped by the existing `withProviders` (i18n, SafeArea, status bar, `__DEV__` locale bar).
 
 ### 8.5 Locked confirmations
 1. Initial state non-force (§7.5) — ladder can't gate speculatively.
 2. **Mid-session force activation** (operator raises `min` above the running build) abruptly unmounts the tree and takes over — intended emergency behavior; can't fire spuriously (`installed` is fixed per session).
-3. **Render the gate only after the locale is *resolved*** (`localeReady`, not merely i18n initialized) to avoid an English flash. (Effectively immediate since `initI18n()` resolves device locale synchronously; made explicit so it can't regress.)
+3. **Locale is resolved by the time the gate can render** — `initI18n()` resolves the device locale **synchronously** inside the same hydrate effect that flips `storageReady`, so gating the force return on `storageReady` (step 2) already guarantees no English flash. There is no separate `localeReady` flag to add.
 4. **Non-blocking flash accepted by design** — a too-old user may briefly see the app/onboarding before the gate mounts (fetch round-trip). **No grace-window / spinner-hold** — it would tax every cold start for a rare, dormant-until-v2 case; up-to-date users see no flash.
 
 ---
@@ -382,7 +423,7 @@ One file `update.json` in **all 5 locales**. This is **chrome** (Inter UI), not 
 ```
 
 - `retryOffline` — shown only when a recheck fetch fails (during the attempt: button spinner, no copy). "Recheck succeeded but still force" needs no string (the screen already says it; gate persists).
-- `openFailed` — toast when `Linking.canOpenURL`/`openURL` fails (bad `storeUrl` = operator error, no OTA fix → never leave a dead Update button). Mirrors rating's `canOpenURL` guard.
+- `openFailed` — toast when **`Linking.openURL` rejects** (bad `storeUrl` = operator error, no OTA fix → never leave a dead Update button). Guard on the `openURL` rejection, **not** `canOpenURL`: for `https` store URLs `canOpenURL` needs no allowlist and would only introduce the iOS `itms-apps`/`LSApplicationQueriesSchemes` trap (canOpenURL falsely returns false → suppresses a valid Update button, OTA-unfixable). Reuse the `Linking.openURL` fallback story from `rating/store-review.ts:48-64`.
 - `actionHint` — generic, platform-neutral; reused by both Update buttons (vs. 2 store-specific strings).
 
 ### 10.3 Coverage
@@ -397,7 +438,7 @@ One file `update.json` in **all 5 locales**. This is **chrome** (Inter UI), not 
 
 ### 11.1 Force gate (`UpdateGateScreen`)
 - **Modal isolation:** container `accessibilityViewIsModal` (iOS).
-- **Focus on mount:** move screen-reader focus to the title (`AccessibilityInfo.setAccessibilityFocus` / `accessibilityAutoFocus`).
+- **Focus on mount:** move screen-reader focus to the title via `AccessibilityInfo.setAccessibilityFocus(findNodeHandle(titleRef))` in a mount effect. (`accessibilityAutoFocus` is **not** a real RN core prop — do not use it.)
 - **Title** `accessibilityRole="header"`.
 - **Update button** `accessibilityRole="button"`, label `t('update:force.action')`, hint `t('update:force.actionHint')`.
 - **Retry button** role button + label; during the in-flight recheck `accessibilityState={{ busy: true }}` + spinner.
@@ -448,17 +489,31 @@ The hook encodes the safety/reach contract, not just orchestration. Test the **o
 - `coverage.test.ts` floor 17→18 + `toContain('update')`; existing harness then enforces full `update.json` coverage automatically.
 
 ### 12.6 Documented manual QA matrix (timing/native — not automated; complementary, not either/or)
-Dev-override simulate force/soft/none · real-device bg→fg recheck · return-from-store-without-updating stays blocked · kill-switch flip clears ≤60s (poll + foreground) · offline-at-boot → no gate · bad `storeUrl` → `openFailed` toast · real StoreKit/Play update card · VoiceOver/TalkBack pass on gate + banner.
+Dev-override simulate force/soft/none (mandatory entry point — Expo Go reports the wrong version, §7.6) · real-device/standalone-build bg→fg recheck · return-from-store-without-updating stays blocked · kill-switch flip clears within ~2 min (server propagation + poll/foreground) · offline-at-boot → no gate · bad `storeUrl` → `openFailed` toast · real StoreKit/Play update card · VoiceOver/TalkBack pass on gate + banner.
 
 ---
 
-## 13. Open items / follow-ups (non-blocking)
+## 13. Open items / follow-ups
 
+**Needs a human answer before/at implementation:**
+- **Apple App ID** (numeric) + **Android package name** — required to build the `https` store URLs in §6.6. (App ID: TBD; package name: TBD.)
+- **Worker prod `baseUrl`** — `https://api.inceptio.app` is assumed but TBD; the client `fetchPolicy` needs the confirmed origin.
+- **KV-doc change ownership / two-person sign-off** — given there is **no OTA escape**, decide who may edit the `version-policy` KV doc and whether a `min` bump requires a second approver (recommended; the §6.5 runbook is the checklist).
+- **Soft-tier rollout-timing policy** — confirm `latestVersion` is only bumped after 100% store rollout + ≥24h all regions (§6.5 #3).
+
+**Resolved by audits (no longer open):**
+- ~~KV binding name~~ → **`CACHE`** + reserved key `version-policy` (§6.1).
+- ~~`expo-linking` vs core~~ → **RN core `Linking`**, no new dep (§10.2).
+- ~~canOpenURL vs openURL~~ → **`openURL` + reject-guard**, https URLs, no `canOpenURL` (§6.6/§10.2).
+
+**Decided / deferred:**
 - **Branch name** — suggest `feature/force-update-gate`.
-- **Worker KV binding name** — confirm the binding (`POLICY` used illustratively in §6.4) against the existing `wrangler.toml`.
 - **Owner tone-review + native translation review** of `update.json` (5 locales) before launch.
+- **Why a custom gate over Google Play's first-party in-app-update flow** — documented rationale: cross-platform parity (one mechanism for iOS+Android), server kill-switch, OTA-independent. (Reviewer-anticipation note, not a blocker.)
 - **Deferred:** Settings/You "Update available" row (additive later if telemetry warrants).
-- **Worker deploy gate** — the new endpoint ships with the next Worker prod deploy (coordinate with the existing deploy-gate discipline; note: this is additive, not part of the translations/library cache-version bump).
+- **Worker deploy gate** — the new endpoint ships with the next Worker prod deploy (coordinate with existing deploy-gate discipline; additive, not part of the translations/library cache-version bump). The `version-policy` KV doc must be seeded (with `forceEnabled:false` or sane thresholds) before/at deploy so the endpoint returns 200, not 503.
+
+**Compliance note (de-risks the feature):** a forced self-update gate is **store-compliant** on both stores — Apple Guideline 3.2.2(x) bars forcing *rating/review/other-app downloads*, not updating your own app; WhatsApp/Signal precedent. See `_knowledge-base/app-store-review.md`.
 
 ---
 
