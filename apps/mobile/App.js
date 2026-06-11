@@ -27,6 +27,9 @@ import { initLocationPreference, useLocationPreference } from './src/lib/locatio
 import { resolveLandingScreen } from './src/lib/onboarding-route';
 import { migrateLocationTimezones_v1 } from './src/lib/location-storage';
 import { recordActiveDay } from './src/lib/rating/rating-store';
+import { useUpdateGate } from './src/lib/update-gate/use-update-gate';
+import { UpdateGateContext } from './src/lib/update-gate/update-gate-context';
+import UpdateGateScreen from './src/components/UpdateGateScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import TodayScreen from './src/screens/TodayScreen';
 import ActivityPickerScreen from './src/screens/ActivityPickerScreen';
@@ -176,6 +179,15 @@ export default function App() {
     setDevLocale(b);
   }, []);
 
+  // Single shared update-gate controller. MUST be declared BEFORE withProviders
+  // (whose useCallback deps array references `update` — a deps array is evaluated
+  // WHEN the callback is created, so declaring `update` later would hit the
+  // temporal dead zone and crash at render) AND above every conditional return
+  // (Rules of Hooks, same constraint as the activity/location prefs). Provided to
+  // the normal tree via UpdateGateContext so TodayScreen consumes THIS instance
+  // (never a second useUpdateGate → double-fetch/poll).
+  const update = useUpdateGate();
+
   // Hoist I18nextProvider above the three conditional return branches so every
   // branch (first-launch gate, location gate, normal tree) renders under it.
   const withProviders = useCallback((node) => (
@@ -187,12 +199,20 @@ export default function App() {
             {__DEV__ && (
               <DevLocaleBar value={devLocale} onChange={onDevLocale} />
             )}
+            {__DEV__ && (
+              <StatePicker
+                label="update-gate"
+                options={[['none', 'none'], ['soft', 'soft'], ['force', 'force']]}
+                value={update.devOverride ?? 'none'}
+                onChange={(v) => update.setDevOverride(v === 'none' ? null : v)}
+              />
+            )}
             {node}
           </View>
         </SafeAreaProvider>
       </QueryClientProvider>
     </I18nextProvider>
-  ), [onLayoutRoot, devLocale, onDevLocale]);
+  ), [onLayoutRoot, devLocale, onDevLocale, update]);
 
   // useActivityPreference MUST be called before any conditional return below
   // — Rules of Hooks: every hook call site must be reached on every render in
@@ -214,6 +234,17 @@ export default function App() {
       <View style={styles.boot}>
         <ActivityIndicator color={colors.primaryGlow}/>
       </View>
+    );
+  }
+
+  // Force-update outranks EVERYTHING (onboarding, location, rating). storageReady
+  // ⟹ i18n locale is resolved (synchronous initI18n in the hydrate effect), so no
+  // English flash. Self-wrap in withProviders — the bare-spinner guards below don't.
+  // storeUrl ?? '' guards only the __DEV__ simulator path (storeUrl is null there);
+  // in production a 'force' decision always carries a non-null storeUrl.
+  if (update.state === 'force') {
+    return withProviders(
+      <UpdateGateScreen storeUrl={update.storeUrl ?? ''} onRecheck={update.recheck} />,
     );
   }
 
@@ -260,12 +291,12 @@ export default function App() {
   const showTabBar = !MODAL_SCREENS.has(active);
 
   return withProviders(
-    <>
+    <UpdateGateContext.Provider value={update}>
       <View style={styles.content}>
         <Screen go={go}/>
       </View>
       {showTabBar && <TabBar active={tab} onChange={handleTab}/>}
-    </>
+    </UpdateGateContext.Provider>
   );
 }
 
