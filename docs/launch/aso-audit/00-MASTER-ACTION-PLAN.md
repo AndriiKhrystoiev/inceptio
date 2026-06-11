@@ -1,0 +1,81 @@
+# Inceptio — ASO Master Action Plan
+
+Generated 2026-06-11 · Audit Mode · Competitor data: live iTunes Search API (US)
+
+> **Start here.** This plan is grounded in a real App Store pull, not assumptions. Drill-downs live in `01-research/` and `03-launch/`.
+
+---
+
+## TL;DR — the strategic call
+
+**Inceptio owns an empty quadrant: premium, Western, intent-led electional astrology.** Don't compete with CHANI/Nebula on "astrology" (you'll lose). Don't impersonate the Vedic muhurat utilities (you'll mismatch). Win the one job nobody serves well: **"tell me the best moment to *begin* this specific thing, beautifully."**
+
+The single line that should drive every store asset:
+> **Inceptio tells you *when* to begin — not just *what*.**
+
+---
+
+## What the market actually looks like (verified)
+
+- **Broad astrology terms are owned by giants serving a different job.** CHANI (54k ratings, 4.9), Nebula (170k), TimePassages (44k) rank for "electional"/"wedding date astrology"/"best day astrology" but sell birth charts & horoscopes — **none does election search.**
+- **The timing-intent niche is real but weak and Vedic.** "Muhurat"/"auspicious time" results are low-design utilities, mostly 0–18 ratings (Drik Panchang at 5.6k is the exception). They prove demand and cede design + Western framing entirely.
+- **One cousin to watch:** *Horaly: Planetary Hours* (brand new, 0 ratings) — same Western-traditional-timing lane, but daily timing, not activity election search.
+
+Full detail → `01-research/competitor-analysis.md`, `01-research/market-gaps.md`.
+
+---
+
+## Recommended metadata (validated against real data)
+
+| Field | Value | Chars |
+|---|---|---|
+| **Title** | `Inceptio: Auspicious Timing` | 27/30 |
+| **Subtitle** | `Best Day to Start Anything` | 26/30 |
+| **Keywords** | `astrology,electional,moment,horoscope,zodiac,moon,planet,lucky,date,wedding,launch,muhurat,calendar` | 99/100 |
+| **Promo** | "Some moments are worth waiting for. Inceptio reads the sky to find the right time to begin what matters — a wedding, a launch, a journey." | 138/170 |
+
+Full description + What's New → `outputs/inceptio/apple-metadata.md`.
+
+### Two decisions to make before submit
+1. **Title direction.** Keyword-led `Inceptio: Auspicious Timing` (recommended — owns a low-competition exact term) **vs** intent-led `Inceptio — Find Your Moment` (truer to positioning, weaker for search). The category is so keyword-poor that the keyword-led title costs almost nothing in brand feel — recommend keeping it, but it's a stakeholder call.
+2. **`muhurat` keyword.** Biggest niche term, but its searchers want Vedic Panchang that Inceptio doesn't provide → early-review mismatch risk. Keep for v1.0, monitor reviews, swap for `ceremony` if complaints appear. → `01-research/keyword-list.md`.
+
+---
+
+## Action sequence
+
+| # | Action | Command | Status |
+|---|---|---|---|
+| 1 | Stakeholder sign-off: title direction + `muhurat` | — | ⏳ decision |
+| 2 | Set up ASC credentials (`~/.aso/` not present yet) | `/aso-connect setup` | ⏳ blocked |
+| 3 | Generate screenshot specs (highest conversion lever) | `/aso-assets screenshots` | ⏳ |
+| 4 | Generate legal docs | `/aso-manage legal` | ⏳ |
+| 5 | Create version + sync metadata | `/aso-release create 1.0.0` → `/aso-connect sync` | ⏳ |
+| 6 | Verify readiness | `/aso-connect status` | ⏳ |
+| 7 | Submit (consider phased release) | `/aso-release submit` | ⏳ |
+| 8 | Watch reviews for muhurat/empty-result signals | `/aso-manage reviews --negative` | ⏳ post-launch |
+
+Detailed gating → `03-launch/prelaunch-checklist.md`.
+
+---
+
+## Highest-leverage moves (in priority order)
+1. **Screenshots that sell the *when*.** In a keyword-poor category, the screenshot promise converts more than the keyword field. Lead caption: "Know *when* to begin."
+2. **Lean on astrologer-review for trust.** TimePassages weaponizes "real astrologers, not AI." Inceptio's astrologer-reviewed translation layer is the same asset — say it plainly.
+3. **Own `electional` + `auspicious` now**, before anyone else names them.
+4. **Frame empty results as wisdom** in copy/screenshots, so the product's frequent "no viable windows" state reads as integrity, not failure.
+
+---
+
+## Output files
+```
+outputs/inceptio/
+├── 00-MASTER-ACTION-PLAN.md        ← you are here
+├── apple-metadata.md               (quick-mode metadata, copy-paste ready)
+├── 01-research/
+│   ├── competitor-analysis.md      (live App Store pull, tiered)
+│   ├── keyword-list.md             (opportunity matrix + muhurat decision)
+│   └── market-gaps.md              (positioning map + differentiators)
+└── 03-launch/
+    └── prelaunch-checklist.md      (full gating checklist)
+```
