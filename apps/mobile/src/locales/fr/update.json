@@ -1,16 +1,12 @@
 {
-  "force": {
-    "title": "Une mise à jour est nécessaire",
-    "body": "Cette version d'Inceptio n'est plus prise en charge. Mettez à jour pour continuer à choisir vos moments.",
-    "action": "Mettre à jour",
-    "actionHint": "Ouvre votre boutique d'applications",
-    "retry": "Réessayer",
-    "retryOffline": "Impossible de joindre le serveur de mise à jour. Vérifiez votre connexion.",
-    "openFailed": "Impossible d'ouvrir la boutique. Réessayez."
-  },
-  "soft": {
-    "message": "Une nouvelle version d'Inceptio est disponible.",
-    "action": "Mettre à jour",
-    "dismiss": "Fermer"
-  }
+  "force.title": "Une mise à jour est nécessaire",
+  "force.body": "Cette version d'Inceptio n'est plus prise en charge. Mettez à jour pour continuer à choisir vos moments.",
+  "force.action": "Mettre à jour",
+  "force.actionHint": "Ouvre votre boutique d'applications",
+  "force.retry": "Réessayer",
+  "force.retryOffline": "Impossible de joindre le serveur de mise à jour. Vérifiez votre connexion.",
+  "force.openFailed": "Impossible d'ouvrir la boutique. Réessayez.",
+  "soft.message": "Une nouvelle version d'Inceptio est disponible.",
+  "soft.action": "Mettre à jour",
+  "soft.dismiss": "Fermer"
 }

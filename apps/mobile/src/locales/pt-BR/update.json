@@ -1,16 +1,12 @@
 {
-  "force": {
-    "title": "É necessário atualizar",
-    "body": "Esta versão do Inceptio não é mais compatível. Atualize para continuar escolhendo seus momentos.",
-    "action": "Atualizar",
-    "actionHint": "Abre sua loja de aplicativos",
-    "retry": "Tentar novamente",
-    "retryOffline": "Não foi possível acessar o servidor de atualização. Verifique sua conexão.",
-    "openFailed": "Não foi possível abrir a loja. Tente novamente."
-  },
-  "soft": {
-    "message": "Uma nova versão do Inceptio está pronta.",
-    "action": "Atualizar",
-    "dismiss": "Dispensar"
-  }
+  "force.title": "É necessário atualizar",
+  "force.body": "Esta versão do Inceptio não é mais compatível. Atualize para continuar escolhendo seus momentos.",
+  "force.action": "Atualizar",
+  "force.actionHint": "Abre sua loja de aplicativos",
+  "force.retry": "Tentar novamente",
+  "force.retryOffline": "Não foi possível acessar o servidor de atualização. Verifique sua conexão.",
+  "force.openFailed": "Não foi possível abrir a loja. Tente novamente.",
+  "soft.message": "Uma nova versão do Inceptio está pronta.",
+  "soft.action": "Atualizar",
+  "soft.dismiss": "Dispensar"
 }

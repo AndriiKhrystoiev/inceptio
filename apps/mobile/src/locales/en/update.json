@@ -1,16 +1,12 @@
 {
-  "force": {
-    "title": "An update is needed",
-    "body": "This version of Inceptio is no longer supported. Update to keep choosing your moments.",
-    "action": "Update",
-    "actionHint": "Opens your app store",
-    "retry": "Try again",
-    "retryOffline": "Couldn't reach the update server. Check your connection.",
-    "openFailed": "Couldn't open the store. Try again."
-  },
-  "soft": {
-    "message": "A new version of Inceptio is ready.",
-    "action": "Update",
-    "dismiss": "Dismiss"
-  }
+  "force.title": "An update is needed",
+  "force.body": "This version of Inceptio is no longer supported. Update to keep choosing your moments.",
+  "force.action": "Update",
+  "force.actionHint": "Opens your app store",
+  "force.retry": "Try again",
+  "force.retryOffline": "Couldn't reach the update server. Check your connection.",
+  "force.openFailed": "Couldn't open the store. Try again.",
+  "soft.message": "A new version of Inceptio is ready.",
+  "soft.action": "Update",
+  "soft.dismiss": "Dismiss"
 }

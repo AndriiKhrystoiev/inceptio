@@ -1,16 +1,12 @@
 {
-  "force": {
-    "title": "Ein Update ist erforderlich",
-    "body": "Diese Version von Inceptio wird nicht mehr unterstützt. Aktualisiere, um weiterhin deine Momente zu wählen.",
-    "action": "Aktualisieren",
-    "actionHint": "Öffnet deinen App-Store",
-    "retry": "Erneut versuchen",
-    "retryOffline": "Der Update-Server ist nicht erreichbar. Prüfe deine Verbindung.",
-    "openFailed": "Der Store konnte nicht geöffnet werden. Versuche es erneut."
-  },
-  "soft": {
-    "message": "Eine neue Version von Inceptio ist verfügbar.",
-    "action": "Aktualisieren",
-    "dismiss": "Schließen"
-  }
+  "force.title": "Ein Update ist erforderlich",
+  "force.body": "Diese Version von Inceptio wird nicht mehr unterstützt. Aktualisiere, um weiterhin deine Momente zu wählen.",
+  "force.action": "Aktualisieren",
+  "force.actionHint": "Öffnet deinen App-Store",
+  "force.retry": "Erneut versuchen",
+  "force.retryOffline": "Der Update-Server ist nicht erreichbar. Prüfe deine Verbindung.",
+  "force.openFailed": "Der Store konnte nicht geöffnet werden. Versuche es erneut.",
+  "soft.message": "Eine neue Version von Inceptio ist verfügbar.",
+  "soft.action": "Aktualisieren",
+  "soft.dismiss": "Schließen"
 }
