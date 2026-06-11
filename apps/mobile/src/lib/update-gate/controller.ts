@@ -1,7 +1,16 @@
 import type { VersionPolicy } from '@inceptio/shared-types';
 import { evaluateUpdateState, type UpdateReason, type UpdateState } from './decision';
 
-export type GateSnapshot = { state: UpdateState; reason: UpdateReason | 'pending' };
+export type GateSnapshot = {
+  state: UpdateState;
+  reason: UpdateReason | 'pending';
+  // Current-platform store fields, lifted from the policy on a SUCCESSFUL fetch
+  // so consumers (force screen / soft banner) get the deep-link + version
+  // without re-deriving from the raw policy. null while pending and on a failed
+  // first fetch (pending→none); preserved across failed re-checks.
+  storeUrl: string | null;
+  latestVersion: string | null;
+};
 export type CheckReason = 'mount' | 'foreground' | 'poll' | 'manual';
 
 export type ControllerOptions = {
@@ -21,7 +30,7 @@ export type UpdateGateController = {
   dispose: () => void;
 };
 
-const PENDING: GateSnapshot = { state: 'none', reason: 'pending' };
+const PENDING: GateSnapshot = { state: 'none', reason: 'pending', storeUrl: null, latestVersion: null };
 
 export function createUpdateGateController(opts: ControllerOptions): UpdateGateController {
   const pollMs = opts.pollMs ?? 60_000;
@@ -38,7 +47,14 @@ export function createUpdateGateController(opts: ControllerOptions): UpdateGateC
   const emit = () => { for (const l of listeners) l(); };
 
   function setSnapshot(next: GateSnapshot) {
-    if (next.state === snapshot.state && next.reason === snapshot.reason) return;
+    if (
+      next.state === snapshot.state &&
+      next.reason === snapshot.reason &&
+      next.storeUrl === snapshot.storeUrl &&
+      next.latestVersion === snapshot.latestVersion
+    ) {
+      return;
+    }
     snapshot = next;
     emit();
   }
@@ -58,10 +74,19 @@ export function createUpdateGateController(opts: ControllerOptions): UpdateGateC
     if (policy === null) {
       // FAIL-OPEN: never create or clear a gate on a failed fetch. If pending,
       // resolve to 'none' (let in). If already forced, KEEP it (no bypass).
-      if (snapshot.reason === 'pending') setSnapshot({ state: 'none', reason: 'unparseable_policy' });
+      // Store fields are NOT touched on a failed fetch — prior values persist
+      // (pending→none on a failed first fetch leaves them null).
+      if (snapshot.reason === 'pending') {
+        setSnapshot({ ...snapshot, state: 'none', reason: 'unparseable_policy' });
+      }
     } else {
       const d = evaluateUpdateState(opts.installed, policy, opts.platform);
-      setSnapshot({ state: d.state, reason: d.reason });
+      setSnapshot({
+        state: d.state,
+        reason: d.reason,
+        storeUrl: policy[opts.platform]?.storeUrl ?? null,
+        latestVersion: policy[opts.platform]?.latestVersion ?? null,
+      });
     }
     // Manage the while-gated poll.
     if (gated()) ensurePoll(); else stopPoll();

@@ -30,7 +30,7 @@ describe('evaluateUpdateState', () => {
     expect(result).toEqual({ state, reason });
   });
   it('never throws on a wildly malformed policy', () => {
-    // @ts-expect-error intentional garbage
-    expect(() => evaluateUpdateState('1.0.0', {}, 'ios')).not.toThrow();
+    // Intentional garbage cast — exercises the total/fail-open contract at runtime.
+    expect(() => evaluateUpdateState('1.0.0', {} as unknown as VersionPolicy, 'ios')).not.toThrow();
   });
 });
