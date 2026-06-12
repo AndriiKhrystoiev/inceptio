@@ -25,20 +25,15 @@ Full detail → `01-research/competitor-analysis.md`, `01-research/market-gaps.m
 
 ---
 
-## Recommended metadata (validated against real data)
+## Metadata — LOCKED (single source of truth; do not duplicate here)
 
-| Field | Value | Chars |
-|---|---|---|
-| **Title** | `Inceptio: Auspicious Timing` | 27/30 |
-| **Subtitle** | `Best Day to Start Anything` | 26/30 |
-| **Keywords** | `electional,astrology,wedding,launch,travel,contract,planetary,moon,start,date,calendar,best,hour` | 96/100 |
-| **Promo** | "Some moments are worth waiting for. Inceptio reads the sky to find the right time to begin what matters — a wedding, a launch, a journey." | 138/170 |
+Metadata is **LOCKED**. To stop this plan drifting from the real values, it does **not** copy
+them — reference only:
 
-Full description + What's New → `outputs/inceptio/apple-metadata.md`.
-
-### Two decisions to make before submit
-1. **Title direction.** Keyword-led `Inceptio: Auspicious Timing` (recommended — owns a low-competition exact term) **vs** intent-led `Inceptio — Find Your Moment` (truer to positioning, weaker for search). The category is so keyword-poor that the keyword-led title costs almost nothing in brand feel — recommend keeping it, but it's a stakeholder call.
-2. **`muhurat` keyword — RESOLVED: EXCLUDE for v1.** Its searchers want Vedic Panchang that Inceptio (electional-only) doesn't provide → early-review mismatch. **Excluded from the v1 keyword field;** revisit only post-launch or as a real Vedic mode. Authoritative: `01-research/keyword-pressure-test.md`.
+- **iOS source of truth → [`../app-store-metadata.md`](../app-store-metadata.md)** — Title,
+  Subtitle, Keywords, Promo, Description.
+- **Play variant → [`../play-store-metadata.md`](../play-store-metadata.md)**
+- **Keyword decisions → [`01-research/keyword-pressure-test.md`](01-research/keyword-pressure-test.md)** — `muhurat` = **EXCLUDE v1**.
 
 ---
 
