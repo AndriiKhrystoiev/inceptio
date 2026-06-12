@@ -18,12 +18,12 @@
 - [ ] Caption 2 — activity picker: wedding · business · contract · travel
 - [ ] Caption 3 — calendar heatmap (the signature visual)
 - [ ] Caption 4 — a warm moment reading (show the tone)
-- [ ] Caption 5 — "See the chart" depth (trust: real astrology, astrologer-reviewed)
+- [ ] Caption 5 — "See the chart" depth (trust: **real planetary positions + centuries-old method**; add "astrologer-reviewed" only **post-review** — §11.4 gate, no-overclaim rule)
 - [ ] Use the locked palette (bg-deep `#0F0A1F`, accent violet `#8B6FE8`, gold `#E5C77D`)
 - [ ] Run `/aso-assets screenshots` to generate specs/headlines
 
 ## Trust & compliance
-- [ ] Description states content is **astrologer-reviewed** (counter "AI slop" skepticism)
+- [ ] Description counters "AI slop" skepticism with the **honest pre-review anchor** ("real planetary positions, centuries-old method"). Add the **astrologer-reviewed** claim only **after** the astrologer ruling (§11.4) — not before (no-overclaim rule)
 - [ ] Privacy: "no account, on-device" claim matches reality → Privacy Nutrition Label = minimal/no data collected
 - [ ] Generate legal docs: `/aso-manage legal` (Privacy, Terms, EULA)
 - [ ] Confirm no medical/health framing anywhere (App Store medical-content risk)

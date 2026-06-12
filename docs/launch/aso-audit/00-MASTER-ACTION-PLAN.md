@@ -61,7 +61,7 @@ Detailed gating → `03-launch/prelaunch-checklist.md`.
 
 ## Highest-leverage moves (in priority order)
 1. **Screenshots that sell the *when*.** In a keyword-poor category, the screenshot promise converts more than the keyword field. Lead caption: "Know *when* to begin."
-2. **Lean on astrologer-review for trust.** TimePassages weaponizes "real astrologers, not AI." Inceptio's astrologer-reviewed translation layer is the same asset — say it plainly.
+2. **Lean on the honest trust anchor.** TimePassages weaponizes "real astrologers, not AI." Pre-review, Inceptio's honest anchor is **"real planetary positions + the centuries-old method"** — say *that* plainly now. The **astrologer-reviewed** claim is the same asset *once earned*, but is **gated on the astrologer ruling (§11.4)** — don't claim it until the review is done (no-overclaim rule).
 3. **Own `electional` + `auspicious` now**, before anyone else names them.
 4. **Frame empty results as wisdom** in copy/screenshots, so the product's frequent "no viable windows" state reads as integrity, not failure.
 

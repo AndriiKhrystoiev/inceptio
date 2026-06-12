@@ -33,11 +33,11 @@ Inceptio's premium × timing quadrant — which **strengthens** the empty-middle
 ## Risks to manage
 - **Education cost.** "Electional astrology" is unknown to most consumers → lead with the *plain intent* ("best time to start"), keep the method in the explanation (matches the product's progressive-disclosure design).
 - **Keyword/expectation mismatch** on `muhurat` (see `keyword-list.md`).
-- **Category trust.** Astrology buyers are skeptical of "AI-generated" content (TimePassages weaponizes this). Inceptio's **astrologer-reviewed** translation layer is a real differentiator — say so plainly.
+- **Category trust.** Astrology buyers are skeptical of "AI-generated" content (TimePassages weaponizes this). Pre-review, lead with the **honest anchor** — "real planetary positions + the centuries-old method." The **astrologer-reviewed** translation layer is a real differentiator **once the review is done (§11.4 gate)** — claim it then, not before (no-overclaim rule).
 - **Empty-result UX.** The product itself often returns "no viable windows." Screenshots/description must frame patience as wisdom, not the app failing.
 
 ## Differentiators to lead with (in store copy + screenshots)
 1. "Tells you *when*, not just *what*." — the category-defining line.
 2. Activity-specific: wedding · business launch · contract · travel.
-3. Plain language, astrologer-reviewed — no jargon, no doom.
+3. Plain language, real planetary positions, centuries-old method — no jargon, no doom. (Add "astrologer-reviewed" post-review — §11.4 gate.)
 4. Private by design — no account, on-device.
