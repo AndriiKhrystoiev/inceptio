@@ -13,8 +13,8 @@
 
 ## Fields
 - **Name** (≤30): `Inceptio: Find Your Moment`  (26)
-- **Subtitle** (≤30): `Find auspicious days to begin`  (29)
-- **Keywords** (≤100): `electional,astrology,timing,wedding,launch,travel,contract,planetary,moon,start,date,calendar,best`  (98/100)
+- **Subtitle** (≤30): `Auspicious timing to begin`  (26)
+- **Keywords** (≤100): `electional,astrology,wedding,launch,travel,contract,planetary,moon,start,date,calendar,best,hour`  (96/100)
   - _Changelog:_ +contract (was a gap — covers the contracts activity), +calendar (real
     feature: the electional engine produces calendar heatmaps), +best (broad
     best-day-to-begin intent). zodiac & ceremony moved to bench (lane-dilution /
@@ -26,16 +26,23 @@
     — they'd draw mismatched traffic to a capability gap. 'best' is the most marginal
     term (first swap candidate; bench alt: hour). See
     `aso-audit/01-research/keyword-pressure-test.md` for the full per-slot analysis.
+  - _Changelog (subtitle pass):_ timing promoted to Subtitle for high-weight
+    indexing; hour (Planetary Hours endpoint) backfills the freed slot.
 - **Promotional text** (≤170):
   Know the right time to begin what matters — a wedding, a launch, a journey,
   a fresh start. Inceptio reads the real sky and finds your moment.
 - **Description:**
 
-  Inceptio tells you when to begin — not just what's in the stars.
+  Inceptio tells you when to begin — not just what's in the stars. Most
+  astrology apps describe who you are; Inceptio answers a different question:
+  when is the right time to start what matters?
 
-  Most astrology apps describe who you are. Inceptio answers a different
-  question: when is the right time to start what matters — a wedding, a
-  launch, a journey, a fresh start?
+  Wedding · Business launch · Contract · Travel — find the right day for each.
+
+  _[DOC-ONLY EDITOR NOTE — NOT listing copy. STRIP this bracketed line before
+  pasting the Description into App Store Connect; it must never ship as literal
+  text. Proof slot — post-launch: add rating / press / user count here. Do NOT
+  fabricate pre-launch.]_
 
   It reads the real positions of the planets — the way astrologers have chosen
   auspicious moments for centuries — and finds the days and hours that favor
