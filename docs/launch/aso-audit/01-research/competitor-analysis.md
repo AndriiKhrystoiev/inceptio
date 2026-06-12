@@ -11,7 +11,7 @@ Source: iTunes Search API (US storefront), live pull 2026-06-11. Ratings/counts 
 1. **Big general-astrology apps** rank for "electional astrology", "best day astrology", "wedding date astrology" — but they sell birth charts, daily horoscopes, and transits. None lets you *search a date range for a favorable moment to start a specific activity*. They surface for the keywords by topical proximity, not by serving the intent.
 2. **Vedic / Hindu "muhurat" utilities** actually serve the timing intent — but they're culturally Vedic (Panchang, Choghadiya, Rahu Kaal), aesthetically utilitarian, and almost all have near-zero ratings.
 
-Inceptio's lane — **Western traditional electional, premium consumer aesthetic, intent-led, activity-specific** — is unoccupied.
+Inceptio's lane — **Western traditional electional, premium consumer aesthetic, intent-led, activity-specific** — is unoccupied. **There is no direct consumer electional competitor at all** — the only adjacents are professional *desktop* tools (Father Time, AstroApp, Time Nomad), none mobile, none in Inceptio's register. (See the Tier 3 correction below — an earlier "Horaly" same-lane candidate was a misidentification.)
 
 ---
 
@@ -40,13 +40,18 @@ Inceptio's lane — **Western traditional electional, premium consumer aesthetic
 
 **Read:** this is the *direct intent* cluster, and it is wide open on quality and design — but it is **Vedic/Hindu**, not Western/Hellenistic. Targeting `muhurat` brings traffic whose expectations (Panchang, Rahu Kaal, Tithi) Inceptio does **not** meet. See keyword decision in `keyword-list.md`.
 
-## Tier 3 — Closest spiritual cousin (watch this one)
+## Tier 3 — ~~Closest spiritual cousin (watch this one)~~ — STRUCK (misidentification)
 
-| App | Ratings | Notes |
-|---|---|---|
-| **Horaly: Planetary Hours** | 0 (brand new) | "A daily companion for **traditional astrology timing** — planetary hours, day ruler, moon phase, for your location." |
-
-Horaly is the only app in the **Western traditional-timing** lane Inceptio also occupies. It does *daily* timing (planetary hours), not *election search over a range for an activity* — adjacent, not overlapping. Brand new, zero traction. **Monitor:** if it adds election search it becomes the first true competitor. Inceptio's activity-specific, date-range search and premium narrative UX are the moat.
+> **[Correction 2026-06-12]** "Horaly" was a misidentification — it resolves only to horary tools
+> (a separate branch). Inceptio = **electional**, distinct from **horary**. There is no verifiable
+> consumer electional competitor; the real adjacents are professional desktop tools (Father Time,
+> AstroApp, Time Nomad). See `competitor-creative-teardown.md` for the full correction.
+>
+> **Consequence — the finding gets stronger, not weaker:** removing the false same-lane candidate
+> leaves the consumer electional-decision lane with **no direct competitor at all**. The earlier
+> "monitor Horaly / first true competitor" watch item is **void** (there is no such app to watch).
+> The only adjacents are *desktop* astrologer tools; Inceptio's activity-specific, date-range search
+> and premium narrative UX face no mobile consumer rival.
 
 ---
 
