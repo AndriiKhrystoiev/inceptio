@@ -38,4 +38,4 @@
 - [ ] `/aso-manage reviews --negative` — watch specifically for "no Panchang / where's Rahu Kaal" → that's the `muhurat` mismatch; swap keyword if it appears
 - [ ] Watch for "no results / app is broken" reviews → empty-window UX framing problem, not a keyword problem
 - [ ] Track impressions vs conversion; iterate subtitle (free to change) before touching title
-- [ ] Watch **Horaly** for an election-search feature add (only true potential competitor)
+- [ ] _[Correction 2026-06-12]_ ~~Watch Horaly for an election-search feature add~~ — **void**: "Horaly" was a misidentification (horary ≠ electional); no consumer electional competitor exists. Optionally scan for any *new* consumer electional entrant — but there is none to watch today.

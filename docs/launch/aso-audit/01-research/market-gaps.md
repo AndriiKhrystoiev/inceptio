@@ -13,11 +13,16 @@ Every astrology app tells you **who you are** (birth chart) or **how today feels
                           │       (target)
    BIRTH-CHART / ─────────┼───────────── TIMING / "WHEN
    HOROSCOPE INTENT       │              SHOULD I BEGIN?"
-                          │   ● Horaly (new, daily timing)
+                          │   ○ Father Time · AstroApp (desktop)
               Nebula ●    │   ● Muhurta Daily / Drik Panchang
                           │     (Vedic, utilitarian)
                  UTILITARIAN / TECHNICAL AESTHETIC
 ```
+
+_[Correction 2026-06-12] The former "● Horaly (new, daily timing)" node is struck — a
+misidentification (horary ≠ electional). "○ Father Time · AstroApp" are **desktop pro**
+tools (○ = off-platform), not mobile consumer rivals. No consumer mobile app occupies
+Inceptio's premium × timing quadrant — which **strengthens** the empty-middle finding._
 
 ## Three defensible gaps
 

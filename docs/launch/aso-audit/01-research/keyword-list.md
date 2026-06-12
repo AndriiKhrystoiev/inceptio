@@ -16,7 +16,7 @@ Volume = rough intent traffic (qualitative, from how saturated the search surfac
 | `moment` | Med | Diffuse | High | Take it — on-brand, low contention. |
 | `wedding` | High | General apps | High | Take it — top activity, intent-qualified. |
 | `launch` | Med | Generic | High | Take it — business-launch activity. |
-| `timing` | Med | Horaly et al. | High | In title. |
+| `timing` | Med | Diffuse / general | High | In title. |
 | `astrology` | Very High | **Brutal** (CHANI/Nebula) | Med | Include once; don't anchor on it. |
 | `horoscope` | Very High | Brutal | Low | Token presence only; not our intent. |
 | `zodiac`/`moon`/`planet` | High | Saturated | Med | Cheap relevance signals; keep. |

@@ -19,7 +19,7 @@ The single line that should drive every store asset:
 
 - **Broad astrology terms are owned by giants serving a different job.** CHANI (54k ratings, 4.9), Nebula (170k), TimePassages (44k) rank for "electional"/"wedding date astrology"/"best day astrology" but sell birth charts & horoscopes — **none does election search.**
 - **The timing-intent niche is real but weak and Vedic.** "Muhurat"/"auspicious time" results are low-design utilities, mostly 0–18 ratings (Drik Panchang at 5.6k is the exception). They prove demand and cede design + Western framing entirely.
-- **One cousin to watch:** *Horaly: Planetary Hours* (brand new, 0 ratings) — same Western-traditional-timing lane, but daily timing, not activity election search.
+- **No direct competitor.** _[Correction 2026-06-12]_ An earlier "one cousin to watch — *Horaly: Planetary Hours*" note was a **misidentification** (horary tools, a separate branch — horary ≠ electional). No consumer electional app exists; the only adjacents are professional *desktop* tools (Father Time, AstroApp, Time Nomad). See `01-research/competitor-analysis.md`.
 
 Full detail → `01-research/competitor-analysis.md`, `01-research/market-gaps.md`.
 

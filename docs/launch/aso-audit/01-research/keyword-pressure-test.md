@@ -50,11 +50,11 @@ carry. Verdict is the proposal.
 |---|---|---|---|---|---|
 | `electional` | Low | **None** | Perfect | none | **KEEP** — own it. Method exact-match, uncontested anchor. |
 | `astrology` | V.High | Brutal | Med | low (1 token) | **KEEP** — single category-relevance token; powers `electional astrology`, `wedding astrology`. Don't anchor on it. |
-| `timing` | Med | Horaly | High | none | **KEEP** — core JTBD; `wedding timing`, `astrology timing`. |
+| `timing` | Med | Diffuse | High | none | **KEEP** — core JTBD; `wedding timing`, `astrology timing`. |
 | `wedding` | High | General | High | none | **KEEP** — top activity, intent-qualified. |
 | `launch` | Med | Generic | High | none | **KEEP** — business-launch activity; `launch date`. |
 | `travel` | Med | Generic | High | none | **KEEP** — travel activity; `travel date`. |
-| `planetary` | Med | Light | Med-High | none | **KEEP** — trust anchor ("real planetary positions"); `planetary hours` (Horaly's niche), `planetary timing`. |
+| `planetary` | Med | Light | Med-High | none | **KEEP** — trust anchor ("real planetary positions"); `planetary hours` (a traditional-timing term), `planetary timing`. |
 | `moon` | High | Saturated | High | low | **KEEP** — genuinely on-method (VOC / moon-between-signs is core); `moon calendar`, `moon phase`. Not a mismatch term. |
 | `start` | Med | Diffuse | High | none | **KEEP** — intent verb; `start date`, "best time to **start**". |
 | `date` | High | Mixed | High | none | **KEEP** — combinatorial powerhouse: `wedding date`, `launch date`, `travel date`, `start date`, `best date`. |
@@ -111,7 +111,7 @@ Use if early reviews / ASA search-term reports say so. Ordered by readiness to p
 2. **`zodiac`** (6) — cheap broad-reach re-add if purity is visibly costing top-of-funnel
    volume and the 4.3/dilution risk proves overblown post-launch.
 3. **`hour`** (4) — forms `planetary hour` / `best hour`; captures the traditional
-   daily-timing surface (Horaly overlap). Adjacent intent (daily timing ≠ election search),
+   daily-timing surface. Adjacent intent (daily timing ≠ election search),
    so bench not core.
 4. **`journey`** (7) — softer, on-voice synonym for the travel activity; swap for
    emotional/"fresh start journey" searches.

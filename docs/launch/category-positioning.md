@@ -20,8 +20,15 @@ Every premium consumer astrology app is **Lifestyle primary**:
 | Moonly | Lifestyle | Lifestyle, Health & Fitness |
 
 The Vedic timing utilities (muhurat / auspicious-time / planetary-hours) sit in
-**Utilities**. **Horaly** — the closest cousin (Western traditional timing) — straddles
-both: **Lifestyle + Utilities**. That split is the recommendation.
+**Utilities**.
+
+**[Correction 2026-06-12]** An earlier draft justified the split via "**Horaly** — the
+closest cousin — straddles Lifestyle + Utilities, so mirror it." That precedent is **void**:
+"Horaly" was a misidentification (horary tools, a separate branch; no consumer electional
+competitor exists — see `01-research/competitor-creative-teardown.md`). The
+**Lifestyle-primary + Utilities-secondary split stands on its own merits**, not on any
+competitor precedent — Lifestyle for audience-match + editorial featuring; Utilities as a
+genuine timing-tool surface with weak competition and free discovery.
 
 ## Candidates evaluated
 

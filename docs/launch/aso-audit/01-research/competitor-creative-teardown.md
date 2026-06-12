@@ -20,9 +20,9 @@
 > astrology. Per the astrology API itself, **Horary** (answering a specific question from a chart
 > cast at question-time) and **Electional** (finding optimal timing to *begin* an action — Inceptio's
 > branch) are **separate endpoints**. There is **no verifiable consumer electional app** in Inceptio's
-> lane (see "The lane is empty" in Part A). `competitor-analysis.md` still carries the old Horaly
-> "closest cousin / one to watch" framing — **flagged for a follow-up cleanup pass, not edited in
-> this commit.**
+> lane (see "The lane is empty" in Part A). `competitor-analysis.md`'s old Horaly
+> "closest cousin / one to watch" framing has since been **struck (2026-06-12 cleanup)** for
+> consistency.
 
 ---
 
@@ -189,6 +189,6 @@ Collision check is now **verified** for the consumer premium lane; the "Horaly" 
 **~2-minute live subtitle spot-check** on CHANI / Co-Star / Nebula before the listing goes live.
 Everything else here is ready to brief a `screenshot-optimization` pass.
 
-**Follow-up cleanup (separate commit — not done here):** `competitor-analysis.md` still lists Horaly
-as the Tier-3 "closest cousin / one to watch." That framing is **superseded** by the horary/electional
-correction above and is now **inconsistent** with this doc — strike it in a dedicated cleanup pass.
+**Cleanup done (2026-06-12):** `competitor-analysis.md`'s Tier-3 "closest cousin / one to watch"
+framing — and all remaining Horaly references across `docs/launch/` — have been **struck/corrected**
+for consistency with this doc.
