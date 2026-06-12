@@ -14,6 +14,8 @@ const WORKER_URL_DEV =
 const TIMEOUT_MS = 60_000;
 
 export const API_CONFIG = {
-  baseUrl: __DEV__ ? WORKER_URL_DEV : 'https://api.inceptio.app', // prod URL TBD
+  baseUrl: __DEV__
+    ? WORKER_URL_DEV
+    : 'https://inceptio-api-proxy-production.inceptio-api-proxy-production-procoders.workers.dev',
   timeout: TIMEOUT_MS,
 } as const;

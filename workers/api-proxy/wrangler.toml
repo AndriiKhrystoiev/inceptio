@@ -2,6 +2,7 @@ name = "inceptio-api-proxy"
 main = "src/index.ts"
 compatibility_date = "2026-05-25"
 compatibility_flags = ["nodejs_compat"]
+account_id = "fe8a73e067a6662639871c19429bd296"
 
 # KV namespace for cache + rate-limit.
 # Create with:
@@ -10,8 +11,8 @@ compatibility_flags = ["nodejs_compat"]
 # Then paste the returned ids below.
 [[kv_namespaces]]
 binding = "CACHE"
-id = "REPLACE_WITH_PRODUCTION_KV_ID"
-preview_id = "REPLACE_WITH_PREVIEW_KV_ID"
+id = "ba22037590f04dcb840efadac04dcb09"
+preview_id = "6569ebaf299f4f7abdf7341daff951d3"
 
 # Default vars apply to `wrangler dev` (local development).
 # Production overrides live under [env.production.vars].
@@ -27,6 +28,13 @@ WORKER_VERSION = "0.0.1"
 ENV = "production"
 UPSTREAM_BASE_URL = "https://api.astrology-api.io/api/v3"
 WORKER_VERSION = "0.0.1"
+
+# A [env.*] block does NOT inherit top-level [[kv_namespaces]], so the CACHE
+# binding must be repeated here or a `--env production` deploy has no KV at all.
+[[env.production.kv_namespaces]]
+binding = "CACHE"
+id = "ba22037590f04dcb840efadac04dcb09"
+preview_id = "6569ebaf299f4f7abdf7341daff951d3"
 
 # Secrets (set via `wrangler secret put`, never in this file):
 #   ASTROLOGY_API_KEY — the upstream API key (production "From my backend only" mode).
