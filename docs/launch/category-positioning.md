@@ -68,8 +68,12 @@ Utilities sub-surface AND Lifestyle featuring hasn't materialized, *then* test
 Utilities-primary. Not before.
 
 ## Play Store (later, for de/fr/es-419/pt-BR)
-No astrology category on Play either → **Category: Lifestyle**, spend the 5 tags on
-timing/electional intent. Handle in the localization pass.
+No astrology category on Play either → **Category: Lifestyle**. _[Correction 2026-06-12]_
+Play **tags come from Google's fixed per-category list, not free text** — you cannot tag
+literal "electional"/"timing"; pick the closest available Lifestyle tags. Carry the
+electional/timing intent in the **indexed title + short description + full description**
+instead (Play indexes all three — that's where the keywords live). Handle in the localization
+pass. See `play-store-metadata.md`.
 
 ## Next handoffs
 - `app-store-featured` — featuring lives in Lifestyle; this is the biggest free lever.
