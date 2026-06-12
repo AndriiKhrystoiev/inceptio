@@ -1,5 +1,15 @@
 # Inceptio — Keyword Research & Gaps
 
+> ## ⚠️ SUPERSEDED RESEARCH SNAPSHOT — not the live keyword decision
+> This is the original 2026-06-11 research pass. Its **"Recommended keyword field"** (below) and
+> the **per-term keep/exclude verdicts** are **superseded** — they still adopt out-of-branch terms
+> (`horoscope`, `zodiac`, `lucky`, `muhurat`) that the final decision **excludes** (electional only).
+> - **Authoritative keyword pass:** [`keyword-pressure-test.md`](keyword-pressure-test.md)
+> - **Locked field (source of truth):** [`../../app-store-metadata.md`](../../app-store-metadata.md) →
+>   `electional,astrology,wedding,launch,travel,contract,planetary,moon,start,date,calendar,best,hour`
+>
+> The analysis below is kept as **history**; do not treat its field or per-term verdicts as live.
+
 Based on live iTunes search-surface data (2026-06-11) and the competitor split in `competitor-analysis.md`.
 
 ---

@@ -31,14 +31,14 @@ Full detail → `01-research/competitor-analysis.md`, `01-research/market-gaps.m
 |---|---|---|
 | **Title** | `Inceptio: Auspicious Timing` | 27/30 |
 | **Subtitle** | `Best Day to Start Anything` | 26/30 |
-| **Keywords** | `astrology,electional,moment,horoscope,zodiac,moon,planet,lucky,date,wedding,launch,muhurat,calendar` | 99/100 |
+| **Keywords** | `electional,astrology,wedding,launch,travel,contract,planetary,moon,start,date,calendar,best,hour` | 96/100 |
 | **Promo** | "Some moments are worth waiting for. Inceptio reads the sky to find the right time to begin what matters — a wedding, a launch, a journey." | 138/170 |
 
 Full description + What's New → `outputs/inceptio/apple-metadata.md`.
 
 ### Two decisions to make before submit
 1. **Title direction.** Keyword-led `Inceptio: Auspicious Timing` (recommended — owns a low-competition exact term) **vs** intent-led `Inceptio — Find Your Moment` (truer to positioning, weaker for search). The category is so keyword-poor that the keyword-led title costs almost nothing in brand feel — recommend keeping it, but it's a stakeholder call.
-2. **`muhurat` keyword.** Biggest niche term, but its searchers want Vedic Panchang that Inceptio doesn't provide → early-review mismatch risk. Keep for v1.0, monitor reviews, swap for `ceremony` if complaints appear. → `01-research/keyword-list.md`.
+2. **`muhurat` keyword — RESOLVED: EXCLUDE for v1.** Its searchers want Vedic Panchang that Inceptio (electional-only) doesn't provide → early-review mismatch. **Excluded from the v1 keyword field;** revisit only post-launch or as a real Vedic mode. Authoritative: `01-research/keyword-pressure-test.md`.
 
 ---
 
