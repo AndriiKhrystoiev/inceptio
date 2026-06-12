@@ -66,7 +66,7 @@ Detailed gating → `03-launch/prelaunch-checklist.md`.
 ```
 outputs/inceptio/
 ├── 00-MASTER-ACTION-PLAN.md        ← you are here
-├── apple-metadata.md               (quick-mode metadata, copy-paste ready)
+├── apple-metadata.md               (SUPERSEDED — see banner; use ../app-store-metadata.md)
 ├── 01-research/
 │   ├── competitor-analysis.md      (live App Store pull, tiered)
 │   ├── keyword-list.md             (opportunity matrix + muhurat decision)

@@ -1,13 +1,9 @@
 # Inceptio — Pre-Launch ASO Checklist
 
 ## Metadata (App Store Connect)
-- [ ] Title: `Inceptio: Auspicious Timing` (27/30)
-- [ ] Subtitle: `Best Day to Start Anything` (26/30)
-- [ ] Keywords: validated 99/100 string (see `02-metadata` / quick output)
+- [ ] **Metadata is LOCKED — enter values from [`../../app-store-metadata.md`](../../app-store-metadata.md)** (Title, Subtitle, Keywords, Promo, Description). Do **not** copy values into this checklist. `muhurat` = **EXCLUDE v1**; title & subtitle directions are **resolved** (no pre-submit A/B). Keyword rationale: [`../01-research/keyword-pressure-test.md`](../01-research/keyword-pressure-test.md).
 - [ ] Promotional text set (editable post-launch — use for seasonal hooks)
 - [ ] Description proofread; "Inceptio" appears 3–5× ✓; zero forbidden tone words ✓
-- [ ] **Stakeholder sign-off on the `muhurat` keyword decision** (review-noise risk)
-- [ ] Title A/B consideration: keyword-led (`Auspicious Timing`) vs intent-led (`Find Your Moment`) — decide before submit
 
 ## Category & age
 - [ ] Primary category: **Lifestyle** (where CHANI/Nebula sit). Secondary: **Reference** or **Utilities**
