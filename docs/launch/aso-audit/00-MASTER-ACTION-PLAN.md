@@ -41,14 +41,14 @@ them — reference only:
 
 | # | Action | Command | Status |
 |---|---|---|---|
-| 1 | Stakeholder sign-off: title direction + `muhurat` | — | ⏳ decision |
+| 1 | ~~Stakeholder sign-off: title direction + `muhurat`~~ — **RESOLVED** (title & subtitle locked; `muhurat` = EXCLUDE v1) | — | ✅ |
 | 2 | Set up ASC credentials (`~/.aso/` not present yet) | `/aso-connect setup` | ⏳ blocked |
 | 3 | Generate screenshot specs (highest conversion lever) | `/aso-assets screenshots` | ⏳ |
 | 4 | Generate legal docs | `/aso-manage legal` | ⏳ |
 | 5 | Create version + sync metadata | `/aso-release create 1.0.0` → `/aso-connect sync` | ⏳ |
 | 6 | Verify readiness | `/aso-connect status` | ⏳ |
 | 7 | Submit (consider phased release) | `/aso-release submit` | ⏳ |
-| 8 | Watch reviews for muhurat/empty-result signals | `/aso-manage reviews --negative` | ⏳ post-launch |
+| 8 | Watch reviews for Vedic/`auspicious` mismatch + empty-result signals | `/aso-manage reviews --negative` | ⏳ post-launch |
 
 Detailed gating → `03-launch/prelaunch-checklist.md`.
 
@@ -69,7 +69,7 @@ outputs/inceptio/
 ├── apple-metadata.md               (SUPERSEDED — see banner; use ../app-store-metadata.md)
 ├── 01-research/
 │   ├── competitor-analysis.md      (live App Store pull, tiered)
-│   ├── keyword-list.md             (opportunity matrix + muhurat decision)
+│   ├── keyword-list.md             (SUPERSEDED snapshot — see banner)
 │   └── market-gaps.md              (positioning map + differentiators)
 └── 03-launch/
     └── prelaunch-checklist.md      (full gating checklist)

@@ -6,12 +6,12 @@
 - [ ] Description proofread; "Inceptio" appears 3–5× ✓; zero forbidden tone words ✓
 
 ## Category & age
-- [ ] Primary category: **Lifestyle** (where CHANI/Nebula sit). Secondary: **Reference** or **Utilities**
+- [ ] Primary category: **Lifestyle** · Secondary: **Utilities** (locked — see [`../../category-positioning.md`](../../category-positioning.md); avoid **Health & Fitness**, 5.1.1 medical risk)
 - [ ] Age rating: 12+ likely (astrology/"infrequent mature themes"); confirm no medical claims (surgery is deferred for exactly this reason — keep it out of copy)
 
 ## Screenshots (drives conversion more than keywords)
 - [ ] Caption 1 — the category-defining promise: "Know *when* to begin." (not "what")
-- [ ] Caption 2 — activity picker: wedding · business · contract · travel
+- [ ] Caption 2 — activity picker: wedding · business launch · contract · travel
 - [ ] Caption 3 — calendar heatmap (the signature visual)
 - [ ] Caption 4 — a warm moment reading (show the tone)
 - [ ] Caption 5 — "See the chart" depth (trust: **real planetary positions + centuries-old method**; add "astrologer-reviewed" only **post-review** — §11.4 gate, no-overclaim rule)
@@ -28,10 +28,10 @@
 - [ ] `/aso-connect setup` — credentials not yet present (`~/.aso/` missing)
 - [ ] `/aso-connect status` — confirm app record + readiness
 - [ ] `/aso-release create 1.0.0` → `attach` → `sync` → `submit`
-- [ ] Consider phased release (`/aso-release phased start`) to watch early reviews for the `muhurat` mismatch signal
+- [ ] Consider phased release (`/aso-release phased start`) to watch early reviews for the Vedic/Panchang mismatch signal (from the subtitle's `auspicious`; `muhurat` is excluded from the field)
 
 ## Post-launch (first 2 weeks)
-- [ ] `/aso-manage reviews --negative` — watch specifically for "no Panchang / where's Rahu Kaal" → that's the `muhurat` mismatch; swap keyword if it appears
+- [ ] `/aso-manage reviews --negative` — watch specifically for "no Panchang / where's Rahu Kaal" → that's the Vedic-coding mismatch from the subtitle `auspicious` (`muhurat` already excluded from the field); swap-lever is the subtitle wording ("the right" / "perfect timing"), not a keyword
 - [ ] Watch for "no results / app is broken" reviews → empty-window UX framing problem, not a keyword problem
 - [ ] Track impressions vs conversion; iterate subtitle (free to change) before touching title
 - [ ] _[Correction 2026-06-12]_ ~~Watch Horaly for an election-search feature add~~ — **void**: "Horaly" was a misidentification (horary ≠ electional); no consumer electional competitor exists. Optionally scan for any *new* consumer electional entrant — but there is none to watch today.
