@@ -14,7 +14,18 @@
 ## Fields
 - **Name** (≤30): `Inceptio: Find Your Moment`  (26)
 - **Subtitle** (≤30): `Find auspicious days to begin`  (29)
-- **Keywords** (≤100): `electional,astrology,timing,wedding,launch,travel,planetary,ceremony,moon,start,date,zodiac`  (~91)
+- **Keywords** (≤100): `electional,astrology,timing,wedding,launch,travel,contract,planetary,moon,start,date,calendar,best`  (98/100)
+  - _Changelog:_ +contract (was a gap — covers the contracts activity), +calendar (real
+    feature: the electional engine produces calendar heatmaps), +best (broad
+    best-day-to-begin intent). zodiac & ceremony moved to bench (lane-dilution /
+    redundancy). horoscope/lucky/muhurat stay excluded. These exclusions are
+    FUNCTIONAL, not just brand: Inceptio runs on the Western electional / timing /
+    planetary-hours / Moon (VOC, lunation) endpoints only. zodiac & horoscope are
+    natal/sun-sign namespaces the app doesn't use; muhurat is the Vedic/Panchang
+    namespace the app doesn't use. These terms point at features Inceptio doesn't have
+    — they'd draw mismatched traffic to a capability gap. 'best' is the most marginal
+    term (first swap candidate; bench alt: hour). See
+    `aso-audit/01-research/keyword-pressure-test.md` for the full per-slot analysis.
 - **Promotional text** (≤170):
   Know the right time to begin what matters — a wedding, a launch, a journey,
   a fresh start. Inceptio reads the real sky and finds your moment.
