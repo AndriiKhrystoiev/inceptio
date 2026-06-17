@@ -16,6 +16,9 @@ import Toast from '../components/Toast';
 import { useActivityPreference, setDefaultActivity } from '../lib/activity-preference';
 import { getActivityLabel } from '../lib/activities';
 import { ActivityChangeSheet } from '../components/ActivityChangeSheet';
+import { LanguageSheet } from '../components/LanguageSheet';
+import { __setLocaleOverride, LANGUAGE_LABELS } from '../i18n/locale';
+import { setPersistedLocale } from '../lib/locale-preference';
 import { clearSavedMoments } from '../lib/draft-store';
 import { useLocationPreference, clearDefaultLocation } from '../lib/location-preference';
 import { getDeviceId, clearDeviceId } from '../lib/device-id';
@@ -25,7 +28,7 @@ import { debugEvaluate } from '../lib/rating/prompt-triggers';
 
 
 export default function YouScreen({ go }) {
-  const { t } = useTranslation('settings');
+  const { t, i18n } = useTranslation('settings');
   // Toast state — mirrors the pattern from MomentDetailScreen.
   const [toast, setToast] = useState(null);
   const showToast = useCallback((message, tone = 'neutral') => {
@@ -78,6 +81,23 @@ export default function YouScreen({ go }) {
     setDefaultActivity(next);
     setChangeSheetOpen(false);
   }, []);
+
+  // Language selector. Reuses the SAME mechanism as App.js's DevLocaleBar:
+  // __setLocaleOverride steers activeBundle() (date formatting, X-Locale header,
+  // …) and i18n.changeLanguage re-renders every t() consumer. setPersistedLocale
+  // makes the choice survive a restart (re-applied on boot in App.js). The
+  // useTranslation('settings') hook above re-renders this screen on the language
+  // change, so the row value + sheet checkmark update with no manual tick.
+  const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
+  const openLanguageSheet = useCallback(() => setLanguageSheetOpen(true), []);
+  const closeLanguageSheet = useCallback(() => setLanguageSheetOpen(false), []);
+  const onSelectLanguage = useCallback((next) => {
+    __setLocaleOverride(next);
+    i18n.changeLanguage(next);
+    setPersistedLocale(next);
+    setLanguageSheetOpen(false);
+  }, [i18n]);
+  const currentLanguageLabel = LANGUAGE_LABELS[i18n.language] ?? LANGUAGE_LABELS.en;
 
   // Device id is async (platform vendor lookup on first call). Cache locally.
   const [deviceId, setDeviceId] = useState(null);
@@ -225,6 +245,11 @@ export default function YouScreen({ go }) {
             </Text>
           </Pressable>
         )}
+        <Row
+          label={t('row.language')}
+          detail={currentLanguageLabel}
+          onPress={openLanguageSheet}
+        />
 
         <Section title={t('support.title')} />
         <Row label={t('support.feedback')} detail="" onPress={handleFeedback} />
@@ -282,6 +307,14 @@ export default function YouScreen({ go }) {
         current={activity}
         onSelect={onSelectActivity}
         onClose={closeActivityChangeSheet}
+      />
+
+      <LanguageSheet
+        open={languageSheetOpen}
+        current={i18n.language}
+        title={t('language.sheetTitle')}
+        onSelect={onSelectLanguage}
+        onClose={closeLanguageSheet}
       />
     </View>
   );

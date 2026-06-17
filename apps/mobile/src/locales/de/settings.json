@@ -6,6 +6,8 @@
   "section.debug": "Debug",
   "row.defaultActivity": "Standard-Aktivität",
   "row.defaultLocation": "Standard-Ort",
+  "row.language": "Sprache",
+  "language.sheetTitle": "Sprache",
   "row.version": "Version",
   "row.privacy": "Datenschutz",
   "row.terms": "Nutzungsbedingungen",

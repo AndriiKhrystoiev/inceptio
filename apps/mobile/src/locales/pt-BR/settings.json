@@ -6,6 +6,8 @@
   "section.debug": "Depuração",
   "row.defaultActivity": "Atividade padrão",
   "row.defaultLocation": "Local padrão",
+  "row.language": "Idioma",
+  "language.sheetTitle": "Idioma",
   "row.version": "Versão",
   "row.privacy": "Privacidade",
   "row.terms": "Termos",

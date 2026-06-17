@@ -19,6 +19,7 @@ import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono';
 import { colors } from './src/theme';
 import i18n, { initI18n } from './src/i18n';
 import { SUPPORTED, __setLocaleOverride, activeBundle } from './src/i18n/locale';
+import { getPersistedLocale } from './src/lib/locale-preference';
 import StatePicker from './src/components/StatePicker';
 import { queryClient } from './src/lib/query-client';
 import { hydrateStorage, storage } from './src/lib/storage';
@@ -130,6 +131,17 @@ export default function App() {
     // immediately and t() is safe by the time any screen mounts.
     initI18n();
     hydrateStorage().then(() => {
+      // Re-apply the user's persisted language choice (Settings → Language)
+      // now that storage is hydrated. initI18n() above booted with the device
+      // locale (storage wasn't readable yet); this overrides it before the
+      // render gate lifts (setStorageReady below), so there's no locale flash.
+      // Same mechanism as the DevLocaleBar / YouScreen selector:
+      // __setLocaleOverride steers activeBundle(); changeLanguage re-renders t().
+      const persistedLocale = getPersistedLocale();
+      if (persistedLocale) {
+        __setLocaleOverride(persistedLocale);
+        i18n.changeLanguage(persistedLocale);
+      }
       // Cold-start resets for per-session UI preferences. These persist
       // across in-session navigation (back from MomentDetail keeps your
       // view) but each fresh app launch starts on the defaults.
