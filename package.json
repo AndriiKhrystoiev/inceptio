@@ -3,13 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "workspaces": [
-    "packages/*",
-    "workers/*"
+    "packages/*"
   ],
   "scripts": {
     "build:types": "npm -w @inceptio/shared-types run build",
-    "test": "npm -ws --if-present run test",
-    "dev:worker": "npm -w @inceptio/api-proxy run dev",
-    "deploy:worker": "npm -w @inceptio/api-proxy run deploy"
+    "test": "npm -ws --if-present run test"
   }
 }

@@ -4,7 +4,7 @@ import { z } from 'zod';
 // intentionally permissive (z.string()) so the response never fails to parse
 // when upstream adds a new ID — translation falls back to a generic phrase
 // and logs the unknown reason. Add new IDs here once their friendly phrase
-// has been authored in workers/api-proxy/src/translations/dictionary/.
+// has been authored in packages/translations/src/dictionary/.
 //
 // Added by upstream mid-2026 (in arrival order): `mercury_combust`,
 // `jupiter_retrograde`, `mars_retrograde`. See decision log in CLAUDE.md.

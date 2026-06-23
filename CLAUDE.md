@@ -124,22 +124,19 @@ Modal flows (no tab bar): **Onboarding**, **New Search (Activity → Date Range 
 - **expo-calendar** for "Add to phone calendar"
 - **react-native-purchases** (RevenueCat SDK) — wired but disabled by feature flag (see Paywall)
 
-**Backend:**
-- **Cloudflare Worker** — single Worker handling:
-  1. Proxy to astrology-api.io (hides the API key from the mobile bundle)
-  2. KV cache (TTL 7 days) for repeated searches
-  3. Rate limiter per device identity
-  4. **Translation layer** — converts API responses to friendly tone (see below)
-- API key stored in Worker secrets, never in mobile bundle
-- Production key is in "From my backend only" mode (server-to-server); the existing `inceptio-dev-postman` key is "From anywhere" and is for development only
+**Backend: NONE in production (Cloudflare Worker removed — see decision log "direct-api").**
+- The mobile app calls the **public keyless endpoint** `https://api-public.astrology-api.io/api/v3` directly. No proxy, no server.
+- **Translation layer** + **daily-note synthesis** now live in the `@inceptio/translations` package (`packages/translations`), compiled into the mobile bundle and run on-device. The app composes the `displayable` structure itself (see below).
+- KV cache, per-device rate limiter, and version-policy are gone; rate-limiting relies on the upstream's own per-IP limit, and an on-device cache covers repeat searches.
+- No API key in production (the public endpoint is keyless). Dev/test builds MAY send `X-API-Key` against the keyed `api.astrology-api.io` via gitignored `apps/mobile/.env` (`EXPO_PUBLIC_*`, honored only when `__DEV__`) — production never sends a key. The `inceptio-dev-postman` key ("From anywhere") is the dev-only key.
 
 ### Translation layer (mandatory infrastructure)
 
 The astrology-api.io response uses technical `factor_id`s like `venus_dignified_direct_well_aspected` and observations like `"Venus in Leo 9.8° (term, direct)"`. These cannot be shown to users in the Mystical Premium tone.
 
-The Cloudflare Worker post-processes API responses into a `displayable` field structure that the mobile app reads. The mobile app **never sees raw factor IDs** in production.
+The `@inceptio/translations` package (`packages/translations`) post-processes API responses into a `displayable` field structure on-device — `apps/mobile/src/lib/api.ts` runs `translate()` after the direct fetch, before returning. (Historically this ran in a Cloudflare Worker; see decision log "direct-api". The trade-off: tone fixes now require an app release — guard with the build-time lint on `pending`/`draft` markers and the `KNOWN_*` dictionary-coverage CI test.) Users still **never see raw factor IDs**, and the raw translation dictionary is still authored/reviewed centrally in the package.
 
-**Schema policy: permissive enums + logged fallbacks.** Three enum surfaces — `factor_id`, `reason_id`, `grade` — are validated with `z.string()` rather than `z.enum([...])`. The canonical known-values list lives in `@inceptio/shared-types` as `KNOWN_FACTOR_IDS`, `KNOWN_REASON_IDS`, `KNOWN_GRADES`. The translation layer (`workers/api-proxy/src/translations/translate.ts`) does a dictionary lookup keyed by the known list; on a miss it returns a neutral fallback phrasing and logs `[translate] unknown <field> from upstream:` via `console.warn`. This avoids a class of 502 outages we hit repeatedly mid-2026 when astrology-api.io added new enum values without notice (`good` grade, then `mercury_combust`, `mars_retrograde`, `jupiter_retrograde` reasons in the same week). When a new id appears in Worker logs: add it to the relevant `KNOWN_*` array AND the translation dictionary, in the same PR.
+**Schema policy: permissive enums + logged fallbacks.** Three enum surfaces — `factor_id`, `reason_id`, `grade` — are validated with `z.string()` rather than `z.enum([...])`. The canonical known-values list lives in `@inceptio/shared-types` as `KNOWN_FACTOR_IDS`, `KNOWN_REASON_IDS`, `KNOWN_GRADES`. The translation layer (`packages/translations/src/translate.ts`) does a dictionary lookup keyed by the known list; on a miss it returns a neutral fallback phrasing, `console.warn`s, and fires the optional `onUnknown` hook (wired in mobile to `telemetry.emit('translate_unknown_enum', …)`). This avoids a class of 502 outages we hit repeatedly mid-2026 when astrology-api.io added new enum values without notice (`good` grade, then `mercury_combust`, `mars_retrograde`, `jupiter_retrograde` reasons in the same week). When a new id surfaces (via the telemetry event, or caught by the `KNOWN_*` dictionary-coverage CI test): add it to the relevant `KNOWN_*` array AND the translation dictionary, in the same PR. Since the dictionary is now bundle-only, that fix ships in an app release.
 
 **Verified factor IDs** (from real API responses across wedding, contracts, business_launch, travel):
 
@@ -180,10 +177,10 @@ That's 15 unique factor IDs covering all 4 MVP activities. The translation layer
 - `malefic_on_angle` → "A difficult planet is on the angles — better to wait."
 - `fixed_star_on_angle` → "A fixed star rests on the angles — a powerful but particular moment."
 
-**File structure for translation layer:**
+**File structure for translation layer** (now `packages/translations/src/`, imported by mobile as `@inceptio/translations`):
 
 ```
-worker/src/translations/
+packages/translations/src/
   dictionary/
     factors.ts           // all 15 factor entries
     excluded-reasons.ts  // 8 reason entries
@@ -219,13 +216,7 @@ Each API search costs **5 credits**. The Worker enforces:
 - Health check responses are not counted (they cost 1 credit but we don't expose them to users)
 - Glossary is cached aggressively (it costs 0 credits but rarely changes)
 
-**Environment-aware rate-limit ceilings** (Worker → `src/rate-limit.ts` `LIMITS` table):
-
-- **Production limit: 10 / 30 days** — set via `wrangler.toml` `[env.production.vars]` `ENV = "production"`
-- **Development limit: 1000 / 30 days** — automatically applied when running `wrangler dev` locally (`ENV = "development"` in top-level `[vars]`)
-- Deploy with `wrangler deploy --env production` to use production limits
-- Do NOT remove the dev-vs-prod distinction — local dev would block after 10 searches otherwise, stalling mobile work
-- Unknown / missing `ENV` falls back to the production ceiling (fail-safe, not fail-permissive)
+**Environment-aware rate-limit ceilings** — ⚠️ SUPERSEDED by the direct-api migration (decision log "direct-api"). There is no Worker `rate-limit.ts` and no `wrangler` deploy anymore. Rate-limiting is now whatever `api-public` enforces per-IP; the app surfaces a `429` as a soft-block (`UpstreamQuotaError`). The historical Worker `LIMITS` table (10/30d prod, 1000/30d dev) no longer applies. A future paywall will reintroduce a usage model on top of the upstream limit.
 
 ---
 
@@ -400,6 +391,7 @@ Invoke them with the standard `@react-developer`, `@code-reviewer`, `@test-engin
 - **v2 → v2.1 recalibration:** real API data showed scores rarely exceed 72; "no viable" is common; windows often 1 minute long; cold latency hits 42s. Design recalibrated to make `fair` the win-state, add no-viable screen (03b), make Calendar handle blocked-cell dominance, and make loading progressive.
 - **Paywall hidden in MVP (current decision):** stakeholder requested hiding payment UI. Infrastructure (RevenueCat, search counter, screen scaffolding) stays in codebase behind `PAYWALL_ENABLED=false` feature flag. Return timeline not specified.
 - **Permissive enums for upstream-derived fields (post-`good`/`mercury_combust`/etc. drift):** `factor_id`, `reason_id`, `grade` schemas are `z.string()`, not `z.enum([...])`. Known values live in `KNOWN_FACTOR_IDS`/`KNOWN_REASON_IDS`/`KNOWN_GRADES`. Translation falls back to a neutral phrase + `console.warn` on unknowns. Rationale: upstream repeatedly added enum values without notice, causing 502s on every change. Defensive permissive parse trades narrower compile-time types for runtime resilience. See "Translation layer" section for the policy in full.
+- **direct-api (2026-06): Cloudflare Worker REMOVED.** The public keyless endpoint `api-public.astrology-api.io/api/v3` replaced the proxy (key-hiding + rate-limiting no longer needed server-side). The translation layer + daily-note synthesis moved to `packages/translations` (`@inceptio/translations`) and run on-device; `apps/mobile/src/lib/api.ts` calls upstream directly and translates locally. **Dropped:** per-device rate-limit, server usage-cap, KV cache, version-policy (force-upgrade), admin telemetry — rate-limiting now relies on the upstream per-IP limit (a future paywall builds on it). **New trade-offs (accepted):** tone/dictionary fixes now require an app release (bundle-only) — guarded by a build-time `pending`/`draft` lint + a `KNOWN_*` dictionary-coverage CI test; enum-drift surfaces via a `telemetry.emit` seam on the `translate()` `onUnknown` hook instead of a server log; the ephemeris `STATIONS` table and `verifyConcreteHorizon` stubs are now release-bound. Dev/test builds can authenticate against the keyed `api.astrology-api.io` via gitignored `apps/mobile/.env`; production is always keyless. Spec/plan: `docs/superpowers/{specs,plans}/2026-06-23-remove-cloudflare-direct-api*`. Earlier sections of this file that still describe Worker mechanics are historical context superseded by this entry.
 
 ---
 
@@ -408,12 +400,10 @@ Invoke them with the standard `@react-developer`, `@code-reviewer`, `@test-engin
 ```
 /
 ├── apps/
-│   └── mobile/          # Expo app
-├── workers/
-│   └── api-proxy/       # Cloudflare Worker (proxy + cache + translation)
+│   └── mobile/          # Expo app — calls api-public directly, translates on-device
 ├── packages/
-│   ├── shared-types/    # Zod schemas + TS types shared between mobile and worker
-│   └── translations/    # Translation layer dictionary (versioned, reviewable)
+│   ├── shared-types/    # Zod schemas + TS types (used by mobile + translations)
+│   └── translations/    # @inceptio/translations — tone/translation + daily-note synthesis (ported off the Worker)
 ├── design/
 │   └── tokens.json      # Design tokens exported from Claude Design
 ├── docs/
@@ -425,4 +415,4 @@ Invoke them with the standard `@react-developer`, `@code-reviewer`, `@test-engin
 
 ---
 
-*Last updated after Postman API verification, design v2.1 sign-off, and paywall-hidden decision. Maintain this file: when a decision changes, update the decision log section and the affected sections.*
+*Last updated after the direct-api migration (2026-06): Cloudflare Worker removed, translation + daily-note synthesis moved on-device to `@inceptio/translations`, mobile calls `api-public` directly. Maintain this file: when a decision changes, update the decision log section and the affected sections.*

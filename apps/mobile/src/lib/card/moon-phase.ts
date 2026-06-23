@@ -2,7 +2,7 @@
 // moon_phase (only the daily-note does, server-side), so the card computes it
 // locally — spec §4 ("moon phase computed locally from w.start").
 //
-// Previously duplicated the synodic-constant math from workers/api-proxy.
+// Previously duplicated the synodic-constant math (formerly in the Cloudflare Worker).
 // Now delegates to @inceptio/translations#computeMoonPhase so the algorithm
 // lives in exactly one place. The parity golden test
 // (card/__tests__/moon-phase-parity.test.ts) locks both to the same output.

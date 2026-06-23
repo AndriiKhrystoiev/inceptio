@@ -249,7 +249,7 @@ export type MoonPhase =
  * Backend-owned config. Must match the Translation Layer moment-detail
  * `phrase_short` part-of-day rendering or the same window reads "afternoon"
  * on the daily note and "morning" on moment-detail. Lives in
- * `workers/api-proxy/src/translations/` alongside the synthesizer config.
+ * `packages/translations/src/` alongside the synthesizer config.
  *
  * Hours are 0-23 in the event location's timezone. `morning` covers
  * [0, morning_end_hour); `afternoon` [morning_end_hour, afternoon_end_hour);

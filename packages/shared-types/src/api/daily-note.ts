@@ -78,7 +78,7 @@ export type SavedSearchStatus = z.infer<typeof SavedSearchStatusSchema>;
 
 /**
  * The full /daily-note response shape — mirrors `DailyNoteResponseShape` in
- * `workers/api-proxy/src/translations/types.ts`. Mobile validates with this
+ * `packages/translations/src/types.ts`. Mobile validates with this
  * on receipt and treats any parse failure as a fatal cache-miss + retry.
  *
  * The `cache_hit` flag is appended by the Worker for telemetry; it isn't

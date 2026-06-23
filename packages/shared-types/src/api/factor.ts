@@ -4,7 +4,7 @@ import { z } from 'zod';
 // intentionally permissive (z.string()) so the response never fails to parse
 // when upstream adds a new factor — translation falls back to a generic
 // phrasing and logs the unknown id. Add new IDs here once their friendly
-// phrasing is authored in workers/api-proxy/src/translations/dictionary/.
+// phrasing is authored in packages/translations/src/dictionary/.
 //
 // Source: CLAUDE.md → "Verified factor IDs" (15 IDs across the four MVP
 // activities: wedding, contracts, business_launch, travel).

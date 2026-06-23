@@ -5,7 +5,7 @@ import i18n from 'i18next';
 // label / noun / emoji / theme-token / eyebrow-phrase needs of UI surfaces.
 //
 // INTENTIONAL DIVERGENCE from Worker's status-line dictionary
-// (`workers/api-proxy/src/translations/dictionary/status-lines.ts`): the Worker
+// (`packages/translations/src/dictionary/status-lines.ts`): the Worker
 // holds Title Case display nouns (`Wedding`, `Contract`, `Launch`, `Travel`)
 // used internally to compose status-line templates like
 // `"{activity_noun} window — tomorrow."`. This module's ACTIVITY_NOUNS is the
