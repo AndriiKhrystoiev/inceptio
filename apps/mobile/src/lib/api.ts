@@ -120,6 +120,14 @@ async function fetchWithTimeout(
   }
 }
 
+/**
+ * X-API-Key header when a dev key is configured (dev/test builds only —
+ * API_CONFIG.apiKey is null in production). Empty object otherwise.
+ */
+function authHeaders(): Record<string, string> {
+  return API_CONFIG.apiKey ? { 'X-API-Key': API_CONFIG.apiKey } : {};
+}
+
 export async function searchElectional(
   request: ElectionalSearchRequest,
 ): Promise<SearchResult> {
@@ -133,7 +141,7 @@ export async function searchElectional(
     url,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify(toUpstreamBody(parsedRequest)),
     },
     API_CONFIG.timeout,
@@ -182,7 +190,7 @@ export interface HealthResult {
 
 export async function healthCheck(): Promise<HealthResult> {
   const url = `${API_CONFIG.baseUrl}/health`;
-  const res = await fetchWithTimeout(url, { method: 'GET' }, 5_000);
+  const res = await fetchWithTimeout(url, { method: 'GET', headers: authHeaders() }, 5_000);
   if (!res.ok) throw new ServerError(res.status, 'Health check failed');
   return (await res.json()) as HealthResult;
 }
