@@ -6,24 +6,9 @@ import type { ElectionalSearchRequest } from '@inceptio/shared-types';
 import { translate } from '@inceptio/translations';
 import type { TranslatedResponse, Locale } from '@inceptio/translations';
 import { API_CONFIG } from '../config/api';
-import { getDeviceId } from './device-id';
 import { activeBundle } from '../i18n/locale';
 import { toUpstreamBody } from './upstream-body';
 import { emit } from './telemetry';
-
-/**
- * Shared per-request metadata headers for routes that still go through the
- * Worker (getDailyNote, postAlertAck). NOT used by searchElectional, which
- * now calls the public API directly.
- *
- * X-Locale carries the active i18next bundle key (e.g. `es-419`, `pt-BR`).
- */
-async function requestMetaHeaders(): Promise<Record<string, string>> {
-  return {
-    'X-Device-Id': await getDeviceId(),
-    'X-Locale': activeBundle(),
-  };
-}
 
 // Discriminated error hierarchy — call sites can `instanceof` against the
 // specific subclass to pick a message, instead of inspecting strings or codes.
@@ -193,8 +178,21 @@ export async function healthCheck(): Promise<HealthResult> {
   return (await res.json()) as HealthResult;
 }
 
-// ─── /daily-note ──────────────────────────────────────────────────────────
+// ─── getDailyNote — on-device synthesis ───────────────────────────────────
+//
+// Removed: Worker /daily-note route (remove-cloudflare migration).
+// getDailyNote now calls searchElectional directly, synthesizes the daily
+// note on-device using @inceptio/translations, and persists the result to
+// AsyncStorage for cache reads on the same calendar day.
 
+import tzLookup from '@photostructure/tz-lookup';
+import { tzEquivalent } from './tz-aliases';
+import { formatDateInTz } from './local-date';
+import { dailyNoteCacheKey, readDailyNote, writeDailyNote } from './daily-note-cache';
+import {
+  synthesizeDailyNote, composeDisplayable, computeMoonPhase,
+  LIBRARY_VERSION, PART_OF_DAY_CUTOFFS,
+} from '@inceptio/translations';
 import { DailyNoteResponseSchema } from '@inceptio/shared-types';
 import type { Activity, DailyNoteResponse } from '@inceptio/shared-types';
 
@@ -210,103 +208,83 @@ export interface GetDailyNoteInput {
   activity: Activity;
 }
 
+function tryTzLookup(lat: number, lng: number): string | null {
+  try { return tzLookup(lat, lng); } catch { return null; }
+}
+
 /**
- * GET /daily-note?lat={n}&lng={n}&tz={iana}
+ * Synthesize today's daily note on-device from a direct search to astrology-api.io.
  *
- * Worker contract per docs/superpowers/design-handoff/daily-note/
- * PICKER-CONTRACT.md. Mobile sends lat/lng/tz; Worker derives
- * today_iso_date server-side and returns the full DailyNoteResponseShape
- * (daily_note + saved_searches + total_saved_count + library_version +
- * part_of_day_cutoffs).
+ * Tz authority chain (mirrors the removed Worker route):
+ *   1. coordinates → tzLookup (most authoritative)
+ *   2. client-supplied tz
+ *   3. 'UTC' fallback
  *
- * Errors map to the existing discriminated hierarchy:
- *   - 429 rate-limited → RateLimitError (DEFENSIVE ONLY: /daily-note's internal
- *     fan-out is metered:false, so the Worker's per-device cap is never
- *     triggered here. Retained in case metering is ever re-enabled on this route.)
- *   - 429 upstream quota → UpstreamQuotaError
- *   - 502 → ServerError(502, ...)
- *   - Zod parse failure → SchemaMismatchError
+ * Results are cached in AsyncStorage keyed by (lat, lng, dateIso, activity, locale)
+ * so repeated calls on the same calendar day are free.
  */
 export async function getDailyNote(
   input: GetDailyNoteInput,
 ): Promise<DailyNoteResult> {
-  const url = `${API_CONFIG.baseUrl}/daily-note?lat=${input.lat}&lng=${input.lng}&tz=${encodeURIComponent(input.tz)}&activity=${input.activity}`;
+  const { lat, lng, activity } = input;
+  const locale = activeBundle() as Locale;
 
-  const res = await fetchWithTimeout(
-    url,
-    {
-      method: 'GET',
-      // O2: locale-only. tz stays a query param; no X-Timezone header here.
-      headers: await requestMetaHeaders(),
-    },
-    API_CONFIG.timeout,
-  );
+  // Tz authority: coordinates first, client tz, then UTC (mirrors the worker).
+  const derivedTz = tryTzLookup(lat, lng);
+  const effectiveTz = derivedTz ?? input.tz ?? 'UTC';
+  const dateIso = formatDateInTz(new Date(), effectiveTz);
 
-  if (res.status === 429) {
-    const body = (await res.json().catch(() => ({}))) as {
-      error?: string;
-      reset_at_unix?: number;
-      limit?: number;
-      used?: number;
-      upstream?: { detail?: { error?: { error_code?: string; message?: string } } };
+  const key = dailyNoteCacheKey({ lat, lng, dateIso, activity, locale });
+  let dailyNote = await readDailyNote(key);
+  const cacheHit = dailyNote !== null;
+
+  if (!dailyNote) {
+    // Prefer client tz upstream when alias-equivalent (older upstream tzdata).
+    const upstreamTz =
+      input.tz && derivedTz && tzEquivalent(input.tz, derivedTz) ? input.tz : effectiveTz;
+
+    const { envelope } = await searchElectional({
+      activity, lat, lng, start: dateIso, end: dateIso, timezone: upstreamTz, city: 'unknown',
+    });
+    const data = envelope.data as {
+      top_windows?: Array<{ score: number; factors: unknown[] }>;
+      excluded_ranges?: Array<{ reason_id: string; severity: 'hard_stop' | 'medium' }>;
+      summary?: { no_viable_windows?: boolean };
     };
-    const upstreamError = body.upstream?.detail?.error;
-    if (upstreamError?.error_code === 'RATE_LIMIT_EXCEEDED') {
-      throw new UpstreamQuotaError(upstreamError.message ?? 'Upstream quota exhausted');
+    const topWindow = data.top_windows?.[0] ?? null;
+    const excludedRanges = data.excluded_ranges ?? [];
+    const noViableWindows = data.summary?.no_viable_windows ?? false;
+
+    if (!topWindow && excludedRanges.length === 0) {
+      throw new ServerError(502, 'No top window and no exclusions for today');
     }
-    throw new RateLimitError(body.reset_at_unix ?? null, body.limit ?? null, body.used ?? null);
+    const effectiveTopWindow = topWindow ?? { score: 0, factors: [] };
+
+    const picked = synthesizeDailyNote({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- runtime guarded by searchElectional's Zod parse
+      topWindow: effectiveTopWindow as any,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- ditto
+      excludedRangesActiveToday: excludedRanges as any,
+      today_iso_date: dateIso,
+      noViableWindows,
+      locale,
+    });
+    dailyNote = composeDisplayable({
+      picked, moonPhase: computeMoonPhase(dateIso), activity, locale, wasActivityFallback: false,
+    });
+    await writeDailyNote(key, dailyNote);
   }
 
-  if (!res.ok) {
-    throw new ServerError(res.status, `HTTP ${res.status}`);
-  }
+  const response = DailyNoteResponseSchema.parse({
+    daily_note: dailyNote,
+    saved_searches: [],
+    total_saved_count: 0,
+    library_version: LIBRARY_VERSION,
+    part_of_day_cutoffs: PART_OF_DAY_CUTOFFS,
+    cache_hit: cacheHit,
+  });
 
-  const json = await res.json();
-  const parseResult = DailyNoteResponseSchema.safeParse(json);
-  if (!parseResult.success) {
-    console.error(
-      '[getDailyNote] schema mismatch — zod issues:',
-      JSON.stringify(parseResult.error.issues, null, 2),
-    );
-    throw new SchemaMismatchError(parseResult.error.issues);
-  }
-
-  return {
-    response: parseResult.data,
-    cacheHit: parseResult.data.cache_hit ?? false,
-  };
+  return { response: response as DailyNoteResponse, cacheHit };
 }
 
-/**
- * POST /daily-note/alert-ack
- *
- * Fire-and-forget acknowledgement of a new-window alert. KV.put is
- * idempotent — calling this twice with the same alert_id is a no-op.
- *
- * Currently unwired in MVP: NewWindowCard (scaffold/) doesn't render,
- * so no caller invokes this. Function exists as API surface contract
- * so a future SavedSearch wire-in plugs in mechanically. Smoke test in
- * src/lib/__tests__/post-alert-ack.test.ts guards against silent drift
- * (renamed fields, swapped headers) before the caller arrives.
- *
- * Future timing decision (pinned in design memo §6):
- *   When NewWindowCard wires in, ack on USER INTERACTION (tap card to
- *   navigate or tap to dismiss). NOT on render. NOT on viewport
- *   visibility. Render-ack treats scroll-past as a dismissal — wrong.
- */
-export async function postAlertAck(alertId: string): Promise<void> {
-  const deviceId = await getDeviceId();
-  const url = `${API_CONFIG.baseUrl}/daily-note/alert-ack`;
-  const res = await fetchWithTimeout(
-    url,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ device_id: deviceId, alert_id: alertId }),
-    },
-    API_CONFIG.timeout,
-  );
-  if (!res.ok) {
-    throw new ServerError(res.status, `Alert ack failed: HTTP ${res.status}`);
-  }
-}
+// postAlertAck removed — Task 3.5 adds a local replacement.

@@ -71,7 +71,10 @@ describe('searchElectional request shape (direct api-public)', () => {
 
 });
 
-describe('requestMetaHeaders on getDailyNote', () => {
+// getDailyNote no longer calls the Worker — it synthesizes on-device via
+// searchElectional. The header contract tests for the removed /daily-note
+// Worker route are skipped here; Task 3.5 will clean up this file.
+describe.skip('requestMetaHeaders on getDailyNote — removed in 3.5 (Worker route gone)', () => {
   const input = {
     lat: 50.45,
     lng: 30.52,
