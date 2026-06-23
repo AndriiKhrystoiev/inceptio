@@ -174,7 +174,14 @@ function pickByDominantFactor(
   }
 
   // Good/Mixed: pick by highest-weight PASS factor's id.
-  const lead = rankFactors(passFactors)[0];
+  // Cast preserves the element type (keeps factor_id) while satisfying
+  // rankFactors' structural constraint. Needed because the upstream factor is a
+  // Zod `.passthrough()` output whose `weight_class` is optional under Expo's
+  // strict tsconfig; without the cast TS collapses the generic to the bare
+  // constraint and loses factor_id. Runtime is unaffected.
+  const lead = rankFactors(
+    passFactors as Array<(typeof passFactors)[number] & { contribution: number }>,
+  )[0];
   const leadId = lead?.factor_id;
 
   // Good bucket
@@ -216,8 +223,12 @@ function pickByDominantFactor(
   return finalize(DAILY_NOTES['mixed-moon-steady-sky-thin'], false, input.today_iso_date, locale);
 }
 
-/** Order factors by weight_class desc, then contribution desc. Mirrors synthesizer.ts. */
-function rankFactors<T extends { weight_class: string; contribution: number }>(
+/** Order factors by weight_class desc, then contribution desc. Mirrors synthesizer.ts.
+ *  `weight_class` is optional in the constraint because the upstream factor type
+ *  is a Zod `.passthrough()` output (weight_class optional); a required constraint
+ *  collapses T to the bare constraint under strict tsconfigs (Expo/mobile), losing
+ *  `factor_id` on the result. The body already null-coalesces a missing weight. */
+function rankFactors<T extends { weight_class?: string; contribution: number }>(
   factors: T[],
 ): T[] {
   const WEIGHT = { low: 0, medium: 1, high: 2, critical: 3 } as const;
