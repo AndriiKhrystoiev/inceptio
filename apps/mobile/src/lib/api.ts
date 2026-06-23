@@ -1,12 +1,15 @@
 import {
   ApiEnvelopeSchema,
-  ElectionalSearchRequest,
   ElectionalSearchRequestSchema,
 } from '@inceptio/shared-types';
-import type { ApiEnvelope } from '@inceptio/shared-types';
+import type { ElectionalSearchRequest } from '@inceptio/shared-types';
+import { translate } from '@inceptio/translations';
+import type { TranslatedResponse, Locale } from '@inceptio/translations';
 import { API_CONFIG } from '../config/api';
 import { getDeviceId } from './device-id';
 import { activeBundle } from '../i18n/locale';
+import { toUpstreamBody } from './upstream-body';
+import { emit } from './telemetry';
 
 /**
  * Shared per-request metadata headers sent on every Worker call.
@@ -103,9 +106,9 @@ export class ServerError extends ApiError {
 }
 
 export interface SearchResult {
-  envelope: ApiEnvelope;
-  cacheHit: boolean;
-  rateLimitRemaining: number | null;
+  envelope: TranslatedResponse;
+  cacheHit: boolean;            // always false now (upstream sets no X-Cache); kept for API stability
+  rateLimitRemaining: number | null; // always null now; kept for API stability
 }
 
 async function fetchWithTimeout(
@@ -130,82 +133,40 @@ async function fetchWithTimeout(
 export async function searchElectional(
   request: ElectionalSearchRequest,
 ): Promise<SearchResult> {
-  // Validate the request shape at the client edge so a bad input fails before
-  // the network roundtrip and produces a typed error rather than a 400.
   const parsedRequest = ElectionalSearchRequestSchema.parse(request);
+  const locale = activeBundle() as Locale;
 
   const url = `${API_CONFIG.baseUrl}/electional/search`;
   const res = await fetchWithTimeout(
     url,
     {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(await requestMetaHeaders()),
-        'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
-      },
-      body: JSON.stringify(parsedRequest),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(toUpstreamBody(parsedRequest)),
     },
     API_CONFIG.timeout,
   );
 
-  const cacheHit = res.headers.get('X-Cache') === 'HIT';
-  const remainingHeader = res.headers.get('X-RateLimit-Remaining');
-  const rateLimitRemaining = remainingHeader ? Number(remainingHeader) : null;
-
   if (res.status === 429) {
-    // Two distinct 429s reach the mobile boundary:
-    //   1. Worker's own per-device counter (body.error === 'rate_limited').
-    //   2. Upstream astrology-api.io quota exhaustion, proxied through the
-    //      Worker (body.upstream.detail.error.error_code === 'RATE_LIMIT_EXCEEDED').
-    // The user-facing copy is different for each — the user is at fault only
-    // in case 1.
-    const body = (await res.json().catch(() => ({}))) as {
-      error?: string;
-      reset_at_unix?: number;
-      limit?: number;
-      used?: number;
-      upstream?: { detail?: { error?: { error_code?: string; message?: string } } };
-    };
-    const upstreamError = body.upstream?.detail?.error;
-    if (upstreamError?.error_code === 'RATE_LIMIT_EXCEEDED') {
-      throw new UpstreamQuotaError(upstreamError.message ?? 'Upstream quota exhausted');
-    }
-    throw new RateLimitError(body.reset_at_unix ?? null, body.limit ?? null, body.used ?? null);
-  }
-
-  if (res.status === 502) {
-    const body = (await res.json().catch(() => ({}))) as {
-      error?: string;
-      issues?: unknown;
-    };
-    if (body.error === 'upstream_schema_mismatch') {
-      throw new SchemaMismatchError(body.issues);
-    }
-    throw new ServerError(502, 'Upstream error');
+    // Upstream per-IP quota. The 429 body shape is unverified (Phase 0); be
+    // tolerant — surface UpstreamQuotaError regardless of body contents so the
+    // soft-block UX fires. (No per-device counter exists anymore.)
+    const body = (await res.json().catch(() => ({}))) as { detail?: unknown; message?: string };
+    throw new UpstreamQuotaError(
+      typeof body.message === 'string' ? body.message : 'Upstream quota reached',
+    );
   }
 
   if (!res.ok) {
-    // The Worker forwards upstream 4xx body under `upstream.detail.error` —
-    // unwrap to detect specific error codes (e.g. INVALID_DATE_RANGE).
-    const body = (await res.json().catch(() => ({}))) as {
-      upstream?: { detail?: { error?: { error_code?: string; message?: string } } };
-    };
-    const upstreamError = body.upstream?.detail?.error;
-    if (upstreamError?.error_code === 'INVALID_DATE_RANGE') {
-      throw new DateRangeError(upstreamError.message ?? 'Date range too long');
-    }
+    // 422 (bad request shape) and other 4xx/5xx. Upstream returns FastAPI
+    // `{ detail: ... }` — surface as ServerError; the request builder is tested
+    // to produce a valid shape, so a 422 here means a genuine input problem.
     throw new ServerError(res.status, `HTTP ${res.status}`);
   }
 
   const json = await res.json();
-  // Worker already validated, but we re-validate at the mobile boundary so a
-  // dev-mode shape drift surfaces in the app, not in a server log far away.
   const parseResult = ApiEnvelopeSchema.safeParse(json);
   if (!parseResult.success) {
-    // Print the Zod issues to the Metro console so shape drift is diagnosable
-    // without UI plumbing. The user-facing screen only sees the generic
-    // SchemaMismatchError; this log is the only place the path/value appears.
     console.error(
       '[searchElectional] schema mismatch — zod issues:',
       JSON.stringify(parseResult.error.issues, null, 2),
@@ -213,11 +174,12 @@ export async function searchElectional(
     throw new SchemaMismatchError(parseResult.error.issues);
   }
 
-  return {
-    envelope: parseResult.data,
-    cacheHit,
-    rateLimitRemaining,
-  };
+  // Translate locally — MUST happen before returning (displayable consumers).
+  const envelope = translate(parseResult.data, parsedRequest.activity, locale, {
+    onUnknown: (field, value) => emit('translate_unknown_enum', { field, value }),
+  });
+
+  return { envelope, cacheHit: false, rateLimitRemaining: null };
 }
 
 export interface HealthResult {

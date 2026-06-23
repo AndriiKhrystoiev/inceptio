@@ -33,7 +33,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('requestMetaHeaders on searchElectional', () => {
+describe('searchElectional request shape (direct api-public)', () => {
+  // remove-cloudflare migration: searchElectional now calls the public API
+  // directly — no Worker, no X-Device-Id / X-Locale / X-Timezone headers.
+  // Only Content-Type is sent; the body is the nested upstream shape.
   const validRequest = {
     activity: 'wedding' as const,
     start: '2026-06-08',
@@ -44,47 +47,29 @@ describe('requestMetaHeaders on searchElectional', () => {
     city: 'Kyiv',
   };
 
-  function envelopeResponse() {
-    // Minimal valid envelope — searchElectional re-validates the body, so the
-    // header assertions need a body that parses. Build it from the schema's
-    // own default-friendly shape by returning a parse-clean fixture.
-    const fixture = ApiEnvelopeSchema.safeParse({});
-    // If the empty object doesn't parse (it won't), we don't care — the header
-    // assertion runs before the body parse only when status is ok AND parse
-    // succeeds. To keep this test focused on headers, intercept before parse by
-    // returning a 200 with a body and asserting on the request, not the result.
-    void fixture;
-    return new Response(JSON.stringify({}), { status: 200 });
-  }
-
-  it('sends X-Device-Id, X-Locale (=activeBundle), and keeps X-Timezone', async () => {
-    __setLocaleOverride('de');
-    const fetchSpy = vi.fn().mockResolvedValue(envelopeResponse());
+  it('sends only Content-Type (no Worker meta-headers) with nested upstream body', async () => {
+    const fetchSpy = vi.fn().mockResolvedValue(new Response(JSON.stringify({}), { status: 200 }));
     global.fetch = fetchSpy as unknown as typeof fetch;
 
     // Body parse will fail on {}, throwing SchemaMismatchError — that's fine,
-    // the fetch (and thus the headers) already happened.
+    // the fetch (and thus the request shape) already happened.
     await searchElectional(validRequest).catch(() => {});
 
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [, init] = fetchSpy.mock.calls[0]!;
-    expect(init.headers).toMatchObject({
-      'X-Device-Id': 'test-device-id-abc',
-      'X-Locale': 'de',
-    });
-    expect(init.headers).toHaveProperty('X-Timezone');
-    expect((init.headers as Record<string, string>)['X-Timezone']).toBeTruthy();
+    const headers = init.headers as Record<string, string>;
+    expect(headers).toMatchObject({ 'Content-Type': 'application/json' });
+    expect(headers).not.toHaveProperty('X-Device-Id');
+    expect(headers).not.toHaveProperty('X-Locale');
+    expect(headers).not.toHaveProperty('X-Timezone');
+
+    // body is nested upstream shape (not the flat mobile schema)
+    const body = JSON.parse(init.body as string);
+    expect(body).toHaveProperty('date_range.start_date');
+    expect(body).toHaveProperty('top_n_windows', 10);
   });
 
-  it('X-Locale defaults to en when no override / device pref', async () => {
-    const fetchSpy = vi.fn().mockResolvedValue(envelopeResponse());
-    global.fetch = fetchSpy as unknown as typeof fetch;
-
-    await searchElectional(validRequest).catch(() => {});
-
-    const [, init] = fetchSpy.mock.calls[0]!;
-    expect((init.headers as Record<string, string>)['X-Locale']).toBe('en');
-  });
+  void ApiEnvelopeSchema; // keep the import live
 });
 
 describe('requestMetaHeaders on getDailyNote', () => {
