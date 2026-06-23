@@ -28,7 +28,7 @@ import Moon from '../Moon';
 import Pulse from '../Pulse';
 import { MOOD_TOKENS, haloColorSolid, parseHaloAlpha } from './mood-tokens';
 import { friendlyMessage } from '../../lib/error-messages';
-import { RateLimitError } from '../../lib/api';
+import { RateLimitError, UpstreamQuotaError } from '../../lib/api';
 
 function HeroBackdrop({ children }) {
   return (
@@ -101,7 +101,7 @@ export function LoadingHero() {
  */
 export function ErrorHero({ error, onRetry }) {
   const { t } = useTranslation('common');
-  const isCapped = error instanceof RateLimitError;
+  const isCapped = error instanceof RateLimitError || error instanceof UpstreamQuotaError;
   return (
     <HeroBackdrop>
       <View className="items-center justify-center px-4" style={{ minHeight: 160 }}>

@@ -16,8 +16,8 @@ import { assignBucket } from './quality-bucket';
  * Picker input — see PICKER-CONTRACT.md §4 for the timezone-correctness rationale.
  *
  * IMPORTANT: `today_iso_date` is a WALL-CLOCK date string (YYYY-MM-DD) in the
- * EVENT location's timezone, NOT a UTC Date object. The Worker endpoint MUST
- * format `now` in the event tz (e.g. `Intl.DateTimeFormat('en-CA', { timeZone })`)
+ * EVENT location's timezone, NOT a UTC Date object. The caller MUST format
+ * `now` in the event tz (e.g. `Intl.DateTimeFormat('en-CA', { timeZone })`)
  * before calling this function. Passing a naive UTC date breaks day-name and
  * part-of-day derivations for users searching a moment in another city.
  */
@@ -48,8 +48,8 @@ export interface SynthesizeInput {
  * What the picker returns — entry selection layer of the daily note.
  *
  * SEPARATE from `DailyNoteOutput` (the /daily-note response shape). This shape
- * is internal to the Worker; the endpoint composes the full `DailyNoteOutput`
- * by adding `moon_phase` (Task 16) and any envelope fields (Task 18).
+ * is internal to the daily-note synthesis; the caller composes the full
+ * `DailyNoteOutput` by adding `moon_phase` (Task 16) and any envelope fields (Task 18).
  *
  * `mood` is derived from the chosen entry's `quality_bucket` — single source
  * of truth so mood and copy cannot drift.

@@ -9,9 +9,9 @@ export const ActivitySchema = z.enum([
 ]);
 export type Activity = z.infer<typeof ActivitySchema>;
 
-// Worker's incoming request from the mobile app. Flat shape for ergonomics.
-// The worker reshapes this into the nested upstream contract (date_range +
-// location with year/month/day/hour/minute) before calling astrology-api.io.
+// Flat request shape sent directly to astrology-api.io. For ergonomics — the
+// reshaping into the nested upstream contract (date_range + location with
+// year/month/day/hour/minute) now happens in apps/mobile/src/lib/upstream-body.ts.
 export const ElectionalSearchRequestSchema = z
   .object({
     activity: ActivitySchema,

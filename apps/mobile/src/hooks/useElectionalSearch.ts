@@ -3,8 +3,8 @@ import type { ElectionalSearchRequest } from '@inceptio/shared-types';
 import { searchElectional, type SearchResult } from '../lib/api';
 
 /**
- * Build a stable cache key from the request fields the Worker actually keys on.
- * Mirror of the Worker's `computeCacheKey` (sorted object hash) — but here we
+ * Build a stable cache key from the request fields used in the direct upstream call.
+ * Mirrors the field set of the upstream request (sorted object hash) — but here we
  * just need order-independent equality for React Query.
  */
 function makeKey(req: Partial<ElectionalSearchRequest>) {
@@ -45,7 +45,7 @@ export function useElectionalSearch(
   return useQuery({
     queryKey: makeKey(request),
     queryFn: () => {
-      // Dev-only — confirms what we actually send to the Worker. Lets us
+      // Dev-only — confirms what we actually send to the upstream API. Lets us
       // catch silent param drops (e.g., a screen ignoring the picker
       // selection and falling back to a default) without UI plumbing.
       if (__DEV__) {
