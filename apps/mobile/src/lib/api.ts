@@ -1,14 +1,23 @@
 import {
   ApiEnvelopeSchema,
   ElectionalSearchRequestSchema,
+  DailyNoteResponseSchema,
 } from '@inceptio/shared-types';
-import type { ElectionalSearchRequest } from '@inceptio/shared-types';
+import type { ElectionalSearchRequest, Activity, DailyNoteResponse } from '@inceptio/shared-types';
 import { translate } from '@inceptio/translations';
 import type { TranslatedResponse, Locale } from '@inceptio/translations';
+import {
+  synthesizeDailyNote, composeDisplayable, computeMoonPhase,
+  LIBRARY_VERSION, PART_OF_DAY_CUTOFFS,
+} from '@inceptio/translations';
 import { API_CONFIG } from '../config/api';
 import { activeBundle } from '../i18n/locale';
 import { toUpstreamBody } from './upstream-body';
 import { emit } from './telemetry';
+import tzLookup from '@photostructure/tz-lookup';
+import { tzEquivalent } from './tz-aliases';
+import { formatDateInTz } from './local-date';
+import { dailyNoteCacheKey, readDailyNote, writeDailyNote } from './daily-note-cache';
 
 // Discriminated error hierarchy — call sites can `instanceof` against the
 // specific subclass to pick a message, instead of inspecting strings or codes.
@@ -185,17 +194,6 @@ export async function healthCheck(): Promise<HealthResult> {
 // note on-device using @inceptio/translations, and persists the result to
 // AsyncStorage for cache reads on the same calendar day.
 
-import tzLookup from '@photostructure/tz-lookup';
-import { tzEquivalent } from './tz-aliases';
-import { formatDateInTz } from './local-date';
-import { dailyNoteCacheKey, readDailyNote, writeDailyNote } from './daily-note-cache';
-import {
-  synthesizeDailyNote, composeDisplayable, computeMoonPhase,
-  LIBRARY_VERSION, PART_OF_DAY_CUTOFFS,
-} from '@inceptio/translations';
-import { DailyNoteResponseSchema } from '@inceptio/shared-types';
-import type { Activity, DailyNoteResponse } from '@inceptio/shared-types';
-
 export interface DailyNoteResult {
   response: DailyNoteResponse;
   cacheHit: boolean;
@@ -204,7 +202,7 @@ export interface DailyNoteResult {
 export interface GetDailyNoteInput {
   lat: number;
   lng: number;
-  tz: string;
+  tz?: string;
   activity: Activity;
 }
 
@@ -275,7 +273,7 @@ export async function getDailyNote(
     await writeDailyNote(key, dailyNote);
   }
 
-  const response = DailyNoteResponseSchema.parse({
+  const parseResult = DailyNoteResponseSchema.safeParse({
     daily_note: dailyNote,
     saved_searches: [],
     total_saved_count: 0,
@@ -283,8 +281,14 @@ export async function getDailyNote(
     part_of_day_cutoffs: PART_OF_DAY_CUTOFFS,
     cache_hit: cacheHit,
   });
-
-  return { response: response as DailyNoteResponse, cacheHit };
+  if (!parseResult.success) {
+    console.error(
+      '[getDailyNote] schema mismatch — zod issues:',
+      JSON.stringify(parseResult.error.issues, null, 2),
+    );
+    throw new SchemaMismatchError(parseResult.error.issues);
+  }
+  return { response: parseResult.data as DailyNoteResponse, cacheHit };
 }
 
 // postAlertAck removed — Task 3.5 adds a local replacement.
