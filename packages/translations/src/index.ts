@@ -19,4 +19,20 @@ export {
 } from './translate';
 export type {
   TranslatedResponse,
+  TranslateOpts,
 } from './translate';
+
+// Daily-note synthesis surface — used by mobile directly.
+export { synthesizeDailyNote } from './daily-notes/picker';
+export { composeDisplayable } from './daily-notes/composer';
+export { computeMoonPhase } from './daily-notes/moon-phase';
+
+// Types and constants shared between Worker and mobile.
+export type {
+  Locale,
+  DailyNoteOutput,
+  DailyNoteResponseShape,
+} from './types';
+export { LIBRARY_VERSION } from './types';
+
+export { PART_OF_DAY_CUTOFFS } from './dictionary/part-of-day';
