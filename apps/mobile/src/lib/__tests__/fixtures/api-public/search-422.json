@@ -1,0 +1,1 @@
+{"detail":[{"type":"missing","loc":["body","date_range"],"msg":"Field required","input":{"activity":"wedding"}},{"type":"missing","loc":["body","location"],"msg":"Field required","input":{"activity":"wedding"}}]}

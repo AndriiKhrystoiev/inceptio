@@ -1,0 +1,15 @@
+{
+  "_fixture_meta": {
+    "note": "The api-public.astrology-api.io rate-limit response is NOT JSON — it is Cloudflare error 1015 (plain text). This file documents the observed shape for Task 2.x error mapping.",
+    "http_status": 429,
+    "content_type": "text/plain; charset=UTF-8",
+    "body_verbatim": "error code: 1015",
+    "headers": {
+      "retry-after": "10",
+      "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate, post-check=0, pre-check=0",
+      "server": "cloudflare"
+    },
+    "trigger": "Cloudflare layer rate-limit (error 1015), triggered at request ~5-6 in rapid succession. NOT a FastAPI-level 429 — the upstream application never sees these requests.",
+    "captured": "2026-06-23"
+  }
+}
