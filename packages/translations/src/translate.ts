@@ -121,6 +121,16 @@ const ACTIVITY_OVERRIDES: Record<Activity, ActivityOverrides> = {
 };
 
 /**
+ * Optional hook called alongside console.warn when translate encounters an
+ * enum value (factor_id or reason_id) that has no dictionary entry.
+ * Useful for telemetry / Sentry fingerprinting in the mobile app without
+ * coupling the translation layer to any specific reporting library.
+ */
+export interface TranslateOpts {
+  onUnknown?: (field: 'factor_id' | 'reason_id', value: string) => void;
+}
+
+/**
  * Look up the friendly phrasing for a (factor_id, status, activity) triple.
  *
  * Resolution order, status-locked (activity overrides for a different status
@@ -137,6 +147,7 @@ export function translateFactor(
   status: FactorStatus,
   activity: Activity,
   locale: Locale,
+  opts?: TranslateOpts,
 ): { phrase_short: string; phrase_full: string } {
   // NOTE: returns RESOLVED strings (localize'd to `locale`), not raw `Localized`
   // leaves — the dictionary `FactorPhrasing` is now locale-keyed, but this
@@ -147,6 +158,7 @@ export function translateFactor(
     // (e.g. mid-2026). Log so the unknown id surfaces for later inclusion,
     // then return a neutral phrasing so the response is still shippable.
     console.warn('[translate] unknown factor_id from upstream:', factorId);
+    opts?.onUnknown?.('factor_id', factorId);
     return {
       phrase_short: localize(FALLBACK_FACTOR_PHRASING.phrase_short, locale),
       phrase_full: localize(FALLBACK_FACTOR_PHRASING.phrase_full, locale),
@@ -180,20 +192,29 @@ export function translateFactor(
   };
 }
 
-export function translateExcludedReason(reasonId: string, locale: Locale): string {
+export function translateExcludedReason(
+  reasonId: string,
+  locale: Locale,
+  opts?: TranslateOpts,
+): string {
   const entry = EXCLUDED_REASONS[reasonId as ReasonId];
   if (!entry) {
     // Permissive policy: see translateFactor() above.
     console.warn('[translate] unknown reason_id from upstream:', reasonId);
+    opts?.onUnknown?.('reason_id', reasonId);
     return localize(FALLBACK_REASON_PHRASE, locale);
   }
   return localize(entry.phrase as Localized, locale);
 }
 
-function translateExcluded(range: ExcludedRange, locale: Locale): DisplayableExcludedRange {
+function translateExcluded(
+  range: ExcludedRange,
+  locale: Locale,
+  opts?: TranslateOpts,
+): DisplayableExcludedRange {
   return {
     reason_id: range.reason_id,
-    phrase: translateExcludedReason(range.reason_id, locale),
+    phrase: translateExcludedReason(range.reason_id, locale, opts),
   };
 }
 
@@ -295,6 +316,7 @@ export function translate(
   envelope: ApiEnvelope,
   activity: Activity,
   locale: Locale,
+  opts?: TranslateOpts,
 ): TranslatedResponse {
   const { data } = envelope;
 
@@ -328,7 +350,7 @@ export function translate(
       top_windows: data.top_windows.map((w, i) => {
         const ranked = rankedPerWindow[i] ?? [];
         const factors: DisplayableFactor[] = ranked.map((f) => {
-          const phrasing = translateFactor(f.factor_id, f.status, activity, locale);
+          const phrasing = translateFactor(f.factor_id, f.status, activity, locale, opts);
           return {
             factor_id: f.factor_id,
             status: f.status,
@@ -350,7 +372,7 @@ export function translate(
       }),
       excluded_ranges: data.excluded_ranges.map((r) => ({
         ...r,
-        displayable: translateExcluded(r, locale),
+        displayable: translateExcluded(r, locale, opts),
       })),
     },
   };
