@@ -12,15 +12,11 @@ import { toUpstreamBody } from './upstream-body';
 import { emit } from './telemetry';
 
 /**
- * Shared per-request metadata headers sent on every Worker call.
+ * Shared per-request metadata headers for routes that still go through the
+ * Worker (getDailyNote, postAlertAck). NOT used by searchElectional, which
+ * now calls the public API directly.
  *
- * `X-Locale` carries the active i18next bundle key (e.g. `es-419`, `pt-BR`) so
- * the Worker can later thread it into composed/localized copy. This phase the
- * Worker only validates + ignores it (see workers/api-proxy X-Locale seam).
- *
- * Note: this deliberately does NOT include `X-Timezone`. Search adds that
- * header itself; /daily-note carries timezone via its `?tz=` query param (O2 —
- * locale-only on this route), so no tz header is sent there.
+ * X-Locale carries the active i18next bundle key (e.g. `es-419`, `pt-BR`).
  */
 async function requestMetaHeaders(): Promise<Record<string, string>> {
   return {
@@ -134,6 +130,8 @@ export async function searchElectional(
   request: ElectionalSearchRequest,
 ): Promise<SearchResult> {
   const parsedRequest = ElectionalSearchRequestSchema.parse(request);
+  // activeBundle() only ever returns one of the supported Locale codes (its
+  // resolver is bounded to the same union), so this narrowing cast is safe.
   const locale = activeBundle() as Locale;
 
   const url = `${API_CONFIG.baseUrl}/electional/search`;

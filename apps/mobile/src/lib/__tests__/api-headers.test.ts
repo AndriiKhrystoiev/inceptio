@@ -23,7 +23,7 @@ vi.mock('expo-localization', () => ({ getLocales: () => [] }));
 
 import { searchElectional, getDailyNote } from '../api';
 import { __setLocaleOverride } from '../../i18n/locale';
-import { ApiEnvelopeSchema, DailyNoteResponseSchema } from '@inceptio/shared-types';
+import { DailyNoteResponseSchema } from '@inceptio/shared-types';
 
 const realFetch = global.fetch;
 
@@ -69,7 +69,6 @@ describe('searchElectional request shape (direct api-public)', () => {
     expect(body).toHaveProperty('top_n_windows', 10);
   });
 
-  void ApiEnvelopeSchema; // keep the import live
 });
 
 describe('requestMetaHeaders on getDailyNote', () => {

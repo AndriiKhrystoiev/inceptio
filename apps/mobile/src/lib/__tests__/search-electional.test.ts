@@ -46,4 +46,14 @@ describe('searchElectional (direct api-public)', () => {
     );
     await expect(searchElectional(REQ)).rejects.toMatchObject({ name: 'ServerError' });
   });
+
+  it('maps a plain-text Cloudflare 429 to UpstreamQuotaError without throwing on JSON.parse', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response('error code: 1015', {
+        status: 429,
+        headers: { 'Content-Type': 'text/plain; charset=UTF-8', 'retry-after': '10' },
+      }),
+    );
+    await expect(searchElectional(REQ)).rejects.toMatchObject({ name: 'UpstreamQuotaError' });
+  });
 });
