@@ -13,7 +13,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View, Text, ScrollView, StyleSheet, Pressable, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, Share2, ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import HeroGradient from '../components/HeroGradient';
 import Starfield from '../components/Starfield';
 import IconBtn from '../components/IconBtn';
@@ -435,9 +435,10 @@ export default function CalendarScreen({ go }) {
             <Text className="font-display text-[18px] text-cream tracking-[-0.2px]" style={{ textTransform: 'capitalize' }}>
               {activityLabel} · {cityLabel}
             </Text>
-            <IconBtn label={t('common:share')}>
-              <Share2 color="#F5EFE4" size={20} strokeWidth={1.5} />
-            </IconBtn>
+            {/* Spacer to keep the title centered. The header share icon was inert
+                (no onPress) and removed — sharing is per-moment, on the Moment
+                Detail screen's footer Save/Share row, not the whole-range result. */}
+            <View className="w-[38px]" />
           </View>
 
           <View className="pt-6 px-6 items-center">
