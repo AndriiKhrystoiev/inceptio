@@ -20,6 +20,11 @@ describe('parseSemver', () => {
   it.each([null, undefined, 2, {}])('rejects non-string %s → null', (input) => {
     expect(parseSemver(input as unknown)).toBeNull();
   });
+  it('rejects a component that parses past Number.MAX_SAFE_INTEGER → null', () => {
+    // Matches the regex (three digit groups) but the major overflows a safe
+    // integer, exercising the Number.isSafeInteger guard (semver.ts:17-19).
+    expect(parseSemver('99999999999999999999.0.0')).toBeNull();
+  });
 });
 
 describe('compareSemver', () => {
