@@ -162,6 +162,11 @@ export default function App() {
       // pre-render rating read (spec EC7).
       recordActiveDay();
       setStorageReady(true);
+    }).catch(() => {
+      // Never let a hydrate/init error freeze the (now branded) splash forever.
+      // Lift the gate so the app boots; worst case is defaults instead of
+      // persisted prefs. See splash spec §4.3.
+      setStorageReady(true);
     });
   }, []);
 
@@ -178,7 +183,7 @@ export default function App() {
   }, [go]);
 
   const onLayoutRoot = useCallback(async () => {
-    if (fontsLoaded && storageReady) await SplashScreen.hideAsync();
+    if (fontsLoaded && storageReady) await SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded, storageReady]);
 
   // __DEV__-only locale override for the local-verification loop. Sits next to the
