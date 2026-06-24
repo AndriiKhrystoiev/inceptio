@@ -8,17 +8,21 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "files": ["src"],
+  "files": [
+    "src"
+  ],
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@inceptio/shared-types": "file:../shared-types",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^2.1.9",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.9"
   }
 }

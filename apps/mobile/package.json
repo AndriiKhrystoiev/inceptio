@@ -11,6 +11,7 @@
     "android:prod": "expo run:android --variant release",
     "web": "expo start --web",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "build:splash": "node scripts/build-splash.mjs"
   },
   "dependencies": {
@@ -57,6 +58,7 @@
     "@babel/core": "^7.20.0",
     "@resvg/resvg-js": "2.6.2",
     "@types/react": "~19.2.10",
+    "@vitest/coverage-v8": "^2.1.9",
     "babel-preset-expo": "~55.0.8",
     "pngjs": "^7.0.0",
     "tailwindcss": "^3.4.19",

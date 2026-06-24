@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "workspaces": [
+    "apps/*",
     "packages/*"
   ],
   "scripts": {
     "build:types": "npm -w @inceptio/shared-types run build",
-    "test": "npm -ws --if-present run test"
+    "test": "npm -ws --if-present run test",
+    "test:coverage": "npm -ws --if-present run test:coverage"
   }
 }
