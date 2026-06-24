@@ -1560,7 +1560,7 @@ jobs:
           cache: npm
       # root workspace = packages/* (translations, shared-types)
       - run: npm ci
-      - run: npm run build:types
+      - run: npm -ws --if-present run typecheck
       - run: npm -ws --if-present run test:coverage
       # apps/mobile is a standalone npm project with its own lockfile
       - run: npm --prefix apps/mobile ci
