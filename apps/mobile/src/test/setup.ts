@@ -64,3 +64,7 @@ vi.mock('expo-store-review', () => ({
   requestReview: vi.fn(async () => undefined),
   storeUrl: vi.fn(() => null),
 }));
+
+vi.mock('expo-localization', () => ({
+  getLocales: vi.fn(() => [{ languageTag: 'en', languageCode: 'en' }]),
+}));
