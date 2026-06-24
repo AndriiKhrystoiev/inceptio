@@ -138,9 +138,9 @@ Targeted tests for remaining uncovered branches to clear the threshold (already 
 
 In each package (`apps/mobile`, `packages/translations`, `packages/shared-types`):
 - Add `@vitest/coverage-v8` to `devDependencies`. **The coverage-v8 peer is an EXACT version pin to
-  vitest (`vitest: "2.1.9"`), not a range** — so pin each package's coverage-v8 caret to that
-  package's vitest caret: `apps/mobile` → `^2.1.9`, `packages/translations` → `^2.1.0`,
-  `packages/shared-types` → `^2.1.0` (all dedupe to `2.1.9`, the last 2.1.x). **Never run a bare
+  vitest (`vitest: "2.1.9"`), not a range** — all three packages are aligned to vitest `^2.1.9`
+  (see Risks: version alignment decided), so pin coverage-v8 to `^2.1.9` in each
+  (`apps/mobile`, `packages/translations`, `packages/shared-types`). **Never run a bare
   `npm i -D @vitest/coverage-v8`** — it installs `4.x` today and hard-errors against the exact peer.
 - Add `"test:coverage": "vitest run --coverage"`.
 - In `vitest.config.ts`, add a `coverage` block:
@@ -177,6 +177,7 @@ No CI exists. Add a minimal `.github/workflows/ci.yml`: on push / PR →
 - `api.ts` is the largest single target; mocking `fetch` + translate + timeout paths is the bulk of
   the effort and the main coverage lever for `apps/mobile`.
 - Thresholds may need per-package calibration after the first full run (see §5).
-- **Open item (version alignment):** `apps/mobile` pins vitest `^2.1.9` while the two packages pin
-  `^2.1.0`. Both resolve to `2.1.9`, so coverage works, but a future `npm i` could drift and surface
-  the exact-peer error. Optional cleanup: align all three to `^2.1.9`. Not a blocker.
+- **Version alignment (decided):** align all three packages to vitest `^2.1.9` (and coverage-v8
+  `^2.1.9` to match) as part of this work — `packages/translations` and `packages/shared-types` move
+  from `^2.1.0` to `^2.1.9`. Cleaner monorepo, removes the future-`npm i` drift risk on the
+  exact-peer pin.
