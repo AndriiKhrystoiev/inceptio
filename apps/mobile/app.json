@@ -7,10 +7,6 @@
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon-ios.png",
-    "splash": {
-      "backgroundColor": "#0F0A1F",
-      "resizeMode": "contain"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -44,7 +40,17 @@
         }
       ],
       "expo-sharing",
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0F0A1F",
+          "dark": { "image": "./assets/splash-icon.png", "backgroundColor": "#0F0A1F" }
+        }
+      ]
     ]
   }
 }
