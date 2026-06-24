@@ -10,7 +10,8 @@
     "ios:prod": "expo run:ios --configuration Release",
     "android:prod": "expo run:android --variant release",
     "web": "expo start --web",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:splash": "node scripts/build-splash.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/fraunces": "^0.2.3",
@@ -54,8 +55,10 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@resvg/resvg-js": "^2.6.2",
     "@types/react": "~19.2.10",
     "babel-preset-expo": "~55.0.8",
+    "pngjs": "^7.0.0",
     "tailwindcss": "^3.4.19",
     "vitest": "^2.1.9"
   },
