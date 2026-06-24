@@ -56,8 +56,11 @@ describe('debugForceRequestReview', () => {
   });
   it('requests review when __DEV__ is true', async () => {
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = true;
-    await debugForceRequestReview();
-    expect(StoreReview.requestReview).toHaveBeenCalledOnce();
-    (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false; // restore
+    try {
+      await debugForceRequestReview();
+      expect(StoreReview.requestReview).toHaveBeenCalledOnce();
+    } finally {
+      (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false; // restore
+    }
   });
 });
