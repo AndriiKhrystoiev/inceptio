@@ -33,6 +33,9 @@ for (let y = 0; y < png.height; y++) {
     }
   }
 }
+if (maxX === -1) {
+  throw new Error(`No opaque pixels found in ${SYMBOL_SRC} — is the source PNG all-transparent?`);
+}
 const bw = maxX - minX + 1;
 const bh = maxY - minY + 1;
 

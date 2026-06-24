@@ -183,7 +183,11 @@ export default function App() {
   }, [go]);
 
   const onLayoutRoot = useCallback(async () => {
-    if (fontsLoaded && storageReady) await SplashScreen.hideAsync().catch(() => {});
+    if (fontsLoaded && storageReady) {
+      await SplashScreen.hideAsync().catch((e) => {
+        if (__DEV__) console.warn('[splash] hideAsync failed:', e);
+      });
+    }
   }, [fontsLoaded, storageReady]);
 
   // __DEV__-only locale override for the local-verification loop. Sits next to the
