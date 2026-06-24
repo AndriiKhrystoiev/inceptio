@@ -34,15 +34,19 @@
 
 - [ ] **Step 1: Install coverage provider + align vitest, all three packages**
 
+> IMPORTANT: `apps/mobile` is a **standalone npm project** (its own `package-lock.json` + `node_modules`), NOT part of the root workspace (`workspaces: ["packages/*"]`). Do NOT add `apps/*` to the root workspaces and do NOT install mobile via `-w` — that hoists Expo deps into the root lockfile and breaks Metro resolution. Install mobile via its own lockfile with `--prefix`. The two packages ARE workspaces, so `-w` is correct for them.
+
 ```bash
 cd /Users/user/Projects/inceptio
 # exact-peer pin: coverage-v8 must match vitest patch. All three → 2.1.9.
-npm i -D -w apps/mobile @vitest/coverage-v8@^2.1.9
+# mobile = standalone project (own lockfile):
+npm --prefix apps/mobile i -D @vitest/coverage-v8@^2.1.9
+# packages = root workspaces:
 npm i -D -w @inceptio/translations @vitest/coverage-v8@^2.1.9 vitest@^2.1.9
 npm i -D -w @inceptio/shared-types @vitest/coverage-v8@^2.1.9 vitest@^2.1.9
 ```
 
-Expected: installs `2.1.9` in all three; `npm ls vitest @vitest/coverage-v8` shows matching `2.1.9`.
+Expected: installs `2.1.9` in all three. Root `package.json` `workspaces` stays `["packages/*"]` (unchanged). `cd apps/mobile && npm ls @vitest/coverage-v8` and `npm ls vitest @vitest/coverage-v8` (root) both show `2.1.9`.
 
 - [ ] **Step 2: Add `coverage` block to `apps/mobile/vitest.config.ts`**
 
@@ -134,10 +138,10 @@ In `apps/mobile/package.json`, `packages/translations/package.json`, `packages/s
 "test:coverage": "vitest run --coverage"
 ```
 
-In root `package.json` add to `"scripts"`:
+In root `package.json` add to `"scripts"` (covers the two workspace packages AND the standalone mobile project — `-ws` does not reach mobile):
 
 ```json
-"test:coverage": "npm -ws --if-present run test:coverage"
+"test:coverage": "npm -ws --if-present run test:coverage && npm --prefix apps/mobile run test:coverage"
 ```
 
 - [ ] **Step 6: Add `coverage/` to `.gitignore`**
@@ -1554,9 +1558,13 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      # root workspace = packages/* (translations, shared-types)
       - run: npm ci
       - run: npm run build:types
-      - run: npm run test:coverage
+      - run: npm -ws --if-present run test:coverage
+      # apps/mobile is a standalone npm project with its own lockfile
+      - run: npm --prefix apps/mobile ci
+      - run: npm --prefix apps/mobile run test:coverage
 ```
 
 - [ ] **Step 4: Commit**
