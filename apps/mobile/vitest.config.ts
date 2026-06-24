@@ -33,7 +33,12 @@ export default defineConfig({
         'src/i18n/index.ts',
         'src/i18n/polyfills.ts',
       ],
-      // thresholds added in Task 14 after first measured run
+      thresholds: {
+        lines: 90,
+        statements: 90,
+        functions: 85,
+        branches: 80,
+      },
     },
   },
 });

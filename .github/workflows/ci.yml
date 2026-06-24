@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # root workspace = packages/* (translations, shared-types)
+      - run: npm ci
+      - run: npm run build:types
+      - run: npm -ws --if-present run test:coverage
+      # apps/mobile is a standalone npm project with its own lockfile
+      - run: npm --prefix apps/mobile ci
+      - run: npm --prefix apps/mobile run test:coverage
