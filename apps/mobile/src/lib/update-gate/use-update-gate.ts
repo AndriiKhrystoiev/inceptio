@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { AppState, Platform, type AppStateStatus } from 'react-native';
-import { getInstalledVersion } from './update-store';
+import { VERSION_POLICY_URL } from '../../config/api';
+import { getInstalledVersion, fetchPolicy } from './update-store';
 import { createUpdateGateController } from './controller';
 import type { UpdateState } from './decision';
 
@@ -17,17 +18,17 @@ export type UseUpdateGate = {
 };
 
 export function useUpdateGate(): UseUpdateGate {
-  // The /version-policy endpoint was dropped with the Cloudflare Worker
-  // (decision log "direct-api") — api-public has no such route, so calling it
-  // only produced a 404 per launch. Until a version policy is reintroduced
-  // (e.g. a static hosted JSON, rewiring update-store.ts#fetchPolicy at it),
-  // the gate is INERT: fetchPolicy always resolves null ≡ fail-open, so the app
-  // never force-upgrades and makes no network call. (Was already null in __DEV__;
-  // now null in production too.)
+  // The version policy is a static JSON hosted at VERSION_POLICY_URL (set in
+  // apps/mobile/.env). The gate fetches it in production only:
+  //   - __DEV__ → no real fetch (Expo Go reports the wrong native version → would
+  //     spuriously gate); use the dev simulator below to preview none/soft/force.
+  //   - VERSION_POLICY_URL unset → inert (fail-open, never force-upgrades).
+  //   - otherwise → fetch + evaluate. Every failure resolves null ≡ fail-open.
   const controller = useMemo(() => createUpdateGateController({
     installed: getInstalledVersion(),
     platform: Platform.OS === 'ios' ? 'ios' : 'android',
-    fetchPolicy: async () => null,
+    fetchPolicy:
+      __DEV__ || !VERSION_POLICY_URL ? async () => null : () => fetchPolicy(VERSION_POLICY_URL),
   }), []);
 
   const snapshot = useSyncExternalStore(controller.subscribe, controller.getSnapshot);

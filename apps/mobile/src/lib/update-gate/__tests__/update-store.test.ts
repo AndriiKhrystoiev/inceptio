@@ -23,9 +23,12 @@ const valid = {
 beforeEach(() => { memory.clear(); vi.restoreAllMocks(); });
 
 describe('fetchPolicy (fail-open on every failure path)', () => {
-  it('returns the parsed policy on 200 + valid body', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(valid), { status: 200 })));
-    expect(await fetchPolicy('https://api.test')).toEqual(valid);
+  it('returns the parsed policy on 200 + valid body, fetching the exact URL', async () => {
+    const fetchSpy = vi.fn(async (_url: string) => new Response(JSON.stringify(valid), { status: 200 }));
+    vi.stubGlobal('fetch', fetchSpy);
+    expect(await fetchPolicy('https://cdn.test/version-policy.json')).toEqual(valid);
+    // The URL is used verbatim — no '/version-policy' suffix is appended.
+    expect(fetchSpy.mock.calls[0]?.[0]).toBe('https://cdn.test/version-policy.json');
   });
   it('returns null on non-200', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('x', { status: 503 })));

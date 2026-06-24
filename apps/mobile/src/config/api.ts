@@ -46,3 +46,14 @@ export const API_CONFIG: ApiConfig = resolveApiConfig({
   baseUrlOverride: process.env.EXPO_PUBLIC_ASTROLOGY_BASE_URL,
   devApiKey: process.env.EXPO_PUBLIC_ASTROLOGY_DEV_KEY,
 });
+
+/**
+ * URL of a hosted version-policy JSON (VersionPolicySchema shape) that drives the
+ * in-app update gate (force / soft / none). Public — no key. When unset, the gate
+ * stays inert (never force-upgrades). NOT __DEV__-gated: production needs it baked
+ * into the bundle. (The gate still skips the real fetch in __DEV__ regardless,
+ * because Expo Go reports the wrong native version — use the dev simulator there.)
+ * Set via apps/mobile/.env → EXPO_PUBLIC_VERSION_POLICY_URL.
+ */
+export const VERSION_POLICY_URL: string | null =
+  process.env.EXPO_PUBLIC_VERSION_POLICY_URL?.trim() || null;

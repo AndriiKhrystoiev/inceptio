@@ -17,15 +17,15 @@ export function getInstalledVersion(): string | null {
   return Application.nativeApplicationVersion ?? null;
 }
 
-/** GET <baseUrl>/version-policy with its OWN ~5s timeout (never reuse the 60s
- *  API_CONFIG.timeout). EVERY failure — network, timeout, non-200, bad JSON,
- *  schema mismatch — returns null ≡ fail-open. A malformed policy can never
- *  produce 'force'. */
-export async function fetchPolicy(baseUrl: string): Promise<VersionPolicy | null> {
+/** GET the hosted version-policy JSON at `url` (a full URL to a static file)
+ *  with its OWN ~5s timeout (never reuse the 60s API_CONFIG.timeout). EVERY
+ *  failure — network, timeout, non-200, bad JSON, schema mismatch — returns
+ *  null ≡ fail-open. A malformed policy can never produce 'force'. */
+export async function fetchPolicy(url: string): Promise<VersionPolicy | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(`${baseUrl}/version-policy`, { signal: controller.signal });
+    const res = await fetch(url, { signal: controller.signal });
     if (!res.ok) return null;
     const json = await res.json();
     const parsed = VersionPolicySchema.safeParse(json);
