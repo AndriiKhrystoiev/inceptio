@@ -1,0 +1,110 @@
+appId: io.inceptio.app
+name: "App Store screenshots — standalone Release build"
+---
+# Standalone (NOT Expo Go) Release build → core screens, full-res screenshot
+# each. Device: iPhone 15 Pro Max (1290x2796, App Store 6.9" slot).
+# Real app structure: onboarding (welcome → FirstLaunch picker → location)
+# SETS DEFAULTS and lands on Today (no search). The date step + Calendar/
+# Moment only exist behind a real search started from Today.
+# Location uses GPS ("Use current location") — permission pre-granted via
+# `simctl privacy grant location`, sim coords set to Kyiv — to avoid the
+# simulator keyboard-locale text-entry issue (flows/05 note).
+
+- launchApp:
+    clearState: true
+- waitForAnimationToEnd:
+    timeout: 10000
+
+# 1) Onboarding / welcome
+- takeScreenshot: 01-onboarding
+- tapOn: "Find your moment"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# 2) FirstLaunch activity picker — tap selects, Continue advances
+- takeScreenshot: 02-activity
+- tapOn: ".*Wedding.*"
+- tapOn: "Continue"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# 3) Onboarding location (SetDefaultLocationScreen) — GPS path → Today
+- takeScreenshot: 03-location
+- tapOn: "Use current location"
+- runFlow:
+    when:
+      visible: "Allow While Using App"
+    commands:
+      - tapOn: "Allow While Using App"
+- extendedWaitUntil:
+    visible: "Find moments"
+    timeout: 20000
+- tapOn: "Find moments"
+- waitForAnimationToEnd:
+    timeout: 4000
+
+# 4) Today
+- takeScreenshot: 04-today
+
+# Start a real search from Today
+- scroll
+- scroll
+- tapOn: "Find a moment for…"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Real activity picker — card tap navigates straight to date
+- tapOn: ".*Wedding.*"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# 5) Date range
+- takeScreenshot: 05-date
+- tapOn: "Continue"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Search location — GPS again
+- tapOn: "Use current location"
+- runFlow:
+    when:
+      visible: "Allow While Using App"
+    commands:
+      - tapOn: "Allow While Using App"
+- extendedWaitUntil:
+    visible: "Find moments"
+    timeout: 20000
+- tapOn: "Find moments"
+
+# 6) Loading → Calendar (cold upstream can take ~40s)
+- extendedWaitUntil:
+    visible: "viable"
+    timeout: 60000
+- waitForAnimationToEnd:
+    timeout: 2500
+- takeScreenshot: 06-calendar
+
+# 7) List view
+- tapOn: "List"
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: 07-list
+
+# 8) Moment detail (top card)
+- tapOn:
+    point: "50%,30%"
+- waitForAnimationToEnd:
+    timeout: 3500
+- takeScreenshot: 08-moment
+
+# 9) Save → Moments tab
+- scroll
+- scroll
+- tapOn: "Save"
+- waitForAnimationToEnd:
+    timeout: 1500
+- tapOn:
+    point: "63%,95%"
+- waitForAnimationToEnd:
+    timeout: 2500
+- takeScreenshot: 09-saved
