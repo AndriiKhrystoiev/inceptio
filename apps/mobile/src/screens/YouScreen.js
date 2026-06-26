@@ -1,6 +1,6 @@
 // 06 You — Settings screen.
 // Preferences mirror what's in storage (last_activity, last_location).
-// About surfaces app version + placeholders for legal copy.
+// About surfaces app version + the hosted privacy policy link.
 // Debug section is gated behind __DEV__ — dev affordances for testing the
 // Worker (reset device_id), clearing local state, etc.
 
@@ -22,7 +22,7 @@ import { setPersistedLocale } from '../lib/locale-preference';
 import { clearSavedMoments } from '../lib/draft-store';
 import { useLocationPreference, clearDefaultLocation } from '../lib/location-preference';
 import { getDeviceId, clearDeviceId } from '../lib/device-id';
-import { openFeedback, openStoreListing, debugForceRequestReview } from '../lib/rating/store-review';
+import { openFeedback, openStoreListing, openPrivacyPolicy, debugForceRequestReview } from '../lib/rating/store-review';
 import { recordFrustration, resetRatingState, resetRatingDedupe } from '../lib/rating/rating-store';
 import { debugEvaluate } from '../lib/rating/prompt-triggers';
 
@@ -117,8 +117,6 @@ export default function YouScreen({ go }) {
   const appVersion = Constants.expoConfig?.version ?? '0.0.0';
 
   // -- Handlers --------------------------------------------------------------
-
-  const comingSoon = useCallback(() => showToast(t('toast.comingSoon')), [showToast, t]);
 
   async function copyDeviceId() {
     if (!deviceId) return;
@@ -262,8 +260,7 @@ export default function YouScreen({ go }) {
           <Section title={t('section.about')} />
         </Pressable>
         <Row label={t('row.version')} detail={appVersion} />
-        <Row label={t('row.privacy')} detail="" onPress={comingSoon} />
-        <Row label={t('row.terms')} detail="" onPress={comingSoon} />
+        <Row label={t('row.privacy')} detail="" onPress={() => void openPrivacyPolicy()} />
 
         {__DEV__ && showDebug && (
           <>

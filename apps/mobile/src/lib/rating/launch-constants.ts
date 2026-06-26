@@ -1,24 +1,27 @@
-// Launch-swappable constants for the rating feature. Everything here is either
-// a store-account-dependent placeholder (swap at launch) or the email-subject
-// plumbing constant (owner decision 2026-06-09: NOT a chrome key).
+// Launch-swappable constants for the rating + legal/support surfaces. Everything
+// here is either a store-account-dependent link, the support inbox, or the
+// email-subject plumbing constant (owner decision 2026-06-09: NOT a chrome key).
 
 import { activeBundle } from '../../i18n/locale';
 
-// TODO(launch): real App Store ID. Until set, StoreReview.storeUrl() returns
-// null and Row 2 falls through to this, then to the web URL. Two-string swap;
-// no logic change. See spec §7 D8 Row 2 + library audit.
-export const IOS_APP_STORE_URL = 'https://apps.apple.com/app/id000000000';
+// Live App Store listing (app id 6783891298). StoreReview.storeUrl() may still
+// return null until ios.appStoreUrl is set, so Row 2 falls through to this.
+export const IOS_APP_STORE_URL = 'https://apps.apple.com/app/id6783891298';
 
-// TODO(launch): real Play package name (applicationId).
+// Live Play listing (applicationId io.inceptio.app).
 export const ANDROID_PLAY_STORE_URL =
-  'https://play.google.com/store/apps/details?id=app.inceptio.placeholder';
+  'https://play.google.com/store/apps/details?id=io.inceptio.app';
 
 // Final browser fallback — always openable, so Row 2 never dead-ends.
 export const WEB_STORE_URL = 'https://inceptio.app';
 
-// TODO(launch): owner-supplied support address. NOT store-gated — can be a real
-// inbox now for testing. Placeholder until owner supplies the real value.
-export const SUPPORT_EMAIL = 'support@inceptio.app';
+// Owner-supplied support inbox (Play production checklist contact).
+export const SUPPORT_EMAIL = 'andriikhr@procoders.tech';
+
+// Privacy policy hosted on GitHub Pages (inceptio-legal repo). The app collects
+// only location; this page is the same one linked from the App/Play listings.
+export const PRIVACY_POLICY_URL =
+  'https://andriikhrystoiev.github.io/inceptio-legal/privacy.html';
 
 // emailSubject strategy (a) — plumbing constant: English + resolved-app-locale
 // tag (e.g. "Inceptio feedback (de)") for solo-dev inbox triage. Deliberately

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  IOS_APP_STORE_URL, ANDROID_PLAY_STORE_URL, WEB_STORE_URL, SUPPORT_EMAIL, buildEmailSubject,
+  IOS_APP_STORE_URL, ANDROID_PLAY_STORE_URL, WEB_STORE_URL, SUPPORT_EMAIL,
+  PRIVACY_POLICY_URL, buildEmailSubject,
 } from '../launch-constants';
 
 describe('launch constants', () => {
@@ -9,6 +10,7 @@ describe('launch constants', () => {
     expect(ANDROID_PLAY_STORE_URL).toMatch(/^https:\/\/play\.google\.com\//);
     expect(WEB_STORE_URL).toMatch(/^https:\/\//);
     expect(SUPPORT_EMAIL).toContain('@');
+    expect(PRIVACY_POLICY_URL).toMatch(/^https:\/\/.+\.html$/);
   });
   it('builds a locale-tagged email subject', () => {
     // i18next not initialized → activeBundle() resolves the default bundle.
