@@ -31,7 +31,6 @@ describe('settings ns', () => {
       'row.defaultLocation',
       'row.version',
       'row.privacy',
-      'row.terms',
       'row.deviceId',
       'row.resetDeviceId',
       'row.clearSavedMoments',

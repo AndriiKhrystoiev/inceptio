@@ -11,7 +11,7 @@ import { activeBundle } from '../../i18n/locale';
 import { recordAttempt } from './rating-store';
 import {
   SUPPORT_EMAIL, IOS_APP_STORE_URL, ANDROID_PLAY_STORE_URL, WEB_STORE_URL,
-  buildEmailSubject,
+  PRIVACY_POLICY_URL, buildEmailSubject,
 } from './launch-constants';
 
 /**
@@ -91,6 +91,19 @@ export async function openFeedback(opts: {
   }
   try { await Clipboard.setStringAsync(SUPPORT_EMAIL); opts.onCopied(); }
   catch { opts.onError?.(); }
+}
+
+/**
+ * Opens the hosted privacy policy in the system browser. Same defensive
+ * canOpenURL → openURL, soft-no-op pattern as openStoreListing (the https URL
+ * is always openable in practice, so this never dead-ends).
+ */
+export async function openPrivacyPolicy(): Promise<void> {
+  try {
+    if (await Linking.canOpenURL(PRIVACY_POLICY_URL)) {
+      await Linking.openURL(PRIVACY_POLICY_URL);
+    }
+  } catch { /* soft no-op, never throw */ }
 }
 
 /** Dev-only (Debug "Force requestReview"): bypasses ALL eligibility. Must be
