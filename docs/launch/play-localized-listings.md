@@ -16,7 +16,7 @@ Limits: App name ≤30 · Short ≤80 · Full ≤4000.
 **Short description:** `Finde den besten Tag für Hochzeit, Business, Vertrag oder Reise.`
 **Full description:**
 ```
-Inceptio sagt dir, wann du beginnen sollst — nicht nur, was in den Sternen steht. Wähle, was du planst, und einen Zeitraum, und Inceptio findet die Tage und Stunden, die es wirklich begünstigen.
+Inceptio sagt dir, wann du beginnen sollst — nicht nur, was in den Sternen steht. Wähle, was du planst, und einen Zeitraum, und Inceptio findet die Tage und Stunden, die es begünstigen.
 
 Die meisten Astrologie-Apps beschreiben, wer du bist. Inceptio beantwortet eine andere Frage: Wann ist der richtige Moment, um eine Hochzeit, ein Business, einen Vertrag oder eine Reise zu beginnen? Das ist elektionale Astrologie — die jahrhundertealte westliche Tradition, einen günstigen Moment für einen Anfang zu wählen — einfach gemacht, auf deinem Handy.
 
@@ -46,7 +46,7 @@ Ob du den richtigen Tag zum Heiraten suchst, einen guten Zeitpunkt für einen Un
 **Short description:** `Trouve le meilleur jour pour un mariage, business, contrat ou voyage.`
 **Full description:**
 ```
-Inceptio te dit quand commencer — pas seulement ce que disent les astres. Choisis ce que tu prépares et une plage de dates, et Inceptio trouve les jours et les heures qui le favorisent vraiment.
+Inceptio te dit quand commencer — pas seulement ce que disent les astres. Choisis ce que tu prépares et une plage de dates, et Inceptio trouve les jours et les heures qui le favorisent.
 
 La plupart des applis d'astrologie décrivent qui tu es. Inceptio répond à une autre question : quel est le bon moment pour commencer un mariage, une activité, un contrat ou un voyage ? C'est l'astrologie élective — la tradition occidentale séculaire qui consiste à choisir un moment favorable pour se lancer — rendue simple, sur ton téléphone.
 
@@ -76,7 +76,7 @@ Que tu cherches le bon jour pour te marier, un bon moment pour lancer une activi
 **Short description:** `Encuentra el mejor día para una boda, negocio, contrato o viaje.`
 **Full description:**
 ```
-Inceptio te dice cuándo empezar — no solo lo que dicen los astros. Elige lo que estás planeando y un rango de fechas, e Inceptio encuentra los días y las horas que de verdad lo favorecen.
+Inceptio te dice cuándo empezar — no solo lo que dicen los astros. Elige lo que estás planeando y un rango de fechas, e Inceptio encuentra los días y las horas que lo favorecen.
 
 La mayoría de las apps de astrología describen quién eres. Inceptio responde otra pregunta: ¿cuándo es el momento justo para empezar una boda, un negocio, un contrato o un viaje? Esto es astrología electiva — la tradición occidental de siglos de elegir un momento favorable para empezar algo — hecha simple, en tu teléfono.
 
@@ -106,7 +106,7 @@ Ya sea que busques el día indicado para casarte, un buen momento para lanzar un
 **Short description:** `Encontre o melhor dia para casamento, negócio, contrato ou viagem.`
 **Full description:**
 ```
-Inceptio diz quando começar — não só o que está nos astros. Escolha o que você está planejando e um intervalo de datas, e o Inceptio encontra os dias e as horas que realmente o favorecem.
+Inceptio diz quando começar — não só o que está nos astros. Escolha o que você está planejando e um intervalo de datas, e o Inceptio encontra os dias e as horas que o favorecem.
 
 A maioria dos apps de astrologia descreve quem você é. O Inceptio responde a outra pergunta: qual é a hora certa de começar um casamento, um negócio, um contrato ou uma viagem? Isto é astrologia eletiva — a tradição ocidental de séculos de escolher um momento favorável para começar algo — de um jeito simples, no seu celular.
 

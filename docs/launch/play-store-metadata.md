@@ -74,7 +74,7 @@ expansion. Above the fold (first ~167 chars) leads with **plain intent, not jarg
 
 ```
 Inceptio tells you when to begin — not just what's in the stars. Pick what you're planning and
-a range of dates, and Inceptio finds the days and hours that genuinely favor it.
+a range of dates, and Inceptio finds the days and hours that favor it.
 
 Most astrology apps describe who you are. Inceptio answers a different question: when is the
 right time to begin a wedding, a business, a contract, or a journey? This is electional

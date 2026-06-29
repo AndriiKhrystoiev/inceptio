@@ -48,15 +48,15 @@ Built on [astrology-api.io](https://astrology-api.io) v3 electional endpoint.
 ## Stack
 
 - **Mobile:** Expo SDK 55 + React Native 0.83 + TypeScript + NativeWind
-- **Backend:** Cloudflare Worker (proxy + cache + translation layer)
+- **Backend:** None — the app calls the keyless `api-public.astrology-api.io` v3 endpoint directly and runs the translation layer on-device (`@inceptio/translations`)
 - **Identity:** Device-only, no account in MVP
 
 ## Project documentation
 
 - [`CLAUDE.md`](./CLAUDE.md) — Full project context for Claude Code
-- [`docs/design-v2.1.md`](./docs/design-v2.1.md) — Design recalibration brief
-- [`docs/api-audit.md`](./docs/api-audit.md) — API ↔ design compatibility
-- [`docs/postman.json`](./docs/postman.json) — Postman verification collection
+- [`docs/inceptio-design-changes-v2.1.md`](./docs/inceptio-design-changes-v2.1.md) — Design recalibration brief
+- [`docs/inceptio-api-design-audit.md`](./docs/inceptio-api-design-audit.md) — API ↔ design compatibility
+- [`docs/inceptio-postman-collection.json`](./docs/inceptio-postman-collection.json) — Postman verification collection
 
 ## Status
 
